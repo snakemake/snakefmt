@@ -1,7 +1,12 @@
-from typing import List
+import os
+from pathlib import Path
+from typing import List, Union
+
 import click
+
 from snakefmt import __version__
 
+PathLike = Union[Path, str, os.PathLike]
 DEFAULT_LINE_LENGTH = 88
 
 
@@ -12,7 +17,10 @@ DEFAULT_LINE_LENGTH = 88
     "-l", "--line-length", default=DEFAULT_LINE_LENGTH, show_default=True, type=int,
 )
 @click.argument(
-    "src", nargs=-1, type=click.Path(exists=True, writable=True, allow_dash=True)
+    "src",
+    nargs=-1,
+    type=click.Path(exists=True, writable=True, allow_dash=True),
+    required=True,
 )
 def main(line_length: int, src: List[str]):
     """The uncompromising Snakemake code formatter."""

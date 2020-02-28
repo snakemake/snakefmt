@@ -19,6 +19,8 @@ poetry install
 poetry shell
 # setup the pre-commit hook that will format the project with black
 pre-commit install
+# run tests BEFORE commiting
+pytest
 ```
 
 You should be all set to go now!

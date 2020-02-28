@@ -17,6 +17,7 @@ snakefmt = 'snakefmt.snakefmt:main'
 python = "^3.6"
 click = "^7.0"
 black = {version = "^19.10b0", allow-prereleases = true}
+snakemake = "^5.10.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
