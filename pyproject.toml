@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "snakefmt"
+version = "0.1.0"
+description = "The uncompromising Snakemake code formatter"
+authors = ["Michael Hall <michael@mbh.sh>", "Brice Letcher <bletcher@ebi.ac.uk>"]
+license = "MIT"
+readme = "README.rst"
+#homepage = ""  # todo
+#repository = ""  # todo
+#documentation = ""  # todo
+keywords = ["snakemake", "formatter", "code", "codeformatter", "workflow-management"]
+
+[tool.poetry.scripts]
+snakefmt = 'snakefmt.snakefmt:main'
+
+[tool.poetry.dependencies]
+python = "^3.6"
+click = "^7.0"
+black = {version = "^19.10b0", allow-prereleases = true}
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[tool.poetry.urls]
+"Snakemake Documentation" = "https://snakemake.readthedocs.io/"
+"Snakemake Repository" = "https://github.com/snakemake/snakemake"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
