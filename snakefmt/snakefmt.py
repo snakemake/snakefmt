@@ -12,8 +12,8 @@ from snakefmt import __version__
 
 PathLike = Union[Path, str, os.PathLike]
 DEFAULT_LINE_LENGTH = 88
-DEFAULT_EXCLUDES = r"/(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)/"
-DEFAULT_INCLUDES = r"/(\.smk$|^Snakefile)/"
+DEFAULT_EXCLUDES = r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)"
+DEFAULT_INCLUDES = r"(\.smk$|^Snakefile)"
 
 
 def construct_regex(regex: str) -> Pattern[str]:
@@ -73,7 +73,7 @@ def get_snakefiles_in_dir(
             yield from get_snakefiles_in_dir(child, root, include, exclude, gitignore)
 
         elif child.is_file():
-            include_match = include.search(normalized_path)
+            include_match = include.search(child.name)
             if include_match:
                 logging.debug(
                     f"Included: {child} matched the --include regular expression"
