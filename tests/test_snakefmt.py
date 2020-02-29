@@ -1,5 +1,6 @@
-from snakefmt import __version__
+from snakefmt.snakefmt import construct_regex
 
 
-def test_version():
-    assert __version__ == "0.1.0"
+class TestConstructRegex:
+    def test_noNewline_returnsCompiledRegex(self):
+        regex = ""
