@@ -1,8 +1,8 @@
+import logging
 import os
+import re
 from pathlib import Path
 from typing import List, Union, Set, Pattern, Iterator
-import logging
-import re
 
 import click
 from black import get_gitignore
@@ -24,7 +24,7 @@ def construct_regex(regex: str) -> Pattern[str]:
     )
 
 
-def get_snakefile_files_in_dir(
+def get_snakefiles_in_dir(
     path: Path,
     root: Path,
     include: Pattern[str],
@@ -70,9 +70,7 @@ def get_snakefile_files_in_dir(
             continue
 
         if child.is_dir():
-            yield from get_snakefile_files_in_dir(
-                child, root, include, exclude, gitignore
-            )
+            yield from get_snakefiles_in_dir(child, root, include, exclude, gitignore)
 
         elif child.is_file():
             include_match = include.search(normalized_path)
@@ -139,15 +137,24 @@ def main(
     log_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=log_level)
 
+    if not src:
+        click.echo("No path provided. Nothing to do 😴", err=True)
+        ctx.exit(0)
+
+    if "-" in src and len(src) > 1:
+        raise click.BadArgumentUsage("Cannot mix stdin (-) with other files")
+
     try:
         include_regex = construct_regex(include)
     except re.error:
         logging.error(f"Invalid regular expression for include given: {include!r}")
         ctx.exit(2)
 
-    if not src:
-        click.echo("No path provided. Nothing to do 😴", err=True)
-        ctx.exit(0)
+    try:
+        exclude_regex = construct_regex(exclude)
+    except re.error:
+        logging.error(f"Invalid regular expression for exclude given: {exclude!r}")
+        ctx.exit(2)
 
     sources: Set[PathLike] = set()
     root = Path()
@@ -156,15 +163,19 @@ def main(
         path = Path(s)
         if path.is_dir():
             sources.update(
-                get_snakefile_files_in_dir(
+                get_snakefiles_in_dir(
                     path, root, include_regex, exclude_regex, gitignore
                 )
             )
-        elif p.is_file() or s == "-":
+        elif path.is_file() or s == "-":
             # if a file was explicitly given, we don't care about its extension
             sources.add(path)
         else:
             logging.warning(f"ignoring invalid path: {s}")
+
+    print(f"Formatting:")
+    for s in sources:
+        print(s)
 
 
 if __name__ == "__main__":

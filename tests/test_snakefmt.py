@@ -1,8 +1,10 @@
 import re
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 
-from snakefmt.snakefmt import construct_regex, main
+from snakefmt.snakefmt import construct_regex, main, get_snakefiles_in_dir
 
 
 @pytest.fixture
@@ -28,6 +30,12 @@ class TestCLI:
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
         assert f'Path "{params[0]}" does not exist' in actual.output
+
+    def test_dashMixedWithFiles_nonZeroExit(self, cli_runner):
+        params = ["-", str(Path().resolve())]
+        actual = cli_runner.invoke(main, params)
+        assert actual.exit_code != 0
+        assert "Cannot mix stdin (-) with other files" in actual.output
 
 
 class TestConstructRegex:
@@ -60,3 +68,8 @@ class TestConstructRegex:
 
         with pytest.raises(re.error):
             construct_regex(regex)
+
+
+class TestGetSnakefilesInDir:
+    def test_noFiles_returnsEmpty(self):
+        pass
