@@ -8,7 +8,12 @@ from collections import Counter
 import pytest
 from click.testing import CliRunner
 
-from snakefmt.snakefmt import construct_regex, main, get_snakefiles_in_dir
+from snakefmt.snakefmt import (
+    construct_regex,
+    main,
+    get_snakefiles_in_dir,
+    InvalidRegularExpression,
+)
 
 
 @pytest.fixture
@@ -40,6 +45,18 @@ class TestCLI:
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
         assert "Cannot mix stdin (-) with other files" in actual.output
+
+    def test_invalidIncludeRegex_nonZeroExit(self, cli_runner):
+        params = ["--include", "?", str(Path().resolve())]
+        actual = cli_runner.invoke(main, params, mix_stderr=True)
+        assert actual.exit_code != 0
+        assert "Invalid regular expression" in str(actual.exception)
+
+    def test_invalidExcludeRegex_nonZeroExit(self, cli_runner):
+        params = ["--exclude", "?", str(Path().resolve())]
+        actual = cli_runner.invoke(main, params, mix_stderr=True)
+        assert actual.exit_code != 0
+        assert "Invalid regular expression" in str(actual.exception)
 
 
 class TestConstructRegex:

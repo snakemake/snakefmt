@@ -16,6 +16,10 @@ DEFAULT_EXCLUDES = r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.v
 DEFAULT_INCLUDES = r"(\.smk$|^Snakefile)"
 
 
+class InvalidRegularExpression(Exception):
+    pass
+
+
 def construct_regex(regex: str) -> Pattern[str]:
     return (
         re.compile(regex, re.VERBOSE | re.MULTILINE)
@@ -147,14 +151,16 @@ def main(
     try:
         include_regex = construct_regex(include)
     except re.error:
-        logging.error(f"Invalid regular expression for include given: {include!r}")
-        ctx.exit(2)
+        raise InvalidRegularExpression(
+            f"Invalid regular expression for --include given: {include!r}"
+        )
 
     try:
         exclude_regex = construct_regex(exclude)
     except re.error:
-        logging.error(f"Invalid regular expression for exclude given: {exclude!r}")
-        ctx.exit(2)
+        raise InvalidRegularExpression(
+            f"Invalid regular expression for --exclude given: {exclude!r}"
+        )
 
     sources: Set[PathLike] = set()
     root = Path()
