@@ -1,3 +1,5 @@
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 The goal of this repository is to provide formatting for [Snakemake][snakemake] akin to that of [Black][black].
 
 It is extremely new and under active development. When it is ready for use, we will update
