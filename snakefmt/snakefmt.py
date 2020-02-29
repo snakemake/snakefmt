@@ -126,6 +126,7 @@ def get_snakefile_files_in_dir(
 @click.help_option("--help", "-h")
 @click.version_option(__version__, "--version", "-V")
 @click.option("-v", "--verbose", help="Turns on debug-level logging.", is_flag=True)
+@click.pass_context
 def main(
     ctx: click.Context,
     line_length: int,
@@ -136,7 +137,7 @@ def main(
 ):
     """The uncompromising Snakemake code formatter."""
     log_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=log_level)
+    logging.basicConfig(format="[%(levelname)s] %(message)s", level=log_level)
 
     try:
         include_regex = construct_regex(include)
@@ -145,7 +146,7 @@ def main(
         ctx.exit(2)
 
     if not src:
-        logging.info("No Path provided. Nothing to do 😴")
+        click.echo("No path provided. Nothing to do 😴", err=True)
         ctx.exit(0)
 
     sources: Set[PathLike] = set()

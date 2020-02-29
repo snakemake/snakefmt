@@ -1,7 +1,33 @@
 import re
 import pytest
+from click.testing import CliRunner
 
-from snakefmt.snakefmt import construct_regex
+from snakefmt.snakefmt import construct_regex, main
+
+
+@pytest.fixture
+def cli_runner() -> CliRunner:
+    return CliRunner()
+
+
+class TestCLI:
+    def test_noArgsPassed_printsNothingToDo(self, cli_runner):
+        params = []
+        actual = cli_runner.invoke(main, params)
+        assert actual.exit_code == 0
+        assert "Nothing to do" in actual.output
+
+    def test_nonExistantParam_nonZeroExit(self, cli_runner):
+        params = ["--fake"]
+        actual = cli_runner.invoke(main, params)
+        assert actual.exit_code != 0
+        assert "no such option" in actual.output
+
+    def test_invalidPath_nonZeroExit(self, cli_runner):
+        params = ["fake.txt"]
+        actual = cli_runner.invoke(main, params)
+        assert actual.exit_code != 0
+        assert f'Path "{params[0]}" does not exist' in actual.output
 
 
 class TestConstructRegex:
