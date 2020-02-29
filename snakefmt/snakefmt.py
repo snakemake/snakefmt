@@ -12,6 +12,8 @@ from snakefmt import __version__
 
 PathLike = Union[Path, str, os.PathLike]
 DEFAULT_LINE_LENGTH = 88
+DEFAULT_EXCLUDES = r"/(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)/"
+DEFAULT_INCLUDES = r"/(\.smk$|^Snakefile)/"
 
 
 def construct_regex(regex: str) -> Pattern[str]:
