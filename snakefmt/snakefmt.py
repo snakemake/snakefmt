@@ -10,6 +10,8 @@ from pathspec import PathSpec
 
 from snakefmt import __version__
 
+from .parser.parser import Formatter
+
 PathLike = Union[Path, str, os.PathLike]
 DEFAULT_LINE_LENGTH = 88
 DEFAULT_EXCLUDES = r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)"
@@ -181,6 +183,7 @@ def main(
 
     print(f"Formatting:")
     for s in sources:
+        Formatter(s)
         print(s)
 
 

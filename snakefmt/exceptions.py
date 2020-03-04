@@ -2,17 +2,25 @@ class DuplicateKeyWordError(Exception):
     pass
 
 
-class InvalidSyntax(Exception):
-    pass
-
-
 class StopParsing(Exception):
     pass
 
 
-class UnrecognisedKeyword(Exception):
+class EmptyContextError(Exception):
     pass
 
 
-class EmptyContextError(Exception):
+class InvalidParameterSyntax(Exception):
+    pass
+
+
+class InvalidParameter(Exception):
+    pass
+
+
+class NoParametersError(Exception):
+    pass
+
+
+class TooManyParameters(Exception):
     pass

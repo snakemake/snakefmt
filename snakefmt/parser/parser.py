@@ -4,7 +4,6 @@ import tokenize
 
 from .grammar import Grammar, SnakeGlobal
 from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax
-from ..exceptions import UnrecognisedKeyword
 
 
 def getUntil(snakefile: TokenIterator, type) -> str:
@@ -57,7 +56,10 @@ class Formatter(Parser):
                 self.process_keyword(status)
             else:
                 if self.indent != 0:
-                    raise UnrecognisedKeyword(f"{keyword}")
+                    raise SyntaxError(
+                        f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
+                        f"in {self.context.keyword_name} definition"
+                    )
                 else:
                     self.buffer += keyword
                     self.buffer += getUntil(self.snakefile, tokenize.NEWLINE)
@@ -72,7 +74,7 @@ class Formatter(Parser):
     def process_keyword(self, status):
         keyword = status.token.string
         new_grammar = self.language.get(keyword)
-        if issubclass(KeywordSyntax, new_grammar.context):
+        if issubclass(new_grammar.context, KeywordSyntax):
             self.indent += 1
             self.grammar = Grammar(
                 new_grammar.language(),
@@ -80,7 +82,8 @@ class Formatter(Parser):
             )
             self.context_stack.append(self.grammar)
             self.formatted += self.grammar.context.line
-        elif issubclass(ParameterSyntax, new_grammar.context):
+        elif issubclass(new_grammar.context, ParameterSyntax):
+            param_context = new_grammar.context(keyword, self.indent, self.snakefile)
             self.context.add_processed_keyword(status.token)
 
     def context_exit(self, status):
