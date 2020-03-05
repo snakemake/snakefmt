@@ -1,5 +1,12 @@
 from typing import Tuple
-from .syntax import namedtuple, ParamList, ParamSingle, KeywordSyntax
+from .syntax import (
+    namedtuple,
+    KeywordSyntax,
+    ParamList,
+    ParamSingle,
+    StringParamSingle,
+    NumericParamSingle,
+)
 
 
 class Language:
@@ -18,8 +25,25 @@ Grammar = namedtuple("Grammar", ["language", "context"])
 
 
 class SnakeRule(Language):
-    spec = dict(input=Grammar(None, ParamList), output=Grammar(None, ParamList))
+    spec = dict(
+        input=Grammar(None, ParamList),
+        output=Grammar(None, ParamList),
+        params=Grammar(None, ParamList),
+        threads=Grammar(None, NumericParamSingle),
+        resources=Grammar(None, ParamList),
+        priority=Grammar(None, NumericParamSingle),
+        version=Grammar(None, ParamSingle),
+        log=Grammar(None, ParamList),
+        message=Grammar(None, StringParamSingle),
+    )
 
 
 class SnakeGlobal(Language):
-    spec = dict(rule=Grammar(SnakeRule, KeywordSyntax))
+    spec = dict(
+        include=Grammar(None, StringParamSingle),
+        workdir=Grammar(None, StringParamSingle),
+        configfile=Grammar(None, StringParamSingle),
+        report=Grammar(None, StringParamSingle),
+        rule=Grammar(SnakeRule, KeywordSyntax),
+        checkpoint=Grammar(SnakeRule, KeywordSyntax),
+    )

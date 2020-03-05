@@ -4,6 +4,10 @@ import re
 from pathlib import Path
 from typing import List, Union, Set, Pattern, Iterator
 
+import sys
+
+sys.tracebacklimit = 0  # Disable exceptions tracebacks
+
 import click
 from black import get_gitignore
 from pathspec import PathSpec
@@ -182,9 +186,9 @@ def main(
             logging.warning(f"ignoring invalid path: {s}")
 
     for s in sources:
-        print(f"Formatting of {s}: \n```")
+        print(f"Formatting {s}:")
         f = Formatter(s)
-        print(f.get_formatted())
+        print(f"```\n{f.get_formatted()}")
         print(f"```\n")
 
 

@@ -33,9 +33,12 @@ class Parser:
         return self.grammar.context
 
 
-def format_param(parameter: Parameter, used_indent: str):
-    comments = "\n".join(parameter.comments)
-    result = f"{parameter.value}, {comments}\n"
+def format_param(parameter: Parameter, used_indent: str, single_param: bool = False):
+    comments = "\n{i}".format(i=used_indent).join(parameter.comments)
+    if single_param:
+        result = f"{parameter.value} {comments}\n"
+    else:
+        result = f"{parameter.value}, {comments}\n"
     if parameter.has_key():
         result = f"{parameter.key} = {result}"
     result = f"{used_indent}{result}"
@@ -43,13 +46,16 @@ def format_param(parameter: Parameter, used_indent: str):
 
 
 def format_params(parameters: ParameterSyntax) -> str:
+    single_param = False
+    if parameters.num_params() == 1:
+        single_param = True
     used_indent = "\t" * parameters.indent
     result = f"{used_indent}{parameters.keyword_name}: \n"
     param_indent = used_indent + "\t"
     for elem in parameters.positional_params:
-        result += format_param(elem, param_indent)
+        result += format_param(elem, param_indent, single_param)
     for elem in parameters.keyword_params:
-        result += format_param(elem, param_indent)
+        result += format_param(elem, param_indent, single_param)
     return result
 
 
@@ -113,7 +119,7 @@ class Formatter(Parser):
             self.formatted += format_params(param_context)
             return KeywordSyntax.Status(
                 param_context.final_token,
-                status.indent,
+                param_context.cur_indent,
                 status.buffer,
                 param_context.eof,
             )
@@ -130,3 +136,5 @@ class Formatter(Parser):
         if len(self.buffer) > 0:
             self.formatted += black_format_str(self.buffer, mode=FileMode())
             self.buffer = ""
+        if self.indent == 0:
+            self.formatted += "\n"
