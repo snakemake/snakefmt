@@ -27,9 +27,18 @@ def is_comma_sign(token):
     return token.type == tokenize.OP and token.string == ","
 
 
+def not_space(token):
+    return len(token.string) > 0 and not token.string.isspace()
+
+
 class Syntax:
     keyword_name = ""
     indent = 0
+
+
+"""
+Keyword parsing
+"""
 
 
 class KeywordSyntax(Syntax):
@@ -116,11 +125,16 @@ class KeywordSyntax(Syntax):
             buffer += token.string
 
 
+"""
+Parameter parsing
+"""
+
+
 class Parameter:
     def __init__(self):
         self.key = ""
         self.value = ""
-        self.comment = list()
+        self.comments = list()
         self.is_string = True
 
     def has_key(self) -> bool:
@@ -129,20 +143,23 @@ class Parameter:
     def has_value(self) -> bool:
         return len(self.value) > 0
 
-    def add_elem(self, token: Token):
+    def add_elem(self, prev_token: Token, token: Token):
         if token.type != tokenize.STRING:
-            if self.is_string and len(self.value) > 0:
-                raise InvalidParameterSyntax(f"L{token.start[0]}: {self.value}")
             self.is_string = False
-        else:
-            if not self.is_string:
-                raise InvalidParameterSyntax(f"L{token.start[0]}: {self.value}")
 
+        if (
+            (prev_token.type == tokenize.STRING and token.type == tokenize.NAME)
+            or (prev_token.type == tokenize.NAME and token.type == tokenize.STRING)
+            or (prev_token.type == tokenize.NAME and token.type == tokenize.NAME)
+        ):
+            self.value += " "
         self.value += token.string
 
     def to_key_val_mode(self):
         if not self.has_value():
             raise InvalidParameterSyntax("Operator = used with no preceding key")
+        if self.is_string:
+            raise InvalidParameter(f"Key {self.value} should not be a string")
         self.key = self.value
         self.value = ""
         self.is_string = True
@@ -156,6 +173,8 @@ class ParameterSyntax(Syntax):
         self.indent = indent
         self.positional_params = list()
         self.keyword_params = list()
+        self.final_token = None
+        self.eof = False
 
         found_newline = False
         cur_indent = self.indent
@@ -168,26 +187,33 @@ class ParameterSyntax(Syntax):
             )
 
         while True:
-            if found_newline and cur_indent <= self.indent and t_t != tokenize.NEWLINE:
-                self.flush_param(cur_param, token)
+            try:
+                prev_token = token
+                token = next(snakefile)
+            except StopIteration:
+                self.eof = True
                 break
-            token = next(snakefile)
             t_t = token.type
+            if found_newline and cur_indent <= self.indent and not_space(token):
+                if cur_param.has_value():
+                    self.flush_param(cur_param, token)
+                self.final_token = token
+                break
             if t_t == tokenize.INDENT:
                 cur_indent += 1
             elif t_t == tokenize.DEDENT:
                 cur_indent -= 1
-            elif t_t == tokenize.NEWLINE:
+            elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
                 found_newline = True
             elif t_t == tokenize.COMMENT:
-                cur_param.comment.append(token.string)
+                cur_param.comments.append(token.string)
             elif is_equal_sign(token):
                 cur_param.to_key_val_mode()
             elif is_comma_sign(token):
                 self.flush_param(cur_param, token)
                 cur_param = Parameter()
             else:
-                cur_param.add_elem(token)
+                cur_param.add_elem(prev_token, token)
 
         if self.num_params() == 0:
             raise NoParametersError(f"In {self.keyword_name} definition.")

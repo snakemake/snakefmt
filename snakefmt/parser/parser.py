@@ -3,7 +3,7 @@ from black import format_str as black_format_str, FileMode
 import tokenize
 
 from .grammar import Grammar, SnakeGlobal
-from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax
+from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax, Parameter
 
 
 def getUntil(snakefile: TokenIterator, type) -> str:
@@ -33,6 +33,26 @@ class Parser:
         return self.grammar.context
 
 
+def format_param(parameter: Parameter, used_indent: str):
+    comments = "\n".join(parameter.comments)
+    result = f"{parameter.value}, {comments}\n"
+    if parameter.has_key():
+        result = f"{parameter.key} = {result}"
+    result = f"{used_indent}{result}"
+    return result
+
+
+def format_params(parameters: ParameterSyntax) -> str:
+    used_indent = "\t" * parameters.indent
+    result = f"{used_indent}{parameters.keyword_name}: \n"
+    param_indent = used_indent + "\t"
+    for elem in parameters.positional_params:
+        result += format_param(elem, param_indent)
+    for elem in parameters.keyword_params:
+        result += format_param(elem, param_indent)
+    return result
+
+
 class Formatter(Parser):
     def __init__(self, snakefile_path: str):
         super().__init__()
@@ -53,7 +73,10 @@ class Formatter(Parser):
             keyword = status.token.string
             if self.language.recognises(keyword):
                 self.flush_and_format_buffer()
-                self.process_keyword(status)
+                new_status = self.process_keyword(status)
+                if new_status is not None:
+                    status = new_status
+                    continue
             else:
                 if self.indent != 0:
                     raise SyntaxError(
@@ -82,9 +105,18 @@ class Formatter(Parser):
             )
             self.context_stack.append(self.grammar)
             self.formatted += self.grammar.context.line
+            return None
+
         elif issubclass(new_grammar.context, ParameterSyntax):
             param_context = new_grammar.context(keyword, self.indent, self.snakefile)
             self.context.add_processed_keyword(status.token)
+            self.formatted += format_params(param_context)
+            return KeywordSyntax.Status(
+                param_context.final_token,
+                status.indent,
+                status.buffer,
+                param_context.eof,
+            )
 
     def context_exit(self, status):
         while self.indent > status.indent:

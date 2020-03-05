@@ -181,10 +181,11 @@ def main(
         else:
             logging.warning(f"ignoring invalid path: {s}")
 
-    print(f"Formatting:")
     for s in sources:
-        Formatter(s)
-        print(s)
+        print(f"Formatting of {s}: \n```")
+        f = Formatter(s)
+        print(f.get_formatted())
+        print(f"```\n")
 
 
 if __name__ == "__main__":
