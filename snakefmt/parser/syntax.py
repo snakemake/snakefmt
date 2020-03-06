@@ -32,8 +32,15 @@ def not_space(token):
 
 
 class Syntax:
-    keyword_name = ""
-    indent = 0
+    def __init__(self, keyword_name: str, indent: int):
+        self.keyword_name = keyword_name
+        assert indent >= 0
+        self.indent = indent
+        self.token = None
+
+    @property
+    def line_nb(self):
+        return f"L{self.token.start[0]}: "
 
 
 """
@@ -45,10 +52,8 @@ class KeywordSyntax(Syntax):
     Status = namedtuple("Status", ["token", "indent", "buffer", "eof"])
 
     def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        assert indent >= 0
+        super().__init__(keyword_name, indent)
         self.processed_keywords = set()
-        self.keyword_name = keyword_name
-        self.indent = indent
         self.line = ""
 
         if snakefile is not None:
@@ -56,34 +61,32 @@ class KeywordSyntax(Syntax):
 
     def validate(self, snakefile: TokenIterator):
         line = "\t" * (self.indent - 1) + self.keyword_name
-        token = next(snakefile)
-        if token.type == tokenize.NAME:
-            line += f" {token.string}"
-            token = next(snakefile)
-        if not is_colon(token):
-            raise SyntaxError(f"L{token.start[0]}: Colon expected after '{line}'")
-        line += token.string
+        self.token = next(snakefile)
+        if self.token.type == tokenize.NAME:
+            line += f" {self.token.string}"
+            self.token = next(snakefile)
+        if not is_colon(self.token):
+            raise SyntaxError(f"{self.line_nb}Colon expected after '{line}'")
+        line += self.token.string
         token = next(snakefile)
         if token.type == tokenize.COMMENT:
             line += f" {token.string}"
             token = next(snakefile)
         line += "\n"
         if token.type != tokenize.NEWLINE:
-            raise SyntaxError(f"L{token.start[0]}: Newline expected after '{line}'")
+            raise SyntaxError(f"{self.line_nb}Newline expected after '{line}'")
         return line
 
     def add_processed_keyword(self, token: Token):
         keyword = token.string
         if keyword in self.processed_keywords:
-            raise DuplicateKeyWordError(
-                f"{keyword} specified twice on line {token.start[0]}."
-            )
+            raise DuplicateKeyWordError(f"{self.line_nb}{keyword} specified twice.")
         self.processed_keywords.add(keyword)
 
     def check_empty(self):
         if len(self.processed_keywords) == 0:
             raise EmptyContextError(
-                f"'{self.keyword_name}' has no keywords attached to it."
+                f"{self.line_nb}{self.keyword_name} has no keywords attached to it."
             )
 
     def _get_next_queriable_token(self, snakefile: TokenIterator):
@@ -120,7 +123,7 @@ class KeywordSyntax(Syntax):
                 )
             elif self.indent > 0:
                 raise IndentationError(
-                    f"In context of '{self.keyword_name}', found overly indented keyword '{token.string}'."
+                    f"{self.line_nb}In context of '{self.keyword_name}', found overly indented keyword '{token.string}'."
                 )
             buffer += token.string
 
@@ -155,11 +158,15 @@ class Parameter:
             self.value += " "
         self.value += token.string
 
-    def to_key_val_mode(self):
+    def to_key_val_mode(self, token: Token):
         if not self.has_value():
-            raise InvalidParameterSyntax("Operator = used with no preceding key")
+            raise InvalidParameterSyntax(
+                f"{self.line_nb}Operator = used with no preceding key"
+            )
         if self.is_string:
-            raise InvalidParameter(f"Key {self.value} should not be a string")
+            raise InvalidParameter(
+                f"{self.line_nb}Key {self.value} should not be a string"
+            )
         self.key = self.value
         self.value = ""
         self.is_string = True
@@ -167,37 +174,38 @@ class Parameter:
 
 class ParameterSyntax(Syntax):
     def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        assert indent >= 0
+        super().__init__(keyword_name, indent)
         self.processed_keywords = set()
-        self.keyword_name = keyword_name
-        self.indent = indent
         self.positional_params = list()
         self.keyword_params = list()
-        self.final_token = None
         self.eof = False
 
         found_newline = False
         self.cur_indent = self.indent
         cur_param = Parameter()
 
-        token = next(snakefile)
-        if not is_colon(token):
+        self.token = next(snakefile)
+        if not is_colon(self.token):
             raise SyntaxError(
-                f"L{token.start[0]}: Colon expected after '{self.keyword_name}'"
+                f"{self.line_nb}Colon expected after '{self.keyword_name}'"
             )
 
         while True:
             try:
-                prev_token = token
-                token = next(snakefile)
+                prev_token = self.token
+                self.token = next(snakefile)
             except StopIteration:
-                self.flush_param(cur_param, token, skip_empty=True)
+                self.flush_param(cur_param, skip_empty=True)
                 self.eof = True
                 break
-            t_t = token.type
-            if found_newline and self.cur_indent <= self.indent and not_space(token):
-                self.flush_param(cur_param, token, skip_empty=True)
-                self.final_token = token
+            t_t = self.token.type
+            if (
+                found_newline
+                and self.cur_indent <= self.indent
+                and not_space(self.token)
+            ):
+                self.flush_param(cur_param, skip_empty=True)
+                self.token = self.token
                 break
             if t_t == tokenize.INDENT:
                 self.cur_indent += 1
@@ -206,24 +214,24 @@ class ParameterSyntax(Syntax):
             elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
                 found_newline = True
             elif t_t == tokenize.COMMENT:
-                cur_param.comments.append(token.string)
-            elif is_equal_sign(token):
-                cur_param.to_key_val_mode()
-            elif is_comma_sign(token):
-                self.flush_param(cur_param, token)
+                cur_param.comments.append(self.token.string)
+            elif is_equal_sign(self.token):
+                cur_param.to_key_val_mode(self.token)
+            elif is_comma_sign(self.token):
+                self.flush_param(cur_param)
                 cur_param = Parameter()
             else:
-                cur_param.add_elem(prev_token, token)
+                cur_param.add_elem(prev_token, self.token)
 
         if self.num_params() == 0:
-            raise NoParametersError(f"In {self.keyword_name} definition.")
+            raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
-    def flush_param(self, parameter: Parameter, token: Token, skip_empty: bool = False):
+    def flush_param(self, parameter: Parameter, skip_empty: bool = False):
         if not parameter.has_value():
             if skip_empty:
                 return
             else:
-                raise InvalidParameterSyntax(f"L{token.start[0]}: Empty parameter")
+                raise InvalidParameterSyntax(f"{self.line_nb}Empty parameter")
         if parameter.has_key():
             self.keyword_params.append(parameter)
         else:
@@ -238,11 +246,12 @@ class ParamSingle(ParameterSyntax):
         super().__init__(keyword_name, indent, snakefile)
 
         if self.num_params() > 1:
-            raise TooManyParameters(f"{self.keyword_name} expects a single parameter")
+            raise TooManyParameters(
+                f"{self.line_nb}{self.keyword_name} expects a single parameter"
+            )
         if not len(self.keyword_params) == 0:
             raise InvalidParameter(
-                f"{self.keyword_name} definition requires "
-                f"have a single positional parameter"
+                f"{self.line_nb}{self.keyword_name} definition requires a single positional parameter"
             )
 
 
@@ -252,7 +261,7 @@ class StringParamSingle(ParamSingle):
 
         if not self.positional_params[0].is_string:
             raise InvalidParameter(
-                f"{self.keyword_name} definition requires a single string parameter"
+                f"{self.line_nb}{self.keyword_name} definition requires a single string parameter"
             )
 
 
@@ -264,7 +273,7 @@ class NumericParamSingle(ParamSingle):
             ev = eval(self.positional_params[0].value)
             if type(ev) is not int:
                 raise InvalidParameter(
-                    f"{self.keyword_name} definition requires a single numeric parameter"
+                    f"{self.line_nb}{self.keyword_name} definition requires a single numeric parameter"
                 )
         except Exception as e:
             print(f"In keyword {self.keyword_name}: ")
