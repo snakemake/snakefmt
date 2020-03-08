@@ -5,6 +5,16 @@ The goal of this repository is to provide formatting for [Snakemake][snakemake] 
 It is extremely new and under active development. When it is ready for use, we will update
 the documentation accordingly.
 
+## Installing
+
+snakefmt is not yet available via the
+[Python Packaging Index](https://pypi.org/). To install it, run:
+
+```
+git clone https://github.com/mbhall88/snakefmt
+pip install ./snakefmt
+```
+
 ## Contributing
 
 Please refer to [CONTRIBUTING.md][contributing]
