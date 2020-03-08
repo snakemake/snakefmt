@@ -5,14 +5,21 @@ The goal of this repository is to provide formatting for [Snakemake][snakemake] 
 It is extremely new and under active development. When it is ready for use, we will update
 the documentation accordingly.
 
-## Installing
+## Installing snakefmt
 
 snakefmt is not yet available via the
 [Python Packaging Index](https://pypi.org/). To install it, run:
 
 ```
 git clone https://github.com/mbhall88/snakefmt
-pip install ./snakefmt
+python -m pip install ./snakefmt
+```
+
+## Running snakefmt
+
+The following command will run snakefmt on the current directory:
+```
+python -m snakefmt.snakefmt .
 ```
 
 ## Contributing
