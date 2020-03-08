@@ -3,6 +3,7 @@ import os
 import re
 from pathlib import Path
 from typing import List, Union, Set, Pattern, Iterator
+from .parser.parser import Snakefile
 
 import sys
 
@@ -187,7 +188,8 @@ def main(
 
     for s in sources:
         print(f"Formatting {s}:")
-        f = Formatter(s)
+        snakefile = Snakefile(s)
+        f = Formatter(snakefile)
         print(f"```\n{f.get_formatted()}")
         print(f"```\n")
 

@@ -11,4 +11,4 @@ Grammar
 Errors/exceptions
 ===================
 
-[] All syntax error related exceptions should state which line they occur on
+[x] All syntax error related exceptions should state which line they occur on

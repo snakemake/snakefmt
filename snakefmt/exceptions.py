@@ -2,6 +2,10 @@ class DuplicateKeyWordError(Exception):
     pass
 
 
+class InvalidPython(Exception):
+    pass
+
+
 class StopParsing(Exception):
     pass
 

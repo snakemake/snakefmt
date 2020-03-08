@@ -1,10 +1,38 @@
-from snakemake import parser as orig_parser
-from black import format_str as black_format_str, FileMode
+from black import format_str as black_format_str, FileMode, InvalidInput
 import tokenize
 from abc import ABC, abstractmethod
 
 from .grammar import Grammar, SnakeGlobal
 from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax, Parameter
+from snakefmt.exceptions import InvalidPython
+
+
+class Snakefile:
+    """
+    Adapted from snakemake.parser.Snakefile
+    """
+
+    def __init__(self, fpath_or_stream, rulecount=0):
+        try:
+            self.stream = open(fpath_or_stream, encoding="utf-8")
+        except TypeError:
+            self.stream = fpath_or_stream
+
+        self.tokens = tokenize.generate_tokens(self.stream.readline)
+        self.rulecount = rulecount
+        self.lines = 0
+
+    def __next__(self):
+        return next(self.tokens)
+
+    def __iter__(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.stream.close()
 
 
 def getUntil(snakefile: TokenIterator, type) -> str:
@@ -20,12 +48,12 @@ def getUntil(snakefile: TokenIterator, type) -> str:
 
 
 class Parser(ABC):
-    def __init__(self, snakefile_path: str):
+    def __init__(self, snakefile: TokenIterator):
         self.indent = 0
         self.grammar = Grammar(SnakeGlobal(), KeywordSyntax("Global", self.indent))
         self.context_stack = [self.grammar]
 
-        self.snakefile = orig_parser.Snakefile(snakefile_path)
+        self.snakefile = snakefile
         self.result = ""
         self.buffer = ""
 
@@ -114,15 +142,18 @@ class Parser(ABC):
 
 
 class Formatter(Parser):
-    def __init__(self, snakefile_path: str):
-        super().__init__(snakefile_path)
+    def __init__(self, snakefile: TokenIterator):
+        super().__init__(snakefile)
 
     def get_formatted(self):
         return self.result
 
     def flush(self):
         if len(self.buffer) > 0:
-            self.result += black_format_str(self.buffer, mode=FileMode())
+            try:
+                self.result += black_format_str(self.buffer, mode=FileMode())
+            except InvalidInput as e:
+                raise InvalidPython("Code not recognised as valid python.") from e
             self.buffer = ""
         if self.indent == 0:
             self.result += "\n"

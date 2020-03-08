@@ -101,7 +101,8 @@ class KeywordSyntax(Syntax):
             elif cur_token.type == tokenize.ENDMARKER:
                 return self.Status(cur_token, indent, buffer, True)
             elif cur_token.type == tokenize.DEDENT:
-                indent -= 0
+                if indent > 0:
+                    indent -= 1
             elif cur_token.type == tokenize.INDENT:
                 indent += 1
             buffer += cur_token.string
@@ -161,11 +162,11 @@ class Parameter:
     def to_key_val_mode(self, token: Token):
         if not self.has_value():
             raise InvalidParameterSyntax(
-                f"{self.line_nb}Operator = used with no preceding key"
+                f"L{token.start[0]}:Operator = used with no preceding key"
             )
         if self.is_string:
             raise InvalidParameter(
-                f"{self.line_nb}Key {self.value} should not be a string"
+                f"L{token.start[0]}:Key {self.value} should not be a string"
             )
         self.key = self.value
         self.value = ""
@@ -231,7 +232,7 @@ class ParameterSyntax(Syntax):
             if skip_empty:
                 return
             else:
-                raise InvalidParameterSyntax(f"{self.line_nb}Empty parameter")
+                raise NoParametersError(f"{self.line_nb}Empty parameter")
         if parameter.has_key():
             self.keyword_params.append(parameter)
         else:
