@@ -28,15 +28,20 @@ def is_comma_sign(token):
     return token.type == tokenize.OP and token.string == ","
 
 
-def not_space(token):
-    return len(token.string) > 0 and not token.string.isspace()
+def not_to_ignore(token):
+    return (
+        len(token.string) > 0
+        and not token.string.isspace()
+        and not token.type == tokenize.COMMENT
+    )
 
 
 class Syntax:
-    def __init__(self, keyword_name: str, indent: int):
+    def __init__(self, keyword_name: str, target_indent: int):
         self.keyword_name = keyword_name
-        assert indent >= 0
-        self.indent = indent
+        assert target_indent >= 0
+        self.target_indent = target_indent
+        self.cur_indent = max(self.target_indent - 1, 0)
         self.token = None
 
     @property
@@ -52,16 +57,23 @@ Keyword parsing
 class KeywordSyntax(Syntax):
     Status = namedtuple("Status", ["token", "indent", "buffer", "eof"])
 
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent)
+    def __init__(
+        self,
+        keyword_name: str,
+        target_indent: int,
+        snakefile: TokenIterator = None,
+        accepts_py: bool = False,
+    ):
+        super().__init__(keyword_name, target_indent)
         self.processed_keywords = set()
         self.line = ""
+        self.accepts_python_code = accepts_py
 
         if snakefile is not None:
             self.line = self.validate(snakefile)
 
     def validate(self, snakefile: TokenIterator):
-        line = "\t" * (self.indent - 1) + self.keyword_name
+        line = "\t" * (self.target_indent - 1) + self.keyword_name
         self.token = next(snakefile)
         if self.token.type == tokenize.NAME:
             line += f" {self.token.string}"
@@ -75,7 +87,9 @@ class KeywordSyntax(Syntax):
             token = next(snakefile)
         line += "\n"
         if token.type != tokenize.NEWLINE:
-            raise SyntaxError(f"{self.line_nb}Newline expected after '{line}'")
+            raise SyntaxError(
+                f"{self.line_nb}Newline expected after '{self.keyword_name}'"
+            )
         return line
 
     def add_processed_keyword(self, token: Token):
@@ -92,42 +106,34 @@ class KeywordSyntax(Syntax):
 
     def _get_next_queriable_token(self, snakefile: TokenIterator):
         buffer = ""
-        indent = max(self.indent - 1, 0)
         while True:
             cur_token = next(snakefile)
             if cur_token.type == tokenize.NAME:
-                return self.Status(cur_token, indent, buffer, False)
+                return self.Status(cur_token, self.cur_indent, buffer, False)
             elif cur_token.type == tokenize.ENCODING:
                 continue
             elif cur_token.type == tokenize.ENDMARKER:
-                return self.Status(cur_token, indent, buffer, True)
+                return self.Status(cur_token, self.cur_indent, buffer, True)
             elif cur_token.type == tokenize.DEDENT:
-                if indent > 0:
-                    indent -= 1
+                if self.cur_indent > 0:
+                    self.cur_indent -= 1
             elif cur_token.type == tokenize.INDENT:
-                indent += 1
+                self.cur_indent += 1
             buffer += cur_token.string
 
-    def get_next_keyword(self, snakefile: TokenIterator, target_indent: int = -1):
-        assert target_indent >= -1
-        if target_indent == -1:
-            target_indent = self.indent
+    def get_next_keyword(self, snakefile: TokenIterator):
         buffer = ""
 
         while True:
             next_queriable = self._get_next_queriable_token(snakefile)
             buffer += next_queriable.buffer
-            token = next_queriable.token
+            self.token = next_queriable.token
 
-            if next_queriable.indent <= target_indent:
+            if next_queriable.indent <= self.target_indent:
                 return self.Status(
-                    token, next_queriable.indent, buffer, next_queriable.eof
+                    self.token, self.cur_indent, buffer, next_queriable.eof
                 )
-            elif self.indent > 0:
-                raise IndentationError(
-                    f"{self.line_nb}In context of '{self.keyword_name}', found overly indented keyword '{token.string}'."
-                )
-            buffer += token.string
+            buffer += self.token.string
 
 
 """
@@ -171,8 +177,10 @@ class Parameter:
 
 
 class ParameterSyntax(Syntax):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent)
+    def __init__(
+        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+    ):
+        super().__init__(keyword_name, target_indent)
         self.processed_keywords = set()
         self.positional_params = list()
         self.keyword_params = list()
@@ -192,7 +200,6 @@ class ParameterSyntax(Syntax):
 
     def parse_params(self, snakefile: TokenIterator):
         found_newline = False
-        self.cur_indent = self.indent
         cur_param = Parameter()
 
         while True:
@@ -203,20 +210,16 @@ class ParameterSyntax(Syntax):
                 self.eof = True
                 break
             t_t = self.token.type
-            if (
-                found_newline
-                and self.cur_indent <= self.indent
-                and not_space(self.token)
-            ):
-                self.flush_param(cur_param, skip_empty=True)
-                self.token = self.token
-                break
+            if found_newline and not_to_ignore(self.token):
+                if self.cur_indent < self.target_indent:
+                    self.flush_param(cur_param, skip_empty=True)
+                    break
+                elif t_t != tokenize.STRING:
+                    raise IndentationError(
+                        f"{self.line_nb}In context of '{self.keyword_name}', '{self.token.string}' is over-indented."
+                    )
             if t_t == tokenize.INDENT:
                 self.cur_indent += 1
-                if self.cur_indent > self.indent + 1:
-                    raise IndentationError(
-                        f"{self.line_nb}In context of '{self.keyword_name}', found over-indentation."
-                    )
             elif t_t == tokenize.DEDENT:
                 self.cur_indent -= 1
             elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
@@ -273,16 +276,18 @@ class ParameterSyntax(Syntax):
 
 
 class SingleParam(ParameterSyntax):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent, snakefile)
+    def __init__(
+        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+    ):
+        super().__init__(keyword_name, target_indent, snakefile)
 
         if self.num_params() > 1:
             raise TooManyParameters(
-                f"{self.line_nb}{self.keyword_name} expects a single parameter"
+                f"{self.line_nb}{self.keyword_name} definition expects a single parameter"
             )
         if not len(self.keyword_params) == 0:
             raise InvalidParameter(
-                f"{self.line_nb}{self.keyword_name} definition requires a single positional parameter"
+                f"{self.line_nb}{self.keyword_name} definition requires a positional (not key/value) parameter"
             )
 
 
@@ -290,22 +295,28 @@ ParamList = ParameterSyntax
 
 
 class StringParam(SingleParam):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent, snakefile)
+    def __init__(
+        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+    ):
+        super().__init__(keyword_name, target_indent, snakefile)
 
         self.check_param_type(self.positional_params[0], str)
 
 
 class NumericParam(SingleParam):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent, snakefile)
+    def __init__(
+        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+    ):
+        super().__init__(keyword_name, target_indent, snakefile)
 
         self.check_param_type(self.positional_params[0], int)
 
 
 class StringNoKeywordParamList(ParameterSyntax):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent, snakefile)
+    def __init__(
+        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+    ):
+        super().__init__(keyword_name, target_indent, snakefile)
 
         if len(self.keyword_params) > 0:
             raise InvalidParameterSyntax(

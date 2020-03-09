@@ -43,6 +43,9 @@ class SnakeRule(Language):
         wildcard_constraints=Grammar(None, ParamList),
         shadow=Grammar(None, SingleParam),
         group=Grammar(None, StringParam),
+        run=Grammar(Language, KeywordSyntax),
+        shell=Grammar(None, StringParam),
+        script=Grammar(None, StringParam),
     )
 
 

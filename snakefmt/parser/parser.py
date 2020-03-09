@@ -1,3 +1,4 @@
+import textwrap
 from black import format_str as black_format_str, FileMode, InvalidInput
 import tokenize
 from abc import ABC, abstractmethod
@@ -50,7 +51,9 @@ def getUntil(snakefile: TokenIterator, type) -> str:
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
         self.indent = 0
-        self.grammar = Grammar(SnakeGlobal(), KeywordSyntax("Global", self.indent))
+        self.grammar = Grammar(
+            SnakeGlobal(), KeywordSyntax("Global", self.indent, accepts_py=True)
+        )
         self.context_stack = [self.grammar]
 
         self.snakefile = snakefile
@@ -75,7 +78,7 @@ class Parser(ABC):
                     status = new_status
                     continue
             else:
-                if self.indent != 0:
+                if not self.context.accepts_python_code:
                     raise SyntaxError(
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.context.keyword_name} definition"
@@ -110,19 +113,22 @@ class Parser(ABC):
 
     def process_keyword(self, status):
         keyword = status.token.string
+        accepts_py = True if keyword in {"run"} else False
         new_grammar = self.language.get(keyword)
         if issubclass(new_grammar.context, KeywordSyntax):
             self.indent += 1
             self.grammar = Grammar(
                 new_grammar.language(),
-                new_grammar.context(keyword, self.indent, self.snakefile),
+                new_grammar.context(keyword, self.indent, self.snakefile, accepts_py),
             )
             self.context_stack.append(self.grammar)
             self.process_keyword_context()
             return None
 
         elif issubclass(new_grammar.context, ParameterSyntax):
-            param_context = new_grammar.context(keyword, self.indent, self.snakefile)
+            param_context = new_grammar.context(
+                keyword, self.indent + 1, self.snakefile
+            )
             self.context.add_processed_keyword(status.token)
             self.process_keyword_param(param_context)
             return KeywordSyntax.Status(
@@ -135,9 +141,14 @@ class Parser(ABC):
     def context_exit(self, status):
         while self.indent > status.indent:
             callback_grammar = self.context_stack.pop()
-            callback_grammar.context.check_empty()
+            if callback_grammar.context.accepts_python_code:
+                self.flush()
+            else:
+                callback_grammar.context.check_empty()
             self.indent -= 1
             self.grammar = self.context_stack[-1]
+        if len(self.context_stack) == 1:
+            self.result += "\n"
         assert len(self.context_stack) == self.indent + 1
 
 
@@ -149,17 +160,19 @@ class Formatter(Parser):
         return self.result
 
     def flush(self):
-        if len(self.buffer) > 0:
-            try:
-                self.result += black_format_str(self.buffer, mode=FileMode())
-            except InvalidInput:
-                raise InvalidPython(
-                    "The following was treated as python code to format with black:"
-                    f"\n```\n{self.buffer}\n```\n"
-                    "And was not recognised as valid python.\n"
-                    "Did you use the right indentation?"
-                ) from None
-            self.buffer = ""
+        if len(self.buffer) == 0 or self.buffer.isspace():
+            return
+        try:
+            result = black_format_str(self.buffer, mode=FileMode())
+            self.result += textwrap.indent(result, "\t" * self.indent)
+        except InvalidInput:
+            raise InvalidPython(
+                "The following was treated as python code to format with black:"
+                f"\n```\n{self.buffer}\n```\n"
+                "And was not recognised as valid python.\n"
+                "Did you use the right indentation?"
+            ) from None
+        self.buffer = ""
         if self.indent == 0:
             self.result += "\n"
 
@@ -186,7 +199,7 @@ def format_params(parameters: ParameterSyntax) -> str:
     single_param = False
     if parameters.num_params() == 1:
         single_param = True
-    used_indent = "\t" * parameters.indent
+    used_indent = "\t" * (parameters.target_indent - 1)
     result = f"{used_indent}{parameters.keyword_name}: \n"
     param_indent = used_indent + "\t"
     for elem in parameters.positional_params:

@@ -70,7 +70,7 @@ class TestKeywordSyntaxErrors:
             Formatter(snakefile)
 
 
-class TestParamSyntaxError:
+class TestParamSyntaxErrors:
     def test_key_value_no_key(self):
         with pytest.raises(InvalidParameterSyntax, match="Operator ="):
             stream = StringIO("rule a:" '\n\tinput: = "file.txt"')
@@ -97,16 +97,22 @@ class TestParamSyntaxError:
 
     def test_string_required2(self):
         with pytest.raises(InvalidParameter, match="envmodules .*str"):
-            stream = StringIO("rule a:" '\n\tenvmodules: 3, "bio/module"')
+            stream = StringIO('rule a: \n\tenvmodules: 3, "bio/module"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
     def test_positional_required(self):
         with pytest.raises(InvalidParameter, match="singularity .* positional"):
-            stream = StringIO("rule a:" '\n\tsingularity: a = "envs/sing.img"')
+            stream = StringIO('rule a: \n\tsingularity: a = "envs/sing.img"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
 
 class TestIndentationErrors:
-    pass
+    def test_keyword_over_indentation(self):
+        with pytest.raises(IndentationError, match="benchmark.* over-indented"):
+            stream = StringIO(
+                'rule a: \n\tsingularity: \n\t\t"envs/sing.img" \n\t\tbenchmark: "bench.txt"'
+            )
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
