@@ -285,3 +285,8 @@ pip-selfcheck.json
 *.iml
 out
 gen
+
+# Dev
+
+cur_commit.rst
+venv

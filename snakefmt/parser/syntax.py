@@ -1,5 +1,6 @@
 import tokenize
-from typing import Iterator
+from black import format_str as black_format_str, FileMode
+from typing import Iterator, List
 from collections import namedtuple
 
 from ..exceptions import (
@@ -147,16 +148,10 @@ class Parameter:
     def has_value(self) -> bool:
         return len(self.value) > 0
 
-    def add_elem(self, prev_token: Token, token: Token):
+    def add_elem(self, token: Token):
         if token.type != tokenize.STRING:
             self.is_string = False
 
-        if (
-            (prev_token.type == tokenize.STRING and token.type == tokenize.NAME)
-            or (prev_token.type == tokenize.NAME and token.type == tokenize.STRING)
-            or (prev_token.type == tokenize.NAME and token.type == tokenize.NAME)
-        ):
-            self.value += " "
         self.value += token.string
 
     def to_key_val_mode(self, token: Token):
@@ -164,10 +159,12 @@ class Parameter:
             raise InvalidParameterSyntax(
                 f"L{token.start[0]}:Operator = used with no preceding key"
             )
-        if self.is_string:
-            raise InvalidParameter(
-                f"L{token.start[0]}:Key {self.value} should not be a string"
-            )
+        try:
+            exec(f"{self.value} = 0")
+        except SyntaxError:
+            raise InvalidParameterSyntax(
+                f"L{token.start[0]}:Invalid key {self.value}"
+            ) from None
         self.key = self.value
         self.value = ""
         self.is_string = True
@@ -181,19 +178,25 @@ class ParameterSyntax(Syntax):
         self.keyword_params = list()
         self.eof = False
 
-        found_newline = False
-        self.cur_indent = self.indent
-        cur_param = Parameter()
-
         self.token = next(snakefile)
         if not is_colon(self.token):
             raise SyntaxError(
                 f"{self.line_nb}Colon expected after '{self.keyword_name}'"
             )
 
+        self.parse_params(snakefile)
+
+    @property
+    def all_params(self):
+        return self.positional_params + self.keyword_params
+
+    def parse_params(self, snakefile: TokenIterator):
+        found_newline = False
+        self.cur_indent = self.indent
+        cur_param = Parameter()
+
         while True:
             try:
-                prev_token = self.token
                 self.token = next(snakefile)
             except StopIteration:
                 self.flush_param(cur_param, skip_empty=True)
@@ -210,6 +213,10 @@ class ParameterSyntax(Syntax):
                 break
             if t_t == tokenize.INDENT:
                 self.cur_indent += 1
+                if self.cur_indent > self.indent + 1:
+                    raise IndentationError(
+                        f"{self.line_nb}In context of '{self.keyword_name}', found over-indentation."
+                    )
             elif t_t == tokenize.DEDENT:
                 self.cur_indent -= 1
             elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
@@ -222,7 +229,7 @@ class ParameterSyntax(Syntax):
                 self.flush_param(cur_param)
                 cur_param = Parameter()
             else:
-                cur_param.add_elem(prev_token, self.token)
+                cur_param.add_elem(self.token)
 
         if self.num_params() == 0:
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
@@ -233,6 +240,16 @@ class ParameterSyntax(Syntax):
                 return
             else:
                 raise NoParametersError(f"{self.line_nb}Empty parameter")
+
+        if parameter.is_string:
+            parameter.value = (
+                parameter.value[0]
+                + parameter.value[1:-1].replace('"', "")
+                + parameter.value[-1]
+            )
+        parameter.value = black_format_str(parameter.value, mode=FileMode()).replace(
+            "\n", ""
+        )
         if parameter.has_key():
             self.keyword_params.append(parameter)
         else:
@@ -241,8 +258,21 @@ class ParameterSyntax(Syntax):
     def num_params(self):
         return len(self.keyword_params) + len(self.positional_params)
 
+    def check_param_type(self, param: Parameter, required_type):
+        if required_type is str:
+            failure = not param.is_string
+        elif required_type is int:
+            try:
+                int(param.value)
+            except ValueError:
+                failure = True
+        if failure:
+            raise InvalidParameter(
+                f"{self.line_nb}{self.keyword_name} definition requires parameter of type {required_type}"
+            )
 
-class ParamSingle(ParameterSyntax):
+
+class SingleParam(ParameterSyntax):
     def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
         super().__init__(keyword_name, indent, snakefile)
 
@@ -256,31 +286,30 @@ class ParamSingle(ParameterSyntax):
             )
 
 
-class StringParamSingle(ParamSingle):
+ParamList = ParameterSyntax
+
+
+class StringParam(SingleParam):
     def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
         super().__init__(keyword_name, indent, snakefile)
 
-        if not self.positional_params[0].is_string:
-            raise InvalidParameter(
-                f"{self.line_nb}{self.keyword_name} definition requires a single string parameter"
+        self.check_param_type(self.positional_params[0], str)
+
+
+class NumericParam(SingleParam):
+    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
+        super().__init__(keyword_name, indent, snakefile)
+
+        self.check_param_type(self.positional_params[0], int)
+
+
+class StringNoKeywordParamList(ParameterSyntax):
+    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
+        super().__init__(keyword_name, indent, snakefile)
+
+        if len(self.keyword_params) > 0:
+            raise InvalidParameterSyntax(
+                f"{self.line_nb}{self.keyword_name} definition does not accept key/value parameters"
             )
-
-
-class NumericParamSingle(ParamSingle):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent, snakefile)
-
-        try:
-            ev = eval(self.positional_params[0].value)
-            if type(ev) is not int:
-                raise InvalidParameter(
-                    f"{self.line_nb}{self.keyword_name} definition requires a single numeric parameter"
-                )
-        except Exception as e:
-            print(f"In keyword {self.keyword_name}: ")
-            raise
-
-
-class ParamList(ParameterSyntax):
-    def __init__(self, keyword_name: str, indent: int, snakefile: TokenIterator = None):
-        super().__init__(keyword_name, indent, snakefile)
+        for param in self.all_params:
+            self.check_param_type(param, str)

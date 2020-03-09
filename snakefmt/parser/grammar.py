@@ -3,9 +3,10 @@ from .syntax import (
     namedtuple,
     KeywordSyntax,
     ParamList,
-    ParamSingle,
-    StringParamSingle,
-    NumericParamSingle,
+    StringNoKeywordParamList,
+    SingleParam,
+    StringParam,
+    NumericParam,
 )
 
 
@@ -29,21 +30,28 @@ class SnakeRule(Language):
         input=Grammar(None, ParamList),
         output=Grammar(None, ParamList),
         params=Grammar(None, ParamList),
-        threads=Grammar(None, NumericParamSingle),
+        threads=Grammar(None, SingleParam),
         resources=Grammar(None, ParamList),
-        priority=Grammar(None, NumericParamSingle),
-        version=Grammar(None, ParamSingle),
+        priority=Grammar(None, NumericParam),
+        version=Grammar(None, SingleParam),
         log=Grammar(None, ParamList),
-        message=Grammar(None, StringParamSingle),
+        message=Grammar(None, StringParam),
+        benchmark=Grammar(None, SingleParam),
+        conda=Grammar(None, StringParam),
+        singularity=Grammar(None, StringParam),
+        envmodules=Grammar(None, StringNoKeywordParamList),
+        wildcard_constraints=Grammar(None, ParamList),
+        shadow=Grammar(None, SingleParam),
+        group=Grammar(None, StringParam),
     )
 
 
 class SnakeGlobal(Language):
     spec = dict(
-        include=Grammar(None, StringParamSingle),
-        workdir=Grammar(None, StringParamSingle),
-        configfile=Grammar(None, StringParamSingle),
-        report=Grammar(None, StringParamSingle),
+        include=Grammar(None, StringParam),
+        workdir=Grammar(None, StringParam),
+        configfile=Grammar(None, StringParam),
+        report=Grammar(None, StringParam),
         rule=Grammar(SnakeRule, KeywordSyntax),
         checkpoint=Grammar(SnakeRule, KeywordSyntax),
     )

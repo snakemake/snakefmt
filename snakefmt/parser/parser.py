@@ -152,8 +152,13 @@ class Formatter(Parser):
         if len(self.buffer) > 0:
             try:
                 self.result += black_format_str(self.buffer, mode=FileMode())
-            except InvalidInput as e:
-                raise InvalidPython("Code not recognised as valid python.") from e
+            except InvalidInput:
+                raise InvalidPython(
+                    "The following was treated as python code to format with black:"
+                    f"\n```\n{self.buffer}\n```\n"
+                    "And was not recognised as valid python.\n"
+                    "Did you use the right indentation?"
+                ) from None
             self.buffer = ""
         if self.indent == 0:
             self.result += "\n"

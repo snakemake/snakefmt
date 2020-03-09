@@ -10,6 +10,9 @@ from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
     NoParametersError,
+    TooManyParameters,
+    InvalidParameter,
+    InvalidParameterSyntax,
 )
 
 
@@ -63,6 +66,44 @@ class TestKeywordSyntaxErrors:
     def test_empty_keyword_3(self):
         with pytest.raises(NoParametersError, match="message"):
             stream = StringIO("rule a:" "\n\tthreads: 3" "\n\tmessage:")
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+
+class TestParamSyntaxError:
+    def test_key_value_no_key(self):
+        with pytest.raises(InvalidParameterSyntax, match="Operator ="):
+            stream = StringIO("rule a:" '\n\tinput: = "file.txt"')
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_key_value_invalid_key(self):
+        with pytest.raises(InvalidParameterSyntax, match="Invalid key"):
+            stream = StringIO("rule a:" '\n\tinput: 2 = "file.txt"')
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_too_many_params(self):
+        with pytest.raises(TooManyParameters, match="benchmark"):
+            stream = StringIO("rule a:" '\n\tbenchmark: "f1.txt", "f2.txt"')
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_string_required(self):
+        with pytest.raises(InvalidParameter, match="message .*str"):
+            stream = StringIO("rule a:" "\n\tmessage: 3")
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_string_required2(self):
+        with pytest.raises(InvalidParameter, match="envmodules .*str"):
+            stream = StringIO("rule a:" '\n\tenvmodules: 3, "bio/module"')
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_positional_required(self):
+        with pytest.raises(InvalidParameter, match="singularity .* positional"):
+            stream = StringIO("rule a:" '\n\tsingularity: a = "envs/sing.img"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
