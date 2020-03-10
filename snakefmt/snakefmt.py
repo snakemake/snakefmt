@@ -3,7 +3,7 @@ import os
 import re
 from pathlib import Path
 from typing import List, Union, Set, Pattern, Iterator
-from .parser.parser import Snakefile
+from .parser.parser import Snakefile, Formatter, DEFAULT_LINE_LENGTH
 
 import sys
 
@@ -15,10 +15,8 @@ from pathspec import PathSpec
 
 from snakefmt import __version__
 
-from .parser.parser import Formatter
 
 PathLike = Union[Path, str, os.PathLike]
-DEFAULT_LINE_LENGTH = 88
 DEFAULT_EXCLUDES = r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)"
 DEFAULT_INCLUDES = r"(\.smk$|^Snakefile)"
 

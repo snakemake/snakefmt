@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from .grammar import Grammar, SnakeGlobal
 from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax, Parameter
-from .syntax import run_black_format_str
+from .syntax import run_black_format_str, DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython
 
 

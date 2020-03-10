@@ -4,6 +4,8 @@ from black import format_str as black_format_str, FileMode
 from typing import Iterator, List
 from collections import namedtuple
 
+DEFAULT_LINE_LENGTH = 88
+
 
 def run_black_format_str(input: str, indent: int) -> str:
     fmted = black_format_str(input, mode=FileMode())[:-1]
@@ -158,20 +160,32 @@ class Parameter:
     def __init__(self):
         self.key = ""
         self.value = ""
+        self.formatted_string_value = ""
         self.comments = list()
         self.is_string = True
+        self.len = 0
 
     def has_key(self) -> bool:
         return len(self.key) > 0
 
     def has_value(self) -> bool:
-        return len(self.value) > 0
+        return len(self.value) > 0 or len(self.formatted_string_value) > 0
 
     def add_elem(self, token: Token):
         if token.type != tokenize.STRING:
             self.is_string = False
+        if len(self.value) > 0 and token.type == tokenize.NAME:
+            self.value += " "
 
         self.value += token.string
+        self.len += len(token.string)
+
+        if self.is_string:
+            self.value = '"' + eval(self.value) + '"'
+            if self.len > DEFAULT_LINE_LENGTH:
+                self.formatted_string_value += self.value + "\n"
+                self.value = ""
+                self.len = 0
 
     def to_key_val_mode(self, token: Token):
         if not self.has_value():
@@ -273,16 +287,11 @@ class ParameterSyntax(Syntax):
             else:
                 raise NoParametersError(f"{self.line_nb}Empty parameter")
 
+        parameter.value = run_black_format_str(parameter.value, 0)
         if parameter.is_string:
-            parameter.value = (
-                parameter.value[0]
-                + parameter.value[1:-1].replace('"', "")
-                + parameter.value[-1]
-            )
+            parameter.value = parameter.formatted_string_value + parameter.value
         used_indent = "\t" * self.target_indent
-        parameter.value = run_black_format_str(parameter.value, 0).replace(
-            "\n", f"\n{used_indent}"
-        )
+        parameter.value = parameter.value.replace("\n", f"\n{used_indent}")
         if parameter.has_key():
             self.keyword_params.append(parameter)
         else:

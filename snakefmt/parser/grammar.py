@@ -44,7 +44,7 @@ class SnakeRule(Language):
         shadow=Grammar(None, SingleParam),
         group=Grammar(None, StringParam),
         run=Grammar(Language, KeywordSyntax),
-        shell=Grammar(None, StringParam),
+        shell=Grammar(None, SingleParam),
         script=Grammar(None, StringParam),
     )
 
