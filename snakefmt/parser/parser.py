@@ -2,7 +2,7 @@ import tokenize
 from black import InvalidInput
 from abc import ABC, abstractmethod
 
-from .grammar import Grammar, SnakeGlobal
+from .grammar import Grammar, SnakeGlobal, accept_python_code
 from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax, Parameter
 from .syntax import run_black_format_str, DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython
@@ -100,7 +100,7 @@ class Parser(ABC):
 
     def process_keyword(self, status):
         keyword = status.token.string
-        accepts_py = True if keyword in {"run"} else False
+        accepts_py = True if keyword in accept_python_code else False
         new_grammar = self.language.get(keyword)
         if issubclass(new_grammar.context, KeywordSyntax):
             self.indent += 1

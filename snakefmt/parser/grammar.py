@@ -3,7 +3,7 @@ from .syntax import (
     namedtuple,
     KeywordSyntax,
     ParamList,
-    StringNoKeywordParamList,
+    NoKeywordParamList,
     SingleParam,
     StringParam,
     NumericParam,
@@ -14,7 +14,7 @@ class Language:
     spec = dict()
 
     def recognises(self, keyword: str) -> bool:
-        if self.spec.get(keyword, None) is not None:
+        if keyword in self.spec:
             return True
         return False
 
@@ -23,6 +23,9 @@ class Language:
 
 
 Grammar = namedtuple("Grammar", ["language", "context"])
+
+PythonCode = Language  # Alias
+accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
 
 
 class SnakeRule(Language):
@@ -39,22 +42,41 @@ class SnakeRule(Language):
         benchmark=Grammar(None, SingleParam),
         conda=Grammar(None, StringParam),
         singularity=Grammar(None, StringParam),
-        envmodules=Grammar(None, StringNoKeywordParamList),
+        envmodules=Grammar(None, NoKeywordParamList),
         wildcard_constraints=Grammar(None, ParamList),
         shadow=Grammar(None, SingleParam),
         group=Grammar(None, StringParam),
-        run=Grammar(Language, KeywordSyntax),
+        run=Grammar(PythonCode, KeywordSyntax),
         shell=Grammar(None, SingleParam),
         script=Grammar(None, StringParam),
+        notebook=Grammar(None, SingleParam),
+        wrapper=Grammar(None, SingleParam),
+        cwl=Grammar(None, SingleParam),
+    )
+
+
+class SnakeSubworkflow(Language):
+    spec = dict(
+        snakefile=Grammar(None, SingleParam),
+        workdir=Grammar(None, SingleParam),
+        configfile=Grammar(None, SingleParam),
     )
 
 
 class SnakeGlobal(Language):
     spec = dict(
-        include=Grammar(None, StringParam),
-        workdir=Grammar(None, StringParam),
-        configfile=Grammar(None, StringParam),
-        report=Grammar(None, StringParam),
+        include=Grammar(None, SingleParam),
+        workdir=Grammar(None, SingleParam),
+        configfile=Grammar(None, SingleParam),
+        report=Grammar(None, SingleParam),
+        ruleorder=Grammar(None, SingleParam),
         rule=Grammar(SnakeRule, KeywordSyntax),
         checkpoint=Grammar(SnakeRule, KeywordSyntax),
+        subworkflow=Grammar(SnakeSubworkflow, KeywordSyntax),
+        localrules=Grammar(None, NoKeywordParamList),
+        onstart=Grammar(PythonCode, KeywordSyntax),
+        onsuccess=Grammar(PythonCode, KeywordSyntax),
+        onerror=Grammar(PythonCode, KeywordSyntax),
+        wildcard_constraints=Grammar(None, ParamList),
+        singularity=Grammar(None, SingleParam),
     )

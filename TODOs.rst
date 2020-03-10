@@ -25,3 +25,8 @@ Testing
 [] Test calls are being made to black formatting
 
 [] Test suite where expect snakefmt to run fine
+
+Code practice
+=================
+
+[] Absolute imports (PEP8)

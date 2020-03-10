@@ -352,7 +352,7 @@ class NumericParam(SingleParam):
         self.check_param_type(self.positional_params[0], int)
 
 
-class StringNoKeywordParamList(ParameterSyntax):
+class NoKeywordParamList(ParameterSyntax):
     def __init__(
         self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
     ):
@@ -362,5 +362,3 @@ class StringNoKeywordParamList(ParameterSyntax):
             raise InvalidParameterSyntax(
                 f"{self.line_nb}{self.keyword_name} definition does not accept key/value parameters"
             )
-        for param in self.all_params:
-            self.check_param_type(param, str)
