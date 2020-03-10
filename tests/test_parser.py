@@ -79,7 +79,7 @@ class TestParamSyntaxErrors:
 
     def test_key_value_invalid_key(self):
         with pytest.raises(InvalidParameterSyntax, match="Invalid key"):
-            stream = StringIO("rule a:" '\n\tinput: 2 = "file.txt"')
+            stream = StringIO("rule a:" '\n\tinput: \n\t\t2 = "file.txt"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
@@ -112,7 +112,7 @@ class TestIndentationErrors:
     def test_keyword_over_indentation(self):
         with pytest.raises(IndentationError, match="benchmark.* over-indented"):
             stream = StringIO(
-                'rule a: \n\tsingularity: \n\t\t"envs/sing.img" \n\t\tbenchmark: "bench.txt"'
+                'rule a: \n\tsingularity: \n\t\t"envs/sing.img" \n\t\t\tbenchmark: "bench.txt"'
             )
             snakefile = Snakefile(stream)
             Formatter(snakefile)

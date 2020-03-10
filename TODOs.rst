@@ -3,6 +3,10 @@ Parsing
 
 [] have code distinguish parsing (and syntax validation) from formatting and compiling. parsing needs to run successfully before either.
 
+[] Register run keyword as processed
+
+[] Whitespace at indent level 0: add newlines
+
 Grammar
 ==========
 
@@ -19,3 +23,5 @@ Testing
 ==========
 
 [] Test calls are being made to black formatting
+
+[] Test suite where expect snakefmt to run fine

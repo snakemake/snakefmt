@@ -1,7 +1,15 @@
+import textwrap
 import tokenize
 from black import format_str as black_format_str, FileMode
 from typing import Iterator, List
 from collections import namedtuple
+
+
+def run_black_format_str(input: str, indent: int) -> str:
+    fmted = black_format_str(input, mode=FileMode())[:-1]
+    indented = textwrap.indent(fmted, "\t" * indent)
+    return indented
+
 
 from ..exceptions import (
     DuplicateKeyWordError,
@@ -18,6 +26,14 @@ TokenIterator = Iterator[Token]
 
 def is_colon(token):
     return token.type == tokenize.OP and token.string == ":"
+
+
+def brack_open(token):
+    return token.type == tokenize.OP and token.string == "("
+
+
+def brack_close(token):
+    return token.type == tokenize.OP and token.string == ")"
 
 
 def is_equal_sign(token):
@@ -68,6 +84,7 @@ class KeywordSyntax(Syntax):
         self.processed_keywords = set()
         self.line = ""
         self.accepts_python_code = accepts_py
+        self.queriable = True
 
         if snakefile is not None:
             self.line = self.validate(snakefile)
@@ -104,36 +121,32 @@ class KeywordSyntax(Syntax):
                 f"{self.line_nb}{self.keyword_name} has no keywords attached to it."
             )
 
-    def _get_next_queriable_token(self, snakefile: TokenIterator):
+    def get_next_queriable(self, snakefile):
         buffer = ""
+        newline = False
         while True:
-            cur_token = next(snakefile)
-            if cur_token.type == tokenize.NAME:
-                return self.Status(cur_token, self.cur_indent, buffer, False)
-            elif cur_token.type == tokenize.ENCODING:
+            token = next(snakefile)
+            t_t = token.type
+            if t_t == tokenize.NAME:
+                if newline:
+                    buffer += "\t" * self.cur_indent
+                    newline = False
+                if self.cur_indent <= self.target_indent:
+                    if self.queriable:
+                        self.queriable = False
+                        return self.Status(token, self.cur_indent, buffer, False)
+                buffer += " "
+            elif t_t == tokenize.INDENT:
+                self.cur_indent += 1
                 continue
-            elif cur_token.type == tokenize.ENDMARKER:
-                return self.Status(cur_token, self.cur_indent, buffer, True)
-            elif cur_token.type == tokenize.DEDENT:
+            elif t_t == tokenize.DEDENT:
                 if self.cur_indent > 0:
                     self.cur_indent -= 1
-            elif cur_token.type == tokenize.INDENT:
-                self.cur_indent += 1
-            buffer += cur_token.string
-
-    def get_next_keyword(self, snakefile: TokenIterator):
-        buffer = ""
-
-        while True:
-            next_queriable = self._get_next_queriable_token(snakefile)
-            buffer += next_queriable.buffer
-            self.token = next_queriable.token
-
-            if next_queriable.indent <= self.target_indent:
-                return self.Status(
-                    self.token, self.cur_indent, buffer, next_queriable.eof
-                )
-            buffer += self.token.string
+            elif t_t == tokenize.ENDMARKER:
+                return self.Status(token, self.cur_indent, buffer, True)
+            elif t_t == tokenize.NEWLINE:
+                self.queriable, newline = True, True
+            buffer += token.string
 
 
 """
@@ -199,7 +212,7 @@ class ParameterSyntax(Syntax):
         return self.positional_params + self.keyword_params
 
     def parse_params(self, snakefile: TokenIterator):
-        found_newline = False
+        self.found_newline, self.in_brackets = False, False
         cur_param = Parameter()
 
         while True:
@@ -209,33 +222,49 @@ class ParameterSyntax(Syntax):
                 self.flush_param(cur_param, skip_empty=True)
                 self.eof = True
                 break
-            t_t = self.token.type
-            if found_newline and not_to_ignore(self.token):
-                if self.cur_indent < self.target_indent:
-                    self.flush_param(cur_param, skip_empty=True)
-                    break
-                elif t_t != tokenize.STRING:
-                    raise IndentationError(
-                        f"{self.line_nb}In context of '{self.keyword_name}', '{self.token.string}' is over-indented."
-                    )
-            if t_t == tokenize.INDENT:
-                self.cur_indent += 1
-            elif t_t == tokenize.DEDENT:
-                self.cur_indent -= 1
-            elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
-                found_newline = True
-            elif t_t == tokenize.COMMENT:
-                cur_param.comments.append(self.token.string)
-            elif is_equal_sign(self.token):
-                cur_param.to_key_val_mode(self.token)
-            elif is_comma_sign(self.token):
-                self.flush_param(cur_param)
-                cur_param = Parameter()
-            else:
-                cur_param.add_elem(self.token)
+            if self.check_exit(cur_param):
+                break
+            cur_param = self.process_token(cur_param)
 
         if self.num_params() == 0:
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
+
+    def check_exit(self, cur_param: Parameter):
+        if self.found_newline and not_to_ignore(self.token):
+            if self.cur_indent < self.target_indent:
+                self.flush_param(cur_param, skip_empty=True)
+                return True
+            elif (
+                self.token.type != tokenize.STRING
+                and self.cur_indent > self.target_indent
+            ):
+                raise IndentationError(
+                    f"{self.line_nb}In context of '{self.keyword_name}', '{self.token.string}' is over-indented."
+                )
+        return False
+
+    def process_token(self, cur_param: Parameter):
+        t_t = self.token.type
+        if t_t == tokenize.INDENT:
+            self.cur_indent += 1
+        elif t_t == tokenize.DEDENT:
+            self.cur_indent -= 1
+        elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
+            self.found_newline = True
+        elif t_t == tokenize.COMMENT:
+            cur_param.comments.append(self.token.string)
+        elif is_equal_sign(self.token) and not self.in_brackets:
+            cur_param.to_key_val_mode(self.token)
+        elif is_comma_sign(self.token) and not self.in_brackets:
+            self.flush_param(cur_param)
+            cur_param = Parameter()
+        elif t_t != tokenize.ENDMARKER:
+            if brack_open(self.token):
+                self.in_brackets = True
+            if brack_close(self.token):
+                self.in_brackets = False
+            cur_param.add_elem(self.token)
+        return cur_param
 
     def flush_param(self, parameter: Parameter, skip_empty: bool = False):
         if not parameter.has_value():
@@ -250,8 +279,9 @@ class ParameterSyntax(Syntax):
                 + parameter.value[1:-1].replace('"', "")
                 + parameter.value[-1]
             )
-        parameter.value = black_format_str(parameter.value, mode=FileMode()).replace(
-            "\n", ""
+        used_indent = "\t" * self.target_indent
+        parameter.value = run_black_format_str(parameter.value, 0).replace(
+            "\n", f"\n{used_indent}"
         )
         if parameter.has_key():
             self.keyword_params.append(parameter)
@@ -262,6 +292,7 @@ class ParameterSyntax(Syntax):
         return len(self.keyword_params) + len(self.positional_params)
 
     def check_param_type(self, param: Parameter, required_type):
+        failure = False
         if required_type is str:
             failure = not param.is_string
         elif required_type is int:

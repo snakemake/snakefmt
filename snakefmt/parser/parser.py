@@ -1,10 +1,10 @@
-import textwrap
-from black import format_str as black_format_str, FileMode, InvalidInput
 import tokenize
+from black import InvalidInput
 from abc import ABC, abstractmethod
 
 from .grammar import Grammar, SnakeGlobal
 from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax, Parameter
+from .syntax import run_black_format_str
 from snakefmt.exceptions import InvalidPython
 
 
@@ -36,18 +36,6 @@ class Snakefile:
         self.stream.close()
 
 
-def getUntil(snakefile: TokenIterator, type) -> str:
-    result = ""
-    while True:
-        token = next(snakefile)
-        if token.type == tokenize.NAME:
-            result += " "
-        result += token.string
-        if token.type == type or token.type == tokenize.ENDMARKER:
-            break
-    return result
-
-
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
         self.indent = 0
@@ -60,7 +48,7 @@ class Parser(ABC):
         self.result = ""
         self.buffer = ""
 
-        status = self.context.get_next_keyword(self.snakefile)
+        status = self.context.get_next_queriable(self.snakefile)
         self.buffer += status.buffer
 
         while True:
@@ -85,9 +73,8 @@ class Parser(ABC):
                     )
                 else:
                     self.buffer += keyword
-                    self.buffer += getUntil(self.snakefile, tokenize.NEWLINE)
 
-            status = self.context.get_next_keyword(self.snakefile)
+            status = self.context.get_next_queriable(self.snakefile)
             self.buffer += status.buffer
         self.flush()
 
@@ -129,8 +116,8 @@ class Parser(ABC):
             param_context = new_grammar.context(
                 keyword, self.indent + 1, self.snakefile
             )
-            self.context.add_processed_keyword(status.token)
             self.process_keyword_param(param_context)
+            self.context.add_processed_keyword(status.token)
             return KeywordSyntax.Status(
                 param_context.token,
                 param_context.cur_indent,
@@ -161,10 +148,11 @@ class Formatter(Parser):
 
     def flush(self):
         if len(self.buffer) == 0 or self.buffer.isspace():
+            self.buffer = ""
             return
         try:
-            result = black_format_str(self.buffer, mode=FileMode())
-            self.result += textwrap.indent(result, "\t" * self.indent)
+            self.buffer = self.buffer.replace("\t", "")
+            self.result += run_black_format_str(self.buffer, self.indent)
         except InvalidInput:
             raise InvalidPython(
                 "The following was treated as python code to format with black:"
