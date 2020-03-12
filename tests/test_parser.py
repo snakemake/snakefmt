@@ -89,12 +89,14 @@ class TestParamSyntaxErrors:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
+    @pytest.mark.xfail
     def test_string_required(self):
         with pytest.raises(InvalidParameter, match="message .*str"):
-            stream = StringIO("rule a:" "\n\tmessage: 3")
+            stream = StringIO('b = "test"\n' "rule a: \n" "\tmessage: b")
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
+    @pytest.mark.xfail
     def test_string_required2(self):
         with pytest.raises(InvalidParameter, match="envmodules .*str"):
             stream = StringIO('rule a: \n\tenvmodules: 3, "bio/module"')
@@ -113,6 +115,20 @@ class TestIndentationErrors:
         with pytest.raises(IndentationError, match="benchmark.* over-indented"):
             stream = StringIO(
                 'rule a: \n\tsingularity: \n\t\t"envs/sing.img" \n\t\t\tbenchmark: "bench.txt"'
+            )
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_keyword_indented_at_parameter_level(self):
+        with pytest.raises(InvalidParameterSyntax, match="output:"):
+            stream = StringIO(
+                (
+                    "rule a: \n"
+                    "\tinput: \n"
+                    '\t\t"f1", \n'
+                    "\t\toutput: \n"
+                    '\t\t\t"f2"'
+                )
             )
             snakefile = Snakefile(stream)
             Formatter(snakefile)

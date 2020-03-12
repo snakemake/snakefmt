@@ -38,7 +38,7 @@ class SnakeRule(Language):
         priority=Grammar(None, NumericParam),
         version=Grammar(None, SingleParam),
         log=Grammar(None, ParamList),
-        message=Grammar(None, StringParam),
+        message=Grammar(None, SingleParam),
         benchmark=Grammar(None, SingleParam),
         conda=Grammar(None, StringParam),
         singularity=Grammar(None, StringParam),

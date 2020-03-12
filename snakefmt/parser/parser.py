@@ -47,6 +47,7 @@ class Parser(ABC):
         self.snakefile = snakefile
         self.result = ""
         self.buffer = ""
+        self.first = True
 
         status = self.context.get_next_queriable(self.snakefile)
         self.buffer += status.buffer
@@ -102,12 +103,19 @@ class Parser(ABC):
         keyword = status.token.string
         accepts_py = True if keyword in accept_python_code else False
         new_grammar = self.language.get(keyword)
+        if self.indent == 0 and not self.first:
+            self.result += "\n\n"
+        if self.first:
+            self.first = False
         if issubclass(new_grammar.context, KeywordSyntax):
             self.indent += 1
             self.grammar = Grammar(
                 new_grammar.language(),
                 new_grammar.context(keyword, self.indent, self.snakefile, accepts_py),
             )
+            # TODO: below is hacky, could do a general de-duplication based on keyword + name (eg rule)
+            if self.context.accepts_python_code:
+                self.context_stack[-1].context.add_processed_keyword(status.token)
             self.context_stack.append(self.grammar)
             self.process_keyword_context()
             return None
@@ -134,8 +142,6 @@ class Parser(ABC):
                 callback_grammar.context.check_empty()
             self.indent -= 1
             self.grammar = self.context_stack[-1]
-        if len(self.context_stack) == 1:
-            self.result += "\n"
         assert len(self.context_stack) == self.indent + 1
 
 
@@ -152,7 +158,10 @@ class Formatter(Parser):
             return
         try:
             self.buffer = self.buffer.replace("\t", "")
-            self.result += run_black_format_str(self.buffer, self.indent)
+            formatted = run_black_format_str(self.buffer, self.indent) + "\n"
+            if self.indent == 0:
+                formatted = "\n" + formatted
+            self.result += formatted
         except InvalidInput:
             raise InvalidPython(
                 "The following was treated as python code to format with black:"
@@ -161,8 +170,6 @@ class Formatter(Parser):
                 "Did you use the right indentation?"
             ) from None
         self.buffer = ""
-        if self.indent == 0:
-            self.result += "\n"
 
     def process_keyword_context(self):
         self.result += self.grammar.context.line

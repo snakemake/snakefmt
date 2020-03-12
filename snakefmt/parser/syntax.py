@@ -272,6 +272,11 @@ class ParameterSyntax(Syntax):
         elif is_comma_sign(self.token) and not self.in_brackets:
             self.flush_param(cur_param)
             cur_param = Parameter()
+        elif is_colon(self.token):
+            raise InvalidParameterSyntax(
+                f"{self.line_nb}Keyword-like syntax found: '{cur_param.value}:' \n"
+                f"Is your indentation correct?"
+            )
         elif t_t != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self.in_brackets = True
