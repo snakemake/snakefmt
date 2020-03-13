@@ -24,3 +24,6 @@ pytest
 ```
 
 You should be all set to go now!
+
+
+[pyproject]: https://github.com/mbhall88/snakefmt/blob/master/pyproject.toml
