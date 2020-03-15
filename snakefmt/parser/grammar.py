@@ -1,5 +1,6 @@
 from typing import Tuple
-from .syntax import (
+
+from snakefmt.parser.syntax import (
     namedtuple,
     KeywordSyntax,
     ParamList,

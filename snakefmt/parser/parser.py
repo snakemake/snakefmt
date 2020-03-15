@@ -1,11 +1,17 @@
 import tokenize
-from black import InvalidInput
 from abc import ABC, abstractmethod
 
-from .grammar import Grammar, SnakeGlobal, accept_python_code
-from .syntax import TokenIterator, KeywordSyntax, ParameterSyntax, Parameter
-from .syntax import run_black_format_str, DEFAULT_LINE_LENGTH
+from black import InvalidInput
+
 from snakefmt.exceptions import InvalidPython
+from snakefmt.parser.grammar import Grammar, SnakeGlobal, accept_python_code
+from snakefmt.parser.syntax import (
+    TokenIterator,
+    KeywordSyntax,
+    ParameterSyntax,
+    Parameter,
+    run_black_format_str,
+)
 
 
 class Snakefile:

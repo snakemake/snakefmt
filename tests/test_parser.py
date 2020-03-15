@@ -2,9 +2,10 @@
 Examples where we raise errors,
  but snakemake does not are listed as 'SMK_NOBREAK'
 """
-import pytest
-from snakefmt.snakefmt import Snakefile, Formatter
 from io import StringIO
+
+import pytest
+
 from snakefmt.exceptions import (
     InvalidPython,
     DuplicateKeyWordError,
@@ -14,6 +15,7 @@ from snakefmt.exceptions import (
     InvalidParameter,
     InvalidParameterSyntax,
 )
+from snakefmt.snakefmt import Snakefile, Formatter
 
 
 class TestKeywordSyntaxErrors:

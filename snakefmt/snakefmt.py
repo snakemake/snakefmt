@@ -1,20 +1,18 @@
 import logging
 import os
 import re
+import sys
 from pathlib import Path
 from typing import List, Union, Set, Pattern, Iterator
-from .parser.parser import Snakefile, Formatter, DEFAULT_LINE_LENGTH
-
-import sys
-
-sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
 import click
 from black import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import __version__
+from snakefmt.parser.parser import Snakefile, Formatter, DEFAULT_LINE_LENGTH
 
+sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
 PathLike = Union[Path, str, os.PathLike]
 DEFAULT_EXCLUDES = r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)"

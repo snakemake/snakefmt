@@ -1,19 +1,11 @@
 import textwrap
 import tokenize
-from black import format_str as black_format_str, FileMode
-from typing import Iterator, List
 from collections import namedtuple
+from typing import Iterator
 
-DEFAULT_LINE_LENGTH = 88
+from black import format_str as black_format_str, FileMode
 
-
-def run_black_format_str(input: str, indent: int) -> str:
-    fmted = black_format_str(input, mode=FileMode())[:-1]
-    indented = textwrap.indent(fmted, "\t" * indent)
-    return indented
-
-
-from ..exceptions import (
+from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
     NoParametersError,
@@ -21,6 +13,15 @@ from ..exceptions import (
     TooManyParameters,
     InvalidParameter,
 )
+
+DEFAULT_LINE_LENGTH = 88
+
+
+def run_black_format_str(string: str, indent: int) -> str:
+    fmted = black_format_str(string, mode=FileMode())[:-1]
+    indented = textwrap.indent(fmted, "\t" * indent)
+    return indented
+
 
 Token = namedtuple
 TokenIterator = Iterator[Token]

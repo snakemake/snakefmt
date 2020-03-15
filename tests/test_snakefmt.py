@@ -1,9 +1,8 @@
 import re
+import tempfile
+from collections import Counter
 from pathlib import Path
 from unittest import mock
-import tempfile
-from pathspec import PathSpec
-from collections import Counter
 
 import pytest
 from click.testing import CliRunner
@@ -12,7 +11,6 @@ from snakefmt.snakefmt import (
     construct_regex,
     main,
     get_snakefiles_in_dir,
-    InvalidRegularExpression,
 )
 
 
