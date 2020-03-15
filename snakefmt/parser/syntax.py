@@ -5,6 +5,7 @@ from typing import Iterator
 
 from black import format_str as black_format_str, FileMode
 
+from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
@@ -13,8 +14,6 @@ from snakefmt.exceptions import (
     TooManyParameters,
     InvalidParameter,
 )
-
-DEFAULT_LINE_LENGTH = 88
 
 
 def run_black_format_str(string: str, indent: int) -> str:

@@ -9,8 +9,8 @@ import click
 from black import get_gitignore
 from pathspec import PathSpec
 
-from snakefmt import __version__
-from snakefmt.parser.parser import Snakefile, Formatter, DEFAULT_LINE_LENGTH
+from snakefmt import __version__, DEFAULT_LINE_LENGTH
+from snakefmt.parser.parser import Snakefile, Formatter
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
