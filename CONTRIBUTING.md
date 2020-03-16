@@ -23,7 +23,19 @@ pre-commit install
 pytest
 ```
 
+We ask (but don't enforce) that you also run [`isort`][isort] and [`mypy`][mypy] before 
+commiting any code. These tools should be installed with the develop dependencies by 
+`poetry` automatically. The following commands will automatically use the default settings 
+for this project.
+
+```bash
+isort -y
+mypy .
+```
+
 You should be all set to go now!
 
 
 [pyproject]: https://github.com/mbhall88/snakefmt/blob/master/pyproject.toml
+[isort]: https://github.com/timothycrosley/isort
+[mypy]: https://github.com/python/mypy
