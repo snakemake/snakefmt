@@ -8,10 +8,10 @@ from snakefmt import DEFAULT_LINE_LENGTH
 class Formatter:
     """A class to control the formatting of a string/stream."""
 
-    def __init__(self, line_length: int = DEFAULT_LINE_LENGTH) -> "Formatter":
+    def __init__(self, line_length: int = DEFAULT_LINE_LENGTH):
         self._line_length = line_length
 
-    def __eq__(self, other: "Formatter") -> bool:
+    def __eq__(self, other) -> bool:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         else:
