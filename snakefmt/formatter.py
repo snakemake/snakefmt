@@ -1,8 +1,10 @@
 from pathlib import Path
+from typing import TextIO
 
 import toml
 
 from snakefmt import DEFAULT_LINE_LENGTH
+from snakefmt.parser.parser import Parser, Snakefile
 
 
 class Formatter:
@@ -33,3 +35,8 @@ class Formatter:
                 tools.get("black", {}).get("line_length", DEFAULT_LINE_LENGTH)
             )
         return Formatter(line_length=line_length)
+
+    def format(self, stream: TextIO) -> str:
+        snakefile = Snakefile(stream)
+        parser = Parser(snakefile)
+        return parser.get_formatted()

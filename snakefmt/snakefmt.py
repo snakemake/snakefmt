@@ -10,7 +10,8 @@ from black import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
-from snakefmt.parser.parser import Formatter, Snakefile
+from snakefmt.formatter import Formatter
+from snakefmt.parser.parser import Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
@@ -165,7 +166,7 @@ def main(
             f"Invalid regular expression for --exclude given: {exclude!r}"
         )
 
-    sources: Set[PathLike] = set()
+    sources: Set[Path] = set()
     root = Path()
     gitignore = get_gitignore(Path())
     for s in src:
@@ -182,12 +183,13 @@ def main(
         else:
             logging.warning(f"ignoring invalid path: {s}")
 
+    formatter = Formatter(line_length)
     for s in sources:
         print(f"Formatting {s}:")
-        snakefile = Snakefile(s)
-        f = Formatter(snakefile)
-        print(f"```\n{f.get_formatted()}")
-        print(f"```\n")
+        with s.open() as stream:
+            reformatted_stream = formatter.format(stream)
+            print(f"```\n{reformatted_stream}")
+            print(f"```\n")
 
 
 if __name__ == "__main__":

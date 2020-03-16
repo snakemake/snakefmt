@@ -1,5 +1,8 @@
+from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest import mock
+
+import pytest
 
 from snakefmt.formatter import Formatter
 
@@ -23,7 +26,7 @@ class TestEquality:
 
 
 class TestFromConfig:
-    @patch("pathlib.Path.read_text", return_value="")
+    @mock.patch("pathlib.Path.read_text", return_value="")
     def test_emptyConfig_returnsDefault(self, mock):
         config = Path("pyproject.toml")
 
@@ -32,7 +35,7 @@ class TestFromConfig:
 
         assert actual == expected
 
-    @patch("pathlib.Path.read_text", return_value="[tool.foo]\nbar=true")
+    @mock.patch("pathlib.Path.read_text", return_value="[tool.foo]\nbar=true")
     def test_configWithNoSnakfmtSection_returnsDefault(self, mock):
         config = Path("pyproject.toml")
 
@@ -41,7 +44,7 @@ class TestFromConfig:
 
         assert actual == expected
 
-    @patch("pathlib.Path.read_text", return_value="[tool.black]\nline_length=1000")
+    @mock.patch("pathlib.Path.read_text", return_value="[tool.black]\nline_length=1000")
     def test_configWithOnlyBlackSection_returnsBlackParams(self, mock):
         config = Path("pyproject.toml")
 
@@ -50,14 +53,37 @@ class TestFromConfig:
 
         assert actual == expected
 
-    @patch(
+    @mock.patch(
         "pathlib.Path.read_text",
         return_value="[tool.black]\nline_length=1\n[tool.snakefmt]\nline_length=5",
     )
-    def test_configWithSnakefmtAndBlackSection_returnsSnakefmtParams(self, mock):
+    def test_configWithSnakefmtAndBlackSection_returnsSnakefmtParams(
+        self, mock: mock.MagicMock
+    ):
         config = Path("pyproject.toml")
 
         actual = Formatter.from_config(config)
         expected = Formatter(line_length=5)
+
+        assert actual == expected
+
+
+class TestFormat:
+    def test_emptyInput_emptyOutput(self):
+        stream = StringIO()
+        formatter = Formatter()
+
+        actual = formatter.format(stream)
+        expected = ""
+
+        assert actual == expected
+
+    @pytest.mark.xfail(reason="We currently force newline after every level 0 keyword")
+    def test_configfileLineWithSingleQuotes_returnsDoubleQuotes(self):
+        stream = StringIO("configfile: 'foo.yaml'")
+        formatter = Formatter()
+
+        actual = formatter.format(stream)
+        expected = 'configfile: "foo.yaml"'
 
         assert actual == expected

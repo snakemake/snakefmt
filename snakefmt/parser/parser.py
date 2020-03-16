@@ -1,5 +1,4 @@
 import tokenize
-from abc import ABC, abstractmethod
 
 from black import InvalidInput
 
@@ -42,7 +41,7 @@ class Snakefile:
         self.stream.close()
 
 
-class Parser(ABC):
+class Parser:
     def __init__(self, snakefile: TokenIterator):
         self.indent = 0
         self.grammar = Grammar(
@@ -93,17 +92,30 @@ class Parser(ABC):
     def context(self):
         return self.grammar.context
 
-    @abstractmethod
     def flush(self):
-        pass
+        if len(self.buffer) == 0 or self.buffer.isspace():
+            self.buffer = ""
+            return
+        try:
+            self.buffer = self.buffer.replace("\t", "")
+            formatted = run_black_format_str(self.buffer, self.indent) + "\n"
+            if self.indent == 0:
+                formatted = "\n" + formatted
+            self.result += formatted
+        except InvalidInput:
+            raise InvalidPython(
+                "The following was treated as python code to format with black:"
+                f"\n```\n{self.buffer}\n```\n"
+                "And was not recognised as valid python.\n"
+                "Did you use the right indentation?"
+            ) from None
+        self.buffer = ""
 
-    @abstractmethod
     def process_keyword_context(self):
-        pass
+        self.result += self.grammar.context.line
 
-    @abstractmethod
     def process_keyword_param(self, param_context):
-        pass
+        self.result += format_params(param_context)
 
     def process_keyword(self, status):
         keyword = status.token.string
@@ -150,38 +162,8 @@ class Parser(ABC):
             self.grammar = self.context_stack[-1]
         assert len(self.context_stack) == self.indent + 1
 
-
-class Formatter(Parser):
-    def __init__(self, snakefile: TokenIterator):
-        super().__init__(snakefile)
-
     def get_formatted(self):
         return self.result
-
-    def flush(self):
-        if len(self.buffer) == 0 or self.buffer.isspace():
-            self.buffer = ""
-            return
-        try:
-            self.buffer = self.buffer.replace("\t", "")
-            formatted = run_black_format_str(self.buffer, self.indent) + "\n"
-            if self.indent == 0:
-                formatted = "\n" + formatted
-            self.result += formatted
-        except InvalidInput:
-            raise InvalidPython(
-                "The following was treated as python code to format with black:"
-                f"\n```\n{self.buffer}\n```\n"
-                "And was not recognised as valid python.\n"
-                "Did you use the right indentation?"
-            ) from None
-        self.buffer = ""
-
-    def process_keyword_context(self):
-        self.result += self.grammar.context.line
-
-    def process_keyword_param(self, param_context):
-        self.result += format_params(param_context)
 
 
 def format_param(parameter: Parameter, used_indent: str, single_param: bool = False):
