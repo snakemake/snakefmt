@@ -3,16 +3,17 @@ import tokenize
 from collections import namedtuple
 from typing import Iterator
 
-from black import format_str as black_format_str, FileMode
+from black import FileMode
+from black import format_str as black_format_str
 
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
-    NoParametersError,
-    InvalidParameterSyntax,
-    TooManyParameters,
     InvalidParameter,
+    InvalidParameterSyntax,
+    NoParametersError,
+    TooManyParameters,
 )
 
 

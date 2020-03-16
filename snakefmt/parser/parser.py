@@ -6,10 +6,10 @@ from black import InvalidInput
 from snakefmt.exceptions import InvalidPython
 from snakefmt.parser.grammar import Grammar, SnakeGlobal, accept_python_code
 from snakefmt.parser.syntax import (
-    TokenIterator,
     KeywordSyntax,
-    ParameterSyntax,
     Parameter,
+    ParameterSyntax,
+    TokenIterator,
     run_black_format_str,
 )
 

@@ -7,15 +7,15 @@ from io import StringIO
 import pytest
 
 from snakefmt.exceptions import (
-    InvalidPython,
     DuplicateKeyWordError,
     EmptyContextError,
-    NoParametersError,
-    TooManyParameters,
     InvalidParameter,
     InvalidParameterSyntax,
+    InvalidPython,
+    NoParametersError,
+    TooManyParameters,
 )
-from snakefmt.snakefmt import Snakefile, Formatter
+from snakefmt.snakefmt import Formatter, Snakefile
 
 
 class TestKeywordSyntaxErrors:

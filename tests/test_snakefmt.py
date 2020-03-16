@@ -7,11 +7,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
-from snakefmt.snakefmt import (
-    construct_regex,
-    main,
-    get_snakefiles_in_dir,
-)
+from snakefmt.snakefmt import construct_regex, get_snakefiles_in_dir, main
 
 
 @pytest.fixture

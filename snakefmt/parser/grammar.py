@@ -1,13 +1,13 @@
 from typing import Tuple
 
 from snakefmt.parser.syntax import (
-    namedtuple,
     KeywordSyntax,
-    ParamList,
     NoKeywordParamList,
+    NumericParam,
+    ParamList,
     SingleParam,
     StringParam,
-    NumericParam,
+    namedtuple,
 )
 
 

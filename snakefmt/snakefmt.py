@@ -3,14 +3,14 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import List, Union, Set, Pattern, Iterator
+from typing import Iterator, List, Pattern, Set, Union
 
 import click
 from black import get_gitignore
 from pathspec import PathSpec
 
-from snakefmt import __version__, DEFAULT_LINE_LENGTH
-from snakefmt.parser.parser import Snakefile, Formatter
+from snakefmt import DEFAULT_LINE_LENGTH, __version__
+from snakefmt.parser.parser import Formatter, Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
