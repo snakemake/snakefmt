@@ -24,7 +24,6 @@ class Language:
 Grammar = namedtuple("Grammar", ["language", "context"])
 
 PythonCode = Language  # Alias
-accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
 
 
 class SnakeRule(Language):

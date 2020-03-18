@@ -14,6 +14,10 @@ class EmptyContextError(Exception):
     pass
 
 
+class NamedKeywordError(Exception):
+    pass
+
+
 class InvalidParameterSyntax(Exception):
     pass
 

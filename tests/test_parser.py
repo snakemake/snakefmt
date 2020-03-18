@@ -20,7 +20,7 @@ from snakefmt.snakefmt import Snakefile, Formatter
 
 class TestKeywordSyntaxErrors:
     def test_nocolon(self):
-        with pytest.raises(SyntaxError, match="Colon expected"):
+        with pytest.raises(SyntaxError, match="Colon.*expected"):
             stream = StringIO("rule a")
             snakefile = Snakefile(stream)
             Formatter(snakefile)

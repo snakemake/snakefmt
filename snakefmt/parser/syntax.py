@@ -8,7 +8,11 @@ from snakefmt.exceptions import (
     InvalidParameterSyntax,
     TooManyParameters,
     InvalidParameter,
+    NamedKeywordError,
 )
+
+accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
+possibly_named_keywords = {"rule", "checkpoint"}
 
 
 def is_colon(token):
@@ -40,12 +44,29 @@ def not_to_ignore(token):
 
 
 class Syntax:
-    def __init__(self, keyword_name: str, target_indent: int):
+    def __init__(
+        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+    ):
         self.keyword_name = keyword_name
         assert target_indent >= 0
         self.target_indent = target_indent
         self.cur_indent = max(self.target_indent - 1, 0)
-        self.token = None
+
+        if snakefile is None:
+            return
+        self.token = next(snakefile)
+        if not is_colon(self.token):
+            if self.keyword_name in possibly_named_keywords:
+                if self.token.type != tokenize.NAME:
+                    raise NamedKeywordError(
+                        f"{self.line_nb}Invalid name {self.token.string} for '{self.keyword_name}'"
+                    )
+                self.keyword_name += f" {self.token.string}"
+                self.token = next(snakefile)
+        if not is_colon(self.token):
+            raise SyntaxError(
+                f"{self.line_nb}Colon (not '{self.token.string}') expected after '{self.keyword_name}'"
+            )
 
     @property
     def line_nb(self):
@@ -64,42 +85,33 @@ class KeywordSyntax(Syntax):
         self,
         keyword_name: str,
         target_indent: int,
+        incident_context: Syntax = None,
         snakefile: TokenIterator = None,
         accepts_py: bool = False,
     ):
-        super().__init__(keyword_name, target_indent)
+        super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
-        self.line = ""
         self.accepts_python_code = accepts_py
         self.queriable = True
 
-        if snakefile is not None:
-            self.line = self.validate(snakefile)
-
-    def validate(self, snakefile: TokenIterator):
-        line = "\t" * (self.target_indent - 1) + self.keyword_name
-        self.token = next(snakefile)
-        if self.token.type == tokenize.NAME:
-            line += f" {self.token.string}"
+        if incident_context is not None:
+            incident_context.add_processed_keyword(self.token, self.keyword_name)
             self.token = next(snakefile)
-        if not is_colon(self.token):
-            raise SyntaxError(f"{self.line_nb}Colon expected after '{line}'")
-        line += self.token.string
-        token = next(snakefile)
-        if token.type == tokenize.COMMENT:
-            line += f" {token.string}"
-            token = next(snakefile)
-        line += "\n"
-        if token.type != tokenize.NEWLINE:
-            raise SyntaxError(
-                f"{self.line_nb}Newline expected after '{self.keyword_name}'"
-            )
-        return line
+            if self.token.type == tokenize.COMMENT:
+                self.comment = f" {self.token.string}"
+                self.token = next(snakefile)
+            if self.token.type != tokenize.NEWLINE:
+                raise SyntaxError(
+                    f"{self.line_nb}Newline expected after keyword '{self.keyword_name}'"
+                )
 
-    def add_processed_keyword(self, token: Token):
-        keyword = token.string
+    def add_processed_keyword(self, token: Token, keyword: str = ""):
+        if keyword is "":
+            keyword = token.string
         if keyword in self.processed_keywords:
-            raise DuplicateKeyWordError(f"{self.line_nb}{keyword} specified twice.")
+            raise DuplicateKeyWordError(
+                f"L{token.start[0]}: '{keyword}' specified twice."
+            )
         self.processed_keywords.add(keyword)
 
     def check_empty(self):
@@ -181,19 +193,18 @@ class Parameter:
 
 class ParameterSyntax(Syntax):
     def __init__(
-        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+        self,
+        keyword_name: str,
+        target_indent: int,
+        incident_vocab,
+        snakefile: TokenIterator,
     ):
-        super().__init__(keyword_name, target_indent)
+        super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
         self.positional_params = list()
         self.keyword_params = list()
         self.eof = False
-
-        self.token = next(snakefile)
-        if not is_colon(self.token):
-            raise SyntaxError(
-                f"{self.line_nb}Colon expected after '{self.keyword_name}'"
-            )
+        self.incident_vocab = incident_vocab
 
         self.parse_params(snakefile)
 
@@ -279,9 +290,13 @@ class ParameterSyntax(Syntax):
 
 class SingleParam(ParameterSyntax):
     def __init__(
-        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+        self,
+        keyword_name: str,
+        target_indent: int,
+        incident_vocab,
+        snakefile: TokenIterator = None,
     ):
-        super().__init__(keyword_name, target_indent, snakefile)
+        super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
 
         if self.num_params() > 1:
             raise TooManyParameters(
@@ -298,7 +313,11 @@ ParamList = ParameterSyntax
 
 class NoKeywordParamList(ParameterSyntax):
     def __init__(
-        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+        self,
+        keyword_name: str,
+        target_indent: int,
+        incident_vocab,
+        snakefile: TokenIterator = None,
     ):
         super().__init__(keyword_name, target_indent, snakefile)
 

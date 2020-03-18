@@ -3,11 +3,12 @@ from abc import ABC, abstractmethod
 
 from snakefmt.exceptions import InvalidPython
 from snakefmt.types import TokenIterator
-from snakefmt.parser.grammar import Grammar, SnakeGlobal, accept_python_code
+from snakefmt.parser.grammar import Grammar, SnakeGlobal
 from snakefmt.parser.syntax import (
     KeywordSyntax,
     ParameterSyntax,
     Parameter,
+    accept_python_code,
 )
 
 
@@ -114,18 +115,17 @@ class Parser(ABC):
             self.indent += 1
             self.grammar = Grammar(
                 new_grammar.language(),
-                new_grammar.context(keyword, self.indent, self.snakefile, accepts_py),
+                new_grammar.context(
+                    keyword, self.indent, self.context, self.snakefile, accepts_py
+                ),
             )
-            # TODO: below is hacky, could do a general de-duplication based on keyword + name (eg rule)
-            if self.context.accepts_python_code:
-                self.context_stack[-1].context.add_processed_keyword(status.token)
             self.context_stack.append(self.grammar)
             self.process_keyword_context()
             return None
 
         elif issubclass(new_grammar.context, ParameterSyntax):
             param_context = new_grammar.context(
-                keyword, self.indent + 1, self.snakefile
+                keyword, self.indent + 1, self.language, self.snakefile
             )
             self.process_keyword_param(param_context)
             self.context.add_processed_keyword(status.token)

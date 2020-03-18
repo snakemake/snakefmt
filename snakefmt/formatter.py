@@ -39,7 +39,10 @@ class Formatter(Parser):
         self.buffer = ""
 
     def process_keyword_context(self):
-        self.result += self.grammar.context.line
+        context = self.grammar.context
+        formatted = "\t" * (context.target_indent - 1)
+        formatted = f"{formatted}{context.keyword_name}:" + "\n"
+        self.result += formatted
 
     def process_keyword_param(self, param_context):
         self.result += format_params(param_context)
