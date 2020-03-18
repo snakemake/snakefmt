@@ -1,16 +1,13 @@
 import tokenize
 from abc import ABC, abstractmethod
 
-from black import InvalidInput
-
 from snakefmt.exceptions import InvalidPython
+from snakefmt.types import TokenIterator
 from snakefmt.parser.grammar import Grammar, SnakeGlobal, accept_python_code
 from snakefmt.parser.syntax import (
-    TokenIterator,
     KeywordSyntax,
     ParameterSyntax,
     Parameter,
-    run_black_format_str,
 )
 
 
@@ -149,62 +146,3 @@ class Parser(ABC):
             self.indent -= 1
             self.grammar = self.context_stack[-1]
         assert len(self.context_stack) == self.indent + 1
-
-
-class Formatter(Parser):
-    def __init__(self, snakefile: TokenIterator):
-        super().__init__(snakefile)
-
-    def get_formatted(self):
-        return self.result
-
-    def flush(self):
-        if len(self.buffer) == 0 or self.buffer.isspace():
-            self.buffer = ""
-            return
-        try:
-            self.buffer = self.buffer.replace("\t", "")
-            formatted = run_black_format_str(self.buffer, self.indent) + "\n"
-            if self.indent == 0:
-                formatted = "\n" + formatted
-            self.result += formatted
-        except InvalidInput:
-            raise InvalidPython(
-                "The following was treated as python code to format with black:"
-                f"\n```\n{self.buffer}\n```\n"
-                "And was not recognised as valid python.\n"
-                "Did you use the right indentation?"
-            ) from None
-        self.buffer = ""
-
-    def process_keyword_context(self):
-        self.result += self.grammar.context.line
-
-    def process_keyword_param(self, param_context):
-        self.result += format_params(param_context)
-
-
-def format_param(parameter: Parameter, used_indent: str, single_param: bool = False):
-    comments = "\n{i}".format(i=used_indent).join(parameter.comments)
-    if single_param:
-        result = f"{parameter.value} {comments}\n"
-    else:
-        result = f"{parameter.value}, {comments}\n"
-    if parameter.has_key():
-        result = f"{parameter.key} = {result}"
-    result = f"{used_indent}{result}"
-    return result
-
-
-def format_params(parameters: ParameterSyntax) -> str:
-    single_param = False
-    if parameters.num_params() == 1:
-        single_param = True
-    used_indent = "\t" * (parameters.target_indent - 1)
-    result = f"{used_indent}{parameters.keyword_name}: \n"
-    param_indent = used_indent + "\t"
-    for elem in parameters.positional_params:
-        result += format_param(elem, param_indent, single_param)
-    for elem in parameters.keyword_params:
-        result += format_param(elem, param_indent, single_param)
-    return result

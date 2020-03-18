@@ -1,11 +1,6 @@
-import textwrap
 import tokenize
-from collections import namedtuple
-from typing import Iterator
+from snakefmt.types import namedtuple, Token, TokenIterator
 
-from black import format_str as black_format_str, FileMode
-
-from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
@@ -14,16 +9,6 @@ from snakefmt.exceptions import (
     TooManyParameters,
     InvalidParameter,
 )
-
-
-def run_black_format_str(string: str, indent: int) -> str:
-    fmted = black_format_str(string, mode=FileMode())[:-1]
-    indented = textwrap.indent(fmted, "\t" * indent)
-    return indented
-
-
-Token = namedtuple
-TokenIterator = Iterator[Token]
 
 
 def is_colon(token):
@@ -182,7 +167,7 @@ class Parameter:
 
         if self.is_string:
             self.value = '"' + eval(self.value) + '"'
-            if self.len > DEFAULT_LINE_LENGTH:
+            if self.len > 88:
                 self.formatted_string_value += self.value + "\n"
                 self.value = ""
                 self.len = 0
@@ -273,10 +258,13 @@ class ParameterSyntax(Syntax):
             self.flush_param(cur_param)
             cur_param = Parameter()
         elif is_colon(self.token):
-            raise InvalidParameterSyntax(
-                f"{self.line_nb}Keyword-like syntax found: '{cur_param.value}:' \n"
-                f"Is your indentation correct?"
-            )
+            if len(cur_param.value.split()) == 1:
+                raise InvalidParameterSyntax(
+                    f"{self.line_nb}Keyword-like syntax found: '{cur_param.value}:' \n"
+                    f"Is your indentation correct?"
+                )
+            else:
+                cur_param.add_elem(self.token)
         elif t_t != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self.in_brackets = True
@@ -292,7 +280,7 @@ class ParameterSyntax(Syntax):
             else:
                 raise NoParametersError(f"{self.line_nb}Empty parameter")
 
-        parameter.value = run_black_format_str(parameter.value, 0)
+        # parameter.value = run_black_format_str(parameter.value, 0)
         if parameter.is_string:
             parameter.value = parameter.formatted_string_value + parameter.value
         used_indent = "\t" * self.target_indent
