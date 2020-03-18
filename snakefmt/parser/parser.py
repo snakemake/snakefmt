@@ -64,7 +64,7 @@ class Parser(ABC):
 
             keyword = status.token.string
             if self.language.recognises(keyword):
-                self.flush()
+                self.flush_buffer()
                 new_status = self.process_keyword(status)
                 if new_status is not None:
                     status = new_status
@@ -80,7 +80,7 @@ class Parser(ABC):
 
             status = self.context.get_next_queriable(self.snakefile)
             self.buffer += status.buffer
-        self.flush()
+        self.flush_buffer()
 
     @property
     def language(self):
@@ -91,7 +91,7 @@ class Parser(ABC):
         return self.grammar.context
 
     @abstractmethod
-    def flush(self):
+    def flush_buffer(self):
         pass
 
     @abstractmethod
@@ -140,7 +140,7 @@ class Parser(ABC):
         while self.indent > status.indent:
             callback_grammar = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
-                self.flush()
+                self.flush_buffer()
             else:
                 callback_grammar.context.check_empty()
             self.indent -= 1

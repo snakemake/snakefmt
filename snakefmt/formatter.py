@@ -19,7 +19,7 @@ class Formatter(Parser):
     def get_formatted(self):
         return self.result
 
-    def flush(self):
+    def flush_buffer(self):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.buffer = ""
             return
@@ -47,10 +47,18 @@ class Formatter(Parser):
 
 def format_param(parameter: Parameter, used_indent: str, single_param: bool = False):
     comments = "\n{i}".format(i=used_indent).join(parameter.comments)
+    val = parameter.value
+    if parameter.is_string:
+        val = val.replace('"""', '"')
+        val = val.replace("\n", "").replace("\t", "")
+        val = val.replace('""', '"\n"')
+    val = run_black_format_str(val, 0)
+    val = val.replace("\n", f"\n{used_indent}")
+
     if single_param:
-        result = f"{parameter.value} {comments}\n"
+        result = f"{val} {comments}\n"
     else:
-        result = f"{parameter.value}, {comments}\n"
+        result = f"{val}, {comments}\n"
     if parameter.has_key():
         result = f"{parameter.key} = {result}"
     result = f"{used_indent}{result}"
@@ -61,9 +69,11 @@ def format_params(parameters: ParameterSyntax) -> str:
     single_param = False
     if parameters.num_params() == 1:
         single_param = True
+
     used_indent = "\t" * (parameters.target_indent - 1)
     result = f"{used_indent}{parameters.keyword_name}: \n"
     param_indent = used_indent + "\t"
+
     for elem in parameters.positional_params:
         result += format_param(elem, param_indent, single_param)
     for elem in parameters.keyword_params:

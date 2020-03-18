@@ -145,7 +145,6 @@ class Parameter:
     def __init__(self):
         self.key = ""
         self.value = ""
-        self.formatted_string_value = ""
         self.comments = list()
         self.is_string = True
         self.len = 0
@@ -154,7 +153,7 @@ class Parameter:
         return len(self.key) > 0
 
     def has_value(self) -> bool:
-        return len(self.value) > 0 or len(self.formatted_string_value) > 0
+        return len(self.value) > 0
 
     def add_elem(self, token: Token):
         if token.type != tokenize.STRING:
@@ -163,14 +162,6 @@ class Parameter:
             self.value += " "
 
         self.value += token.string
-        self.len += len(token.string)
-
-        if self.is_string:
-            self.value = '"' + eval(self.value) + '"'
-            if self.len > 88:
-                self.formatted_string_value += self.value + "\n"
-                self.value = ""
-                self.len = 0
 
     def to_key_val_mode(self, token: Token):
         if not self.has_value():
@@ -274,17 +265,9 @@ class ParameterSyntax(Syntax):
         return cur_param
 
     def flush_param(self, parameter: Parameter, skip_empty: bool = False):
-        if not parameter.has_value():
-            if skip_empty:
-                return
-            else:
-                raise NoParametersError(f"{self.line_nb}Empty parameter")
+        if not parameter.has_value() and skip_empty:
+            return
 
-        # parameter.value = run_black_format_str(parameter.value, 0)
-        if parameter.is_string:
-            parameter.value = parameter.formatted_string_value + parameter.value
-        used_indent = "\t" * self.target_indent
-        parameter.value = parameter.value.replace("\n", f"\n{used_indent}")
         if parameter.has_key():
             self.keyword_params.append(parameter)
         else:
@@ -292,20 +275,6 @@ class ParameterSyntax(Syntax):
 
     def num_params(self):
         return len(self.keyword_params) + len(self.positional_params)
-
-    def check_param_type(self, param: Parameter, required_type):
-        failure = False
-        if required_type is str:
-            failure = not param.is_string
-        elif required_type is int:
-            try:
-                int(param.value)
-            except ValueError:
-                failure = True
-        if failure:
-            raise InvalidParameter(
-                f"{self.line_nb}{self.keyword_name} definition requires parameter of type {required_type}"
-            )
 
 
 class SingleParam(ParameterSyntax):
@@ -325,24 +294,6 @@ class SingleParam(ParameterSyntax):
 
 
 ParamList = ParameterSyntax
-
-
-class StringParam(SingleParam):
-    def __init__(
-        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
-    ):
-        super().__init__(keyword_name, target_indent, snakefile)
-
-        self.check_param_type(self.positional_params[0], str)
-
-
-class NumericParam(SingleParam):
-    def __init__(
-        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
-    ):
-        super().__init__(keyword_name, target_indent, snakefile)
-
-        self.check_param_type(self.positional_params[0], int)
 
 
 class NoKeywordParamList(ParameterSyntax):
