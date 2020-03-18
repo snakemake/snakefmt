@@ -40,6 +40,7 @@ class SnakeRule(Language):
         benchmark=Grammar(None, SingleParam),
         conda=Grammar(None, SingleParam),
         singularity=Grammar(None, SingleParam),
+        container=Grammar(None, SingleParam),
         envmodules=Grammar(None, NoKeywordParamList),
         wildcard_constraints=Grammar(None, ParamList),
         shadow=Grammar(None, SingleParam),

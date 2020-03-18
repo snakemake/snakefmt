@@ -92,6 +92,7 @@ class KeywordSyntax(Syntax):
         super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
+        self.comment = ""
         self.queriable = True
 
         if incident_context is not None:
@@ -235,13 +236,6 @@ class ParameterSyntax(Syntax):
             if self.cur_indent < self.target_indent:
                 self.flush_param(cur_param, skip_empty=True)
                 return True
-            elif (
-                self.token.type != tokenize.STRING
-                and self.cur_indent > self.target_indent
-            ):
-                raise IndentationError(
-                    f"{self.line_nb}In context of '{self.keyword_name}', '{self.token.string}' is over-indented."
-                )
         return False
 
     def process_token(self, cur_param: Parameter):
@@ -259,19 +253,16 @@ class ParameterSyntax(Syntax):
         elif is_comma_sign(self.token) and not self.in_brackets:
             self.flush_param(cur_param)
             cur_param = Parameter()
-        elif is_colon(self.token):
-            if len(cur_param.value.split()) == 1:
-                raise InvalidParameterSyntax(
-                    f"{self.line_nb}Keyword-like syntax found: '{cur_param.value}:' \n"
-                    f"Is your indentation correct?"
-                )
-            else:
-                cur_param.add_elem(self.token)
         elif t_t != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self.in_brackets = True
             if brack_close(self.token):
                 self.in_brackets = False
+            if len(cur_param.value.split()) == 1:
+                if self.incident_vocab.recognises(cur_param.value):
+                    raise InvalidParameterSyntax(
+                        f"{self.line_nb}Over-indented recognised keyword found: '{cur_param.value}'"
+                    )
             cur_param.add_elem(self.token)
         return cur_param
 

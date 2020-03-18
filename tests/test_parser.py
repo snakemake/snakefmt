@@ -14,6 +14,7 @@ from snakefmt.exceptions import (
     TooManyParameters,
     InvalidParameter,
     InvalidParameterSyntax,
+    NamedKeywordError,
 )
 from snakefmt.snakefmt import Snakefile, Formatter
 
@@ -28,6 +29,18 @@ class TestKeywordSyntaxErrors:
     def test_no_newline_in_keyword_context_SMK_NOBREAK(self):
         with pytest.raises(SyntaxError, match="Newline expected"):
             stream = StringIO('rule a: input: "input_file"')
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_keyword_cannot_be_named(self):
+        with pytest.raises(SyntaxError, match="Colon.*expected"):
+            stream = StringIO('workdir a: "/to/dir"')
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_invalid_name_for_keyword(self):
+        with pytest.raises(NamedKeywordError, match="Invalid name.*checkpoint"):
+            stream = StringIO("checkpoint (): \n" '\tinput: "a"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
@@ -50,6 +63,12 @@ class TestKeywordSyntaxErrors:
     def test_duplicate_keyword_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="threads"):
             stream = StringIO("rule a:" "\n\tthreads: 3" "\n\tthreads: 5")
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_duplicate_keyword_SMK_NOBREAK(self):
+        with pytest.raises(DuplicateKeyWordError, match="rule a"):
+            stream = StringIO("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
@@ -98,31 +117,41 @@ class TestParamSyntaxErrors:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    @pytest.mark.xfail
-    def test_string_required2(self):
-        with pytest.raises(InvalidParameter, match="envmodules .*str"):
-            stream = StringIO('rule a: \n\tenvmodules: 3, "bio/module"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
-
     def test_positional_required(self):
-        with pytest.raises(InvalidParameter, match="singularity .* positional"):
-            stream = StringIO('rule a: \n\tsingularity: a = "envs/sing.img"')
+        with pytest.raises(InvalidParameter, match="container .* positional"):
+            stream = StringIO('rule a: \n\tcontainer: a = "envs/sing.img"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
 
 class TestIndentationErrors:
-    def test_keyword_over_indentation(self):
-        with pytest.raises(IndentationError, match="benchmark.* over-indented"):
+    def test_param_collating(self):
+        "The keyword gets collated to the previous parameter value"
+        with pytest.raises(InvalidParameterSyntax, match="benchmark"):
             stream = StringIO(
-                'rule a: \n\tsingularity: \n\t\t"envs/sing.img" \n\t\t\tbenchmark: "bench.txt"'
+                "rule a: \n"
+                "\tcontainer: \n"
+                '\t\t"envs/sing.img"\n'
+                '\t\t\tbenchmark: "bench.txt"'
+            )
+            snakefile = Snakefile(stream)
+            Formatter(snakefile)
+
+    def test_keyword_under_indentation(self):
+        "The keyword gets interpreted as python code"
+        with pytest.raises(InvalidPython, match="benchmark"):
+            stream = StringIO(
+                "rule a: \n"
+                "\tcontainer: \n"
+                '\t\t"envs/sing.img"\n'
+                'benchmark: "bench.txt"'
+                '\toutput: "b"'
             )
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
     def test_keyword_indented_at_parameter_level(self):
-        with pytest.raises(InvalidParameterSyntax, match="output:"):
+        with pytest.raises(InvalidParameterSyntax, match="output"):
             stream = StringIO(
                 (
                     "rule a: \n"
