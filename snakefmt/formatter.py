@@ -1,12 +1,13 @@
 import textwrap
+from typing import Type
+
 from black import format_str as black_format_str, FileMode, InvalidInput
+
 from snakefmt import DEFAULT_LINE_LENGTH
-
-from snakefmt.parser.parser import Parser
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
-from snakefmt.types import TokenIterator
-
+from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import Parameter, ParameterSyntax
+from snakefmt.types import TokenIterator
 
 
 class Formatter(Parser):
@@ -44,17 +45,19 @@ class Formatter(Parser):
         self.result += self.format_params(param_context)
 
     def run_black_format_str(
-        self, string: str, indent: int, exception: Exception
+        self, string: str, indent: int, exception: Type[Exception]
     ) -> str:
         try:
             fmted = black_format_str(
                 string, mode=FileMode(line_length=self._line_length)
             )[:-1]
-        except InvalidInput:
+        except InvalidInput as err:
             if exception == InvalidPython:
                 msg = "python code"
             elif exception == InvalidParameterSyntax:
                 msg = "a parameter value"
+            else:
+                msg = str(err)
             raise exception(
                 f"The following was treated as {msg} to format with black:"
                 f"\n```\n{string}\n```\n"
