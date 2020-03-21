@@ -64,7 +64,7 @@ class TestFormatter:
 
         assert actual == expected
 
-    def test_lambda_function_as_parameter_for_parameter(self):
+    def test_lambda_function_with_multiple_input_params(self):
         stream = StringIO(
             """rule a: 
 \tinput: 'foo.txt'
