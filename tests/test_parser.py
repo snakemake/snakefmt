@@ -60,13 +60,13 @@ class TestKeywordSyntaxErrors:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_duplicate_keyword_SMK_NOBREAK(self):
+    def test_consecutive_duplicate_keyword_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="threads"):
             stream = StringIO("rule a:" "\n\tthreads: 3" "\n\tthreads: 5")
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_duplicate_keyword_SMK_NOBREAK(self):
+    def test_non_consecutive_duplicate_keyword_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="rule a"):
             stream = StringIO("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
             snakefile = Snakefile(stream)
