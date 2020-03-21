@@ -16,7 +16,8 @@ from snakefmt.exceptions import (
     InvalidParameterSyntax,
     NamedKeywordError,
 )
-from snakefmt.snakefmt import Snakefile, Formatter
+from snakefmt.formatter import Formatter
+from snakefmt.parser.parser import Snakefile
 
 
 class TestKeywordSyntaxErrors:
