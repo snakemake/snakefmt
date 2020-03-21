@@ -149,7 +149,7 @@ class TestGetSnakefilesInDir:
             )
 
             actual = Counter(snakefiles)
-            expected = Counter(abs_tmpdir / p for p in self.filesystem)
+            expected = Counter(Path(tmpdir) / p for p in self.filesystem)
 
             assert actual == expected
 
@@ -174,7 +174,7 @@ class TestGetSnakefilesInDir:
 
             actual = Counter(snakefiles)
             expected = Counter(
-                abs_tmpdir / p
+                Path(tmpdir) / p
                 for p in [
                     "Snakefile",
                     "Snakefile-dev",
