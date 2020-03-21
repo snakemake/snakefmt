@@ -186,7 +186,7 @@ def main(
     for s in sources:
         print(f"Formatting {s}:")
         snakefile = Snakefile(s)
-        f = Formatter(snakefile)
+        f = Formatter(snakefile, line_length=line_length)
         print(f"```\n{f.get_formatted()}")
         print(f"```\n")
 
