@@ -45,7 +45,7 @@ class TestFormatter:
         actual = formatter.get_formatted()
         expected = """rule a:
 \tinput: 
-\t\t\"foo.txt\" \n"""
+\t\t\"foo.txt\", \n"""
 
         assert actual == expected
 
@@ -60,7 +60,7 @@ class TestFormatter:
         actual = formatter.get_formatted()
         expected = """rule a:
 \tinput: 
-\t\tlambda wildcards: foo(wildcards) \n"""
+\t\tlambda wildcards: foo(wildcards), \n"""
 
         assert actual == expected
 
@@ -79,6 +79,6 @@ class TestFormatter:
 \tinput: 
 \t\t\"foo.txt\"
 \tresources:
-\t\tmem_mb = lambda wildcards, attempt: attempt * 1000,\n"""
+\t\tmem_mb = lambda wildcards, attempt: attempt * 1000, \n"""
 
         assert actual == expected

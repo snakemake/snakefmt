@@ -7,6 +7,7 @@ from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import Parameter, ParameterSyntax
+from snakefmt.parser.grammar import SnakeRule
 from snakefmt.types import TokenIterator
 
 
@@ -79,7 +80,8 @@ class Formatter(Parser):
         val = self.run_black_format_str(val, 0, InvalidParameterSyntax)
         val = val.replace("\n", f"\n{used_indent}")
 
-        if single_param:
+        within_rule = isinstance(self.grammar.language, SnakeRule)
+        if single_param and not within_rule:
             result = f"{val} {comments}\n"
         else:
             result = f"{val}, {comments}\n"
