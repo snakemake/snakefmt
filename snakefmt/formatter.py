@@ -25,7 +25,8 @@ class Formatter(Parser):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.buffer = ""
             return
-        self.buffer = self.buffer.replace("\t", "")
+        if self.indent > 0:
+            self.buffer = self.buffer.replace("\t", "")
         formatted = (
             self.run_black_format_str(self.buffer, self.indent, InvalidPython) + "\n"
         )

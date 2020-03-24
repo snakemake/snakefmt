@@ -1,13 +1,11 @@
 import tokenize
 from abc import ABC, abstractmethod
 
-from snakefmt.exceptions import InvalidPython
 from snakefmt.types import TokenIterator
 from snakefmt.parser.grammar import Grammar, SnakeGlobal
 from snakefmt.parser.syntax import (
     KeywordSyntax,
     ParameterSyntax,
-    Parameter,
     accept_python_code,
 )
 
