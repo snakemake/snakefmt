@@ -81,8 +81,7 @@ class Formatter(Parser):
         val = self.run_black_format_str(val, 0, InvalidParameterSyntax)
         val = val.replace("\n", f"\n{used_indent}")
 
-        within_rule = isinstance(self.grammar.language, SnakeRule)
-        if single_param and not within_rule:
+        if single_param:
             result = f"{val} {comments}\n"
         else:
             result = f"{val}, {comments}\n"

@@ -120,7 +120,7 @@ class TestParamSyntaxErrors:
 
     def test_positional_required(self):
         with pytest.raises(InvalidParameter, match="container .* positional"):
-            stream = StringIO('rule a: \n\tcontainer: a = "envs/sing.img"')
+            stream = StringIO("rule a: \n" '\tcontainer: a = "envs/sing.img"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 

@@ -50,8 +50,8 @@ class TestPythonFormatting:
         assert actual == python_code
 
 
-class TestParamFormatting:
-    def test_configfileLineWithSingleQuotes_returnsDoubleQuotes(self):
+class TestSimpleParamFormatting:
+    def test_singleParamKeyword_staysOnSameLine(self):
         formatter = setup_formatter("configfile: 'foo.yaml'")
 
         actual = formatter.get_formatted()
@@ -60,12 +60,14 @@ class TestParamFormatting:
         assert actual == expected
 
     def test_simple_rule_one_input(self):
+        # Differences brought about: single quote to double quote (black),
+        # input parameter indentation
         stream = StringIO("rule a:\n" "\tinput: 'foo.txt'")
         smk = Snakefile(stream)
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "\tinput: \n" '\t\t"foo.txt", \n'
+        expected = "rule a:\n" "\tinput: \n" '\t\t"foo.txt" \n'
 
         assert actual == expected
 
@@ -80,7 +82,37 @@ class TestParamFormatting:
         actual = formatter.get_formatted()
         expected = """rule a:
 \tinput: 
-\t\tlambda wildcards: foo(wildcards), \n"""
+\t\tlambda wildcards: foo(wildcards) \n"""
+
+        assert actual == expected
+
+
+class TestCommaParamFormatting:
+    """
+    Parameters are delimited with ','
+    When ',' is present in other contexts, must be ignored
+    """
+
+    def test_expand_as_param(self):
+        stream = StringIO(
+            "rule a:\n"
+            "\tinput: \n"
+            '\t\texpand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
+            '\toutput: "foo.txt","bar.txt"\n'
+        )
+
+        smk = Snakefile(stream)
+        formatter = Formatter(smk)
+        actual = formatter.get_formatted()
+
+        expected = (
+            "rule a:\n"
+            "\tinput: \n"
+            '\t\texpand("{f}/{p}", f=[1, 2], p=["1", "2"]) \n'
+            "\toutput: \n"
+            '\t\t"foo.txt", \n'
+            '\t\t"bar.txt", \n'
+        )
 
         assert actual == expected
 
@@ -95,10 +127,12 @@ class TestParamFormatting:
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = """rule a:
-\tinput: 
-\t\t\"foo.txt\"
-\tresources:
-\t\tmem_mb = lambda wildcards, attempt: attempt * 1000, \n"""
+        expected = (
+            "rule a:"
+            "\tinput:\n"
+            '\t\t"foo.txt"'
+            "\tresources:"
+            "\t\tmem_mb = lambda wildcards, attempt: attempt * 1000 \n"
+        )
 
         assert actual == expected
