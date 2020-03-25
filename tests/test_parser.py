@@ -111,7 +111,6 @@ class TestParamSyntaxErrors:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    @pytest.mark.xfail
     def test_string_required(self):
         with pytest.raises(InvalidParameter, match="message .*str"):
             stream = StringIO('b = "test"\n' "rule a: \n" "\tmessage: b")
