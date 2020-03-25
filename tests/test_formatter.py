@@ -237,3 +237,25 @@ class TestSpacingAroundKeywordFormatting:
         expected = "# load config\nrule all:\n\tinput: \n\t\tfiles, \n"
 
         assert actual == expected
+
+    def test_comment_below_rule_is_not_ignored_from_spacing(self):
+        formatter = setup_formatter(
+            """# ======================================================
+# Rules
+# ======================================================
+rule all:
+    input: output_files
+
+# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls"""
+        )
+
+        actual = formatter.get_formatted()
+        expected = """# ======================================================
+# Rules
+# ======================================================
+rule all:
+\tinput: 
+\t\toutput_files,
+
+
+# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls"""
