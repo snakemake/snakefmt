@@ -184,11 +184,10 @@ def main(
             logging.warning(f"ignoring invalid path: {s}")
 
     for s in sources:
-        print(f"Formatting {s}:")
+        logging.info(f"Formatting {s}")
         snakefile = Snakefile(s)
         f = Formatter(snakefile, line_length=line_length)
-        print(f"```\n{f.get_formatted()}")
-        print(f"```\n")
+        print(f.get_formatted())
 
 
 if __name__ == "__main__":
