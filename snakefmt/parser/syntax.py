@@ -214,7 +214,7 @@ class ParameterSyntax(Syntax):
         return self.positional_params + self.keyword_params
 
     def parse_params(self, snakefile: TokenIterator):
-        self.found_newline, self.in_brackets = False, False
+        self.found_newline, self.in_brackets, self.in_lambda = False, False, False
         cur_param = Parameter()
 
         while True:
@@ -250,7 +250,7 @@ class ParameterSyntax(Syntax):
             cur_param.comments.append(self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
-        elif is_comma_sign(self.token) and not self.in_brackets:
+        elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
             self.flush_param(cur_param)
             cur_param = Parameter()
         elif t_t != tokenize.ENDMARKER:
@@ -258,7 +258,11 @@ class ParameterSyntax(Syntax):
                 self.in_brackets = True
             if brack_close(self.token):
                 self.in_brackets = False
+            if is_colon(self.token) and self.in_lambda:
+                self.in_lambda = False
             if len(cur_param.value.split()) == 1:
+                if cur_param.value == "lambda":
+                    self.in_lambda = True
                 if self.incident_vocab.recognises(cur_param.value):
                     raise InvalidParameterSyntax(
                         f"{self.line_nb}Over-indented recognised keyword found: '{cur_param.value}'"

@@ -90,7 +90,7 @@ class TestSimpleParamFormatting:
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "\tinput:\n" '\t\t"foo.txt" \n'
+        expected = "rule a:\n" "\tinput: \n" '\t\t"foo.txt" \n'
 
         assert actual == expected
 
@@ -151,10 +151,10 @@ class TestCommaParamFormatting:
 
         actual = formatter.get_formatted()
         expected = (
-            "rule a:"
-            "\tinput:\n"
-            '\t\t"foo.txt"'
-            "\tresources:"
+            "rule a:\n"
+            "\tinput: \n"
+            '\t\t"foo.txt" \n'
+            "\tresources: \n"
             "\t\tmem_mb = lambda wildcards, attempt: attempt * 1000 \n"
         )
 

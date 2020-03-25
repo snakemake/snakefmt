@@ -7,7 +7,6 @@ from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import Parameter, ParameterSyntax, SingleParam
-from snakefmt.parser.grammar import SnakeRule
 from snakefmt.types import TokenIterator
 
 
