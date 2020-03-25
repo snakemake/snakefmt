@@ -19,12 +19,16 @@ def is_colon(token):
     return token.type == tokenize.OP and token.string == ":"
 
 
+BRACKETS_OPEN = {"(", "[", "{"}
+BRACKETS_CLOSE = {")", "]", "}"}
+
+
 def brack_open(token):
-    return token.type == tokenize.OP and token.string == "("
+    return token.type == tokenize.OP and token.string in BRACKETS_OPEN
 
 
 def brack_close(token):
-    return token.type == tokenize.OP and token.string == ")"
+    return token.type == tokenize.OP and token.string in BRACKETS_CLOSE
 
 
 def is_equal_sign(token):
@@ -206,6 +210,7 @@ class ParameterSyntax(Syntax):
         self.keyword_params = list()
         self.eof = False
         self.incident_vocab = incident_vocab
+        self._brackets = list()
 
         self.parse_params(snakefile)
 
@@ -213,8 +218,12 @@ class ParameterSyntax(Syntax):
     def all_params(self):
         return self.positional_params + self.keyword_params
 
+    @property
+    def in_brackets(self):
+        return len(self._brackets) > 0
+
     def parse_params(self, snakefile: TokenIterator):
-        self.found_newline, self.in_brackets, self.in_lambda = False, False, False
+        self.found_newline, self.in_lambda = False, False
         cur_param = Parameter()
 
         while True:
@@ -255,9 +264,9 @@ class ParameterSyntax(Syntax):
             cur_param = Parameter()
         elif t_t != tokenize.ENDMARKER:
             if brack_open(self.token):
-                self.in_brackets = True
+                self._brackets.append(self.token.string)
             if brack_close(self.token):
-                self.in_brackets = False
+                self._brackets.pop()
             if is_colon(self.token) and self.in_lambda:
                 self.in_lambda = False
             if len(cur_param.value.split()) == 1:

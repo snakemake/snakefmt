@@ -159,3 +159,19 @@ class TestCommaParamFormatting:
         )
 
         assert actual == expected
+
+    def test_lambda_function_with_input_keyword_and_nested_parentheses(self):
+        """
+        We need to ignore 'input:' as a recognised keyword and ',' inside brackets
+        Ie, the lambda needs to be parsed as a parameter.
+        """
+        snakefile = (
+            "rule a:\n"
+            "\tinput: \n"
+            '\t\t"foo.txt" \n'
+            "\tparams: \n"
+            '\t\tobs = lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)], \n'
+            "\t\tp2 = 2, \n"
+        )
+        formatter = setup_formatter(snakefile)
+        assert formatter.get_formatted() == snakefile
