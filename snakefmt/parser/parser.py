@@ -103,9 +103,10 @@ class Parser(ABC):
 
     def process_keyword(self, status):
         keyword = status.token.string
+        is_rule = keyword == "rule"
         accepts_py = True if keyword in accept_python_code else False
         new_grammar = self.language.get(keyword)
-        if self.indent == 0 and not self.first:
+        if self.indent == 0 and not self.first and is_rule:
             self.result += "\n\n"
         if self.first:
             self.first = False

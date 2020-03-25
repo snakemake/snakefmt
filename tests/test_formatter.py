@@ -174,4 +174,66 @@ class TestCommaParamFormatting:
             "\t\tp2 = 2, \n"
         )
         formatter = setup_formatter(snakefile)
-        assert formatter.get_formatted() == snakefile
+
+        actual = formatter.get_formatted()
+        expected = snakefile
+
+        assert actual == expected
+
+
+class TestSpacingAroundKeywordFormatting:
+    def test_non_rule_has_no_keyword_spacing_above(self):
+        formatter = setup_formatter("# load config\n" 'configfile: "config.yaml"')
+
+        actual = formatter.get_formatted()
+        expected = '# load config\nconfigfile: "config.yaml" \n'
+
+        assert actual == expected
+
+    def test_non_rule_has_no_keyword_spacing_below(self):
+        formatter = setup_formatter('configfile: "config.yaml"\nfoo = "bar"')
+
+        actual = formatter.get_formatted()
+        expected = 'configfile: "config.yaml" \nfoo = "bar"'
+
+        assert actual == expected
+
+    def test_rule_needs_double_spacing_above(self):
+        formatter = setup_formatter('foo = "bar"\nrule all:\n\tinput:\n\t\t"a"\n')
+
+        actual = formatter.get_formatted()
+        expected = 'foo = "bar"\n\n\nrule all:\n\tinput:\n\t\t"a"\n'
+
+        assert actual == expected
+
+    def test_rule_with_three_newlines_above_only_has_two_after_formatting(self):
+        formatter = setup_formatter('foo = "bar"\n\n\n\nrule all:\n\tinput:\n\t\t"a"\n')
+
+        actual = formatter.get_formatted()
+        expected = 'foo = "bar"\n\n\nrule all:\n\tinput:\n\t\t"a"\n'
+
+        assert actual == expected
+
+    def test_rule_needs_double_spacing_below(self):
+        formatter = setup_formatter('rule all:\n\tinput:\n\t\t"a"\nfoo = "bar"\n')
+
+        actual = formatter.get_formatted()
+        expected = 'rule all:\n\tinput:\n\t\t"a"\n\n\nfoo = "bar"\n'
+
+        assert actual == expected
+
+    def test_rule_with_three_newlines_below_only_has_two_after_formatting(self):
+        formatter = setup_formatter('rule all:\n\tinput:\n\t\t"a"\n\n\n\nfoo = "bar"')
+
+        actual = formatter.get_formatted()
+        expected = 'rule all:\n\tinput:\n\t\t"a"\n\n\n\nfoo = "bar"'
+
+        assert actual == expected
+
+    def test_comment_exempt_from_keyword_spacing(self):
+        formatter = setup_formatter("# load config\n" "rule all:\n\tinput:files")
+
+        actual = formatter.get_formatted()
+        expected = "# load config\nrule all:\n\tinput: \n\t\tfiles, \n"
+
+        assert actual == expected
