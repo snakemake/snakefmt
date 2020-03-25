@@ -52,10 +52,33 @@ class TestPythonFormatting:
 
 class TestSimpleParamFormatting:
     def test_singleParamKeyword_staysOnSameLine(self):
-        formatter = setup_formatter("configfile: 'foo.yaml'")
+        """
+        Keywords that expect a single parameter do not have newline + indent
+        """
+        formatter = setup_formatter("configfile: \n" '\t"foo.yaml"')
 
         actual = formatter.get_formatted()
-        expected = 'configfile: "foo.yaml"\n'
+        expected = 'configfile: "foo.yaml" \n'
+
+        assert actual == expected
+
+    def test_singleParamKeywordInRule_staysOnSameLine(self):
+        formatter = setup_formatter(
+            "rule a: \n"
+            '\tinput: "a", "b",\n'
+            '\t\t          "c"\n'
+            '\twrapper: "mywrapper"'
+        )
+
+        actual = formatter.get_formatted()
+        expected = (
+            "rule a:\n"
+            "\tinput: \n"
+            '\t\t"a", \n'
+            '\t\t"b", \n'
+            '\t\t"c", \n'
+            '\twrapper: "mywrapper" \n'
+        )
 
         assert actual == expected
 
@@ -67,7 +90,7 @@ class TestSimpleParamFormatting:
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "\tinput: \n" '\t\t"foo.txt" \n'
+        expected = "rule a:\n" "\tinput:\n" '\t\t"foo.txt" \n'
 
         assert actual == expected
 

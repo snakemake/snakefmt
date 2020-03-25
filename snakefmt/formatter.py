@@ -6,7 +6,7 @@ from black import format_str as black_format_str, FileMode, InvalidInput
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
-from snakefmt.parser.syntax import Parameter, ParameterSyntax
+from snakefmt.parser.syntax import Parameter, ParameterSyntax, SingleParam
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.types import TokenIterator
 
@@ -77,7 +77,8 @@ class Formatter(Parser):
         if parameter.is_string:
             val = val.replace('"""', '"')
             val = val.replace("\n", "").replace("\t", "")
-            val = val.replace('""', '"\n"')
+            if used_indent != "":
+                val = val.replace('""', '"\n"')
         val = self.run_black_format_str(val, 0, InvalidParameterSyntax)
         val = val.replace("\n", f"\n{used_indent}")
 
@@ -96,11 +97,18 @@ class Formatter(Parser):
             single_param = True
 
         used_indent = "\t" * (parameters.target_indent - 1)
-        result = f"{used_indent}{parameters.keyword_name}: \n"
-        param_indent = used_indent + "\t"
+        result = f"{used_indent}{parameters.keyword_name}: "
+
+        if not issubclass(
+            parameters.__class__, SingleParam
+        ) or parameters.keyword_name in {"shell"}:
+            result += "\n"
+            used_indent += "\t"
+        else:
+            used_indent = ""
 
         for elem in parameters.positional_params:
-            result += self.format_param(elem, param_indent, single_param)
+            result += self.format_param(elem, used_indent, single_param)
         for elem in parameters.keyword_params:
-            result += self.format_param(elem, param_indent, single_param)
+            result += self.format_param(elem, used_indent, single_param)
         return result
