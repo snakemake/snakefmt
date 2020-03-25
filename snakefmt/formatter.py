@@ -92,19 +92,17 @@ class Formatter(Parser):
 
     def format_params(self, parameters: ParameterSyntax) -> str:
         single_param = False
-        if parameters.num_params() == 1:
-            single_param = True
-
         used_indent = "\t" * (parameters.target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}: "
 
-        if not issubclass(
-            parameters.__class__, SingleParam
-        ) or parameters.keyword_name in {"shell"}:
+        if issubclass(parameters.__class__, SingleParam) or parameters.keyword_name in {
+            "shell"
+        }:
+            single_param = True
+            used_indent = ""
+        else:
             result += "\n"
             used_indent += "\t"
-        else:
-            used_indent = ""
 
         for elem in parameters.positional_params:
             result += self.format_param(elem, used_indent, single_param)
