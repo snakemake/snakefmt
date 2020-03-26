@@ -111,12 +111,6 @@ class TestParamSyntaxErrors:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_string_required(self):
-        with pytest.raises(InvalidParameter, match="message .*str"):
-            stream = StringIO('b = "test"\n' "rule a: \n" "\tmessage: b")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
-
     def test_positional_required(self):
         with pytest.raises(InvalidParameter, match="container .* positional"):
             stream = StringIO("rule a: \n" '\tcontainer: a = "envs/sing.img"')

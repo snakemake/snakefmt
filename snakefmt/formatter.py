@@ -93,12 +93,13 @@ class Formatter(Parser):
     def format_params(self, parameters: ParameterSyntax) -> str:
         single_param = False
         used_indent = "\t" * (parameters.target_indent - 1)
-        result = f"{used_indent}{parameters.keyword_name}: "
+        result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
 
         if issubclass(parameters.__class__, SingleParam) or parameters.keyword_name in {
             "shell"
         }:
             single_param = True
+            result += " "
             used_indent = ""
         else:
             result += "\n"

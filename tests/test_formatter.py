@@ -73,7 +73,7 @@ class TestSimpleParamFormatting:
         actual = formatter.get_formatted()
         expected = (
             "rule a:\n"
-            "\tinput: \n"
+            "\tinput:\n"
             '\t\t"a", \n'
             '\t\t"b", \n'
             '\t\t"c", \n'
@@ -90,7 +90,7 @@ class TestSimpleParamFormatting:
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "\tinput: \n" '\t\t"foo.txt", \n'
+        expected = "rule a:\n" "\tinput:\n" '\t\t"foo.txt", \n'
 
         assert actual == expected
 
@@ -104,7 +104,7 @@ class TestSimpleParamFormatting:
 
         actual = formatter.get_formatted()
         expected = """rule a:
-\tinput: 
+\tinput:
 \t\tlambda wildcards: foo(wildcards), \n"""
 
         assert actual == expected
@@ -121,7 +121,7 @@ class TestCommaParamFormatting:
             "rule a:\n"
             "\tinput: \n"
             '\t\texpand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
-            '\toutput: "foo.txt","bar.txt"\n'
+            '\toutput:"foo.txt","bar.txt"\n'
         )
 
         smk = Snakefile(stream)
@@ -130,9 +130,9 @@ class TestCommaParamFormatting:
 
         expected = (
             "rule a:\n"
-            "\tinput: \n"
+            "\tinput:\n"
             '\t\texpand("{f}/{p}", f=[1, 2], p=["1", "2"]), \n'
-            "\toutput: \n"
+            "\toutput:\n"
             '\t\t"foo.txt", \n'
             '\t\t"bar.txt", \n'
         )
@@ -152,9 +152,9 @@ class TestCommaParamFormatting:
         actual = formatter.get_formatted()
         expected = (
             "rule a:\n"
-            "\tinput: \n"
+            "\tinput:\n"
             '\t\t"foo.txt", \n'
-            "\tresources: \n"
+            "\tresources:\n"
             "\t\tmem_mb = lambda wildcards, attempt: attempt * 1000, \n"
         )
 
@@ -167,9 +167,9 @@ class TestCommaParamFormatting:
         """
         snakefile = (
             "rule a:\n"
-            "\tinput: \n"
+            "\tinput:\n"
             '\t\t"foo.txt", \n'
-            "\tparams: \n"
+            "\tparams:\n"
             '\t\tobs = lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)], \n'
             "\t\tp2 = 2, \n"
         )

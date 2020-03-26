@@ -55,10 +55,16 @@ class Syntax:
         assert target_indent >= 0
         self.target_indent = target_indent
         self.cur_indent = max(self.target_indent - 1, 0)
+        self.comment = ""
+        self.token = None
 
         if snakefile is None:
             return
+        self.parse_and_validate_keyword(snakefile)
+
+    def parse_and_validate_keyword(self, snakefile: TokenIterator):
         self.token = next(snakefile)
+
         if not is_colon(self.token):
             if self.keyword_name in possibly_named_keywords:
                 if self.token.type != tokenize.NAME:
@@ -71,6 +77,11 @@ class Syntax:
             raise SyntaxError(
                 f"{self.line_nb}Colon (not '{self.token.string}') expected after '{self.keyword_name}'"
             )
+        self.token = next(snakefile)
+
+        if self.token.type == tokenize.COMMENT:
+            self.comment = f" {self.token.string}"
+            self.token = next(snakefile)
 
     @property
     def line_nb(self):
@@ -96,15 +107,10 @@ class KeywordSyntax(Syntax):
         super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
-        self.comment = ""
         self.queriable = True
 
         if incident_context is not None:
             incident_context.add_processed_keyword(self.token, self.keyword_name)
-            self.token = next(snakefile)
-            if self.token.type == tokenize.COMMENT:
-                self.comment = f" {self.token.string}"
-                self.token = next(snakefile)
             if self.token.type != tokenize.NEWLINE:
                 raise SyntaxError(
                     f"{self.line_nb}Newline expected after keyword '{self.keyword_name}'"
@@ -227,6 +233,7 @@ class ParameterSyntax(Syntax):
         cur_param = Parameter()
 
         while True:
+            cur_param = self.process_token(cur_param)
             try:
                 self.token = next(snakefile)
             except StopIteration:
@@ -235,7 +242,6 @@ class ParameterSyntax(Syntax):
                 break
             if self.check_exit(cur_param):
                 break
-            cur_param = self.process_token(cur_param)
 
         if self.num_params() == 0:
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
@@ -323,7 +329,7 @@ class NoKeywordParamList(ParameterSyntax):
         incident_vocab,
         snakefile: TokenIterator = None,
     ):
-        super().__init__(keyword_name, target_indent, snakefile)
+        super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
 
         if len(self.keyword_params) > 0:
             raise InvalidParameterSyntax(
