@@ -19,6 +19,7 @@ def is_colon(token):
     return token.type == tokenize.OP and token.string == ":"
 
 
+QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
 
@@ -133,29 +134,39 @@ class KeywordSyntax(Syntax):
 
     def get_next_queriable(self, snakefile):
         buffer = ""
-        newline = False
+        newline, used_name = False, True
         while True:
             token = next(snakefile)
             t_t = token.type
             if t_t == tokenize.NAME:
-                if newline:
-                    buffer += "\t" * self.cur_indent
-                    newline = False
                 if self.cur_indent <= self.target_indent:
                     if self.queriable:
                         self.queriable = False
                         return self.Status(token, self.cur_indent, buffer, False)
-                buffer += " "
-            elif t_t == tokenize.INDENT:
+                if used_name:
+                    buffer += " "
+                else:
+                    used_name = True
+            else:
+                used_name = False
+            if t_t == tokenize.INDENT:
                 self.cur_indent += 1
                 continue
             elif t_t == tokenize.DEDENT:
                 if self.cur_indent > 0:
                     self.cur_indent -= 1
+                continue
             elif t_t == tokenize.ENDMARKER:
                 return self.Status(token, self.cur_indent, buffer, True)
-            elif t_t == tokenize.NEWLINE:
+            elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
                 self.queriable, newline = True, True
+                buffer += "\n"
+                continue
+            elif t_t == tokenize.STRING and token.string[0] not in QUOTES:
+                buffer += " "
+            if newline:
+                buffer += "\t" * self.cur_indent
+                newline = False
             buffer += token.string
 
 

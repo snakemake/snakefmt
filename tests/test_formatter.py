@@ -49,6 +49,26 @@ class TestPythonFormatting:
         actual = formatter.get_formatted()
         assert actual == python_code
 
+    def test_python_code_with_rawString(self):
+        python_code = (
+            "def get_read_group(wildcards):\n"
+            '    myvar = r"bytes"\n'
+            '    return r"\t@RID"\n'
+        )
+        formatter = setup_formatter(python_code)
+        assert formatter.get_formatted() == python_code
+
+    def test_python_code_inside_run_keyword(self):
+        python_code = """
+rule a:
+    run:
+        def str(a):
+            if a:
+                return "Hello World"
+"""
+        formatter = setup_formatter(python_code)
+        assert formatter.get_formatted() == python_code
+
 
 class TestSimpleParamFormatting:
     def test_singleParamKeyword_staysOnSameLine(self):
