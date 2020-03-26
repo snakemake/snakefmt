@@ -78,9 +78,25 @@ class TestSimpleParamFormatting:
         formatter = setup_formatter("configfile: \n" '    "foo.yaml"')
 
         actual = formatter.get_formatted()
-        expected = 'configfile: "foo.yaml" \n'
+        expected = 'configfile: "foo.yaml"\n'
 
         assert actual == expected
+
+    def test_shell_keyword_get_newlineIndented(self):
+        formatter = setup_formatter(
+            "rule a:\n"
+            '    shell: "for i in $(seq 1 5)"\n'
+            '        "do echo $i"\n'
+            '        "done"'
+        )
+        expected = (
+            "rule a:\n"
+            "    shell:\n"
+            '        "for i in $(seq 1 5)"\n'
+            '        "do echo $i"\n'
+            '        "done"\n'
+        )
+        assert formatter.get_formatted() == expected
 
     def test_singleParamKeywordInRule_staysOnSameLine(self):
         formatter = setup_formatter(
@@ -94,10 +110,10 @@ class TestSimpleParamFormatting:
         expected = (
             "rule a:\n"
             "    input:\n"
-            '        "a", \n'
-            '        "b", \n'
-            '        "c", \n'
-            '    wrapper: "mywrapper" \n'
+            '        "a",\n'
+            '        "b",\n'
+            '        "c",\n'
+            '    wrapper: "mywrapper"\n'
         )
 
         assert actual == expected
@@ -110,7 +126,7 @@ class TestSimpleParamFormatting:
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "    input:\n" '        "foo.txt", \n'
+        expected = "rule a:\n" "    input:\n" '        "foo.txt",\n'
 
         assert actual == expected
 
@@ -125,7 +141,7 @@ class TestSimpleParamFormatting:
         actual = formatter.get_formatted()
         expected = """rule a:
     input:
-        lambda wildcards: foo(wildcards), \n"""
+        lambda wildcards: foo(wildcards),\n"""
 
         assert actual == expected
 
@@ -151,10 +167,10 @@ class TestCommaParamFormatting:
         expected = (
             "rule a:\n"
             "    input:\n"
-            '        expand("{f}/{p}", f=[1, 2], p=["1", "2"]), \n'
+            '        expand("{f}/{p}", f=[1, 2], p=["1", "2"]),\n'
             "    output:\n"
-            '        "foo.txt", \n'
-            '        "bar.txt", \n'
+            '        "foo.txt",\n'
+            '        "bar.txt",\n'
         )
 
         assert actual == expected
@@ -162,7 +178,7 @@ class TestCommaParamFormatting:
     def test_lambda_function_with_multiple_input_params(self):
         stream = StringIO(
             "rule a:\n"
-            "    input: 'foo.txt'\n"
+            "    input: 'foo.txt' \n"
             "    resources:"
             "        mem_mb = lambda wildcards, attempt: attempt * 1000"
         )
@@ -173,9 +189,9 @@ class TestCommaParamFormatting:
         expected = (
             "rule a:\n"
             "    input:\n"
-            '        "foo.txt", \n'
+            '        "foo.txt",\n'
             "    resources:\n"
-            "        mem_mb=lambda wildcards, attempt: attempt * 1000, \n"
+            "        mem_mb=lambda wildcards, attempt: attempt * 1000,\n"
         )
 
         assert actual == expected
@@ -188,10 +204,10 @@ class TestCommaParamFormatting:
         snakefile = (
             "rule a:\n"
             "    input:\n"
-            '        "foo.txt", \n'
+            '        "foo.txt",\n'
             "    params:\n"
-            '        obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)], \n'
-            "        p2=2, \n"
+            '        obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)],\n'
+            "        p2=2,\n"
         )
         formatter = setup_formatter(snakefile)
 
@@ -201,12 +217,12 @@ class TestCommaParamFormatting:
         assert actual == expected
 
 
-class TestSpacingAroundKeywordFormatting:
+class TestNewlineSpacing:
     def test_non_rule_has_no_keyword_spacing_above(self):
         formatter = setup_formatter("# load config\n" 'configfile: "config.yaml"')
 
         actual = formatter.get_formatted()
-        expected = '# load config\nconfigfile: "config.yaml" \n'
+        expected = '# load config\nconfigfile: "config.yaml"\n'
 
         assert actual == expected
 

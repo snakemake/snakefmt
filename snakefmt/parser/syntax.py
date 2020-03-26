@@ -274,7 +274,7 @@ class ParameterSyntax(Syntax):
         elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
             self.found_newline = True
         elif t_t == tokenize.COMMENT:
-            cur_param.comments.append(self.token.string)
+            cur_param.comments.append(" " + self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:

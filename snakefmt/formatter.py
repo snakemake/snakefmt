@@ -80,9 +80,9 @@ class Formatter(Parser):
         val = val.replace("\n", f"\n{used_indent}")
 
         if single_param:
-            result = f"{val} {comments}\n"
+            result = f"{val}{comments}\n"
         else:
-            result = f"{val}, {comments}\n"
+            result = f"{val},{comments}\n"
         if parameter.has_key():
             result = f"{parameter.key}={result}"
         result = f"{used_indent}{result}"
@@ -93,15 +93,17 @@ class Formatter(Parser):
         used_indent = TAB * (parameters.target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
 
-        if issubclass(parameters.__class__, SingleParam) or parameters.keyword_name in {
-            "shell"
-        }:
+        is_shell = parameters.keyword_name == "shell"
+
+        if issubclass(parameters.__class__, SingleParam) and not is_shell:
             single_param = True
             result += " "
             used_indent = ""
         else:
             result += "\n"
             used_indent += TAB
+        if is_shell:
+            single_param = True
 
         for elem in parameters.positional_params:
             result += self.format_param(elem, used_indent, single_param)
