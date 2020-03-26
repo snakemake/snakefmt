@@ -6,7 +6,7 @@ from black import format_str as black_format_str, FileMode, InvalidInput
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
-from snakefmt.parser.syntax import Parameter, ParameterSyntax, SingleParam
+from snakefmt.parser.syntax import Parameter, ParameterSyntax, SingleParam, TAB
 from snakefmt.types import TokenIterator
 
 
@@ -36,7 +36,7 @@ class Formatter(Parser):
 
     def process_keyword_context(self):
         context = self.grammar.context
-        formatted = "\t" * (context.target_indent - 1)
+        formatted = TAB * (context.target_indent - 1)
         formatted = f"{formatted}{context.keyword_name}:{context.comment}" + "\n"
         self.result += formatted
 
@@ -63,7 +63,7 @@ class Formatter(Parser):
                 "And was not recognised as valid.\n"
                 "Did you use the right indentation?"
             ) from None
-        indented = textwrap.indent(fmted, "\t" * indent)
+        indented = textwrap.indent(fmted, TAB * indent)
         return indented
 
     def format_param(
@@ -73,7 +73,7 @@ class Formatter(Parser):
         val = parameter.value
         if parameter.is_string:
             val = val.replace('"""', '"')
-            val = val.replace("\n", "").replace("\t", "")
+            val = val.replace("\n", "").replace(TAB, "")
             if used_indent != "":
                 val = val.replace('""', '"\n"')
         val = self.run_black_format_str(val, 0, InvalidParameterSyntax)
@@ -84,13 +84,13 @@ class Formatter(Parser):
         else:
             result = f"{val}, {comments}\n"
         if parameter.has_key():
-            result = f"{parameter.key} = {result}"
+            result = f"{parameter.key}={result}"
         result = f"{used_indent}{result}"
         return result
 
     def format_params(self, parameters: ParameterSyntax) -> str:
         single_param = False
-        used_indent = "\t" * (parameters.target_indent - 1)
+        used_indent = TAB * (parameters.target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
 
         if issubclass(parameters.__class__, SingleParam) or parameters.keyword_name in {
@@ -101,7 +101,7 @@ class Formatter(Parser):
             used_indent = ""
         else:
             result += "\n"
-            used_indent += "\t"
+            used_indent += TAB
 
         for elem in parameters.positional_params:
             result += self.format_param(elem, used_indent, single_param)

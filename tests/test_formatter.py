@@ -59,13 +59,13 @@ class TestPythonFormatting:
         assert formatter.get_formatted() == python_code
 
     def test_python_code_inside_run_keyword(self):
-        python_code = """
-rule a:
-    run:
-        def str(a):
-            if a:
-                return "Hello World"
-"""
+        python_code = (
+            "rule a:\n"
+            "    run:\n"
+            "        def s(a):\n"
+            "            if a:\n"
+            '                return "Hello World"\n'
+        )
         formatter = setup_formatter(python_code)
         assert formatter.get_formatted() == python_code
 
@@ -75,7 +75,7 @@ class TestSimpleParamFormatting:
         """
         Keywords that expect a single parameter do not have newline + indent
         """
-        formatter = setup_formatter("configfile: \n" '\t"foo.yaml"')
+        formatter = setup_formatter("configfile: \n" '    "foo.yaml"')
 
         actual = formatter.get_formatted()
         expected = 'configfile: "foo.yaml" \n'
@@ -85,19 +85,19 @@ class TestSimpleParamFormatting:
     def test_singleParamKeywordInRule_staysOnSameLine(self):
         formatter = setup_formatter(
             "rule a: \n"
-            '\tinput: "a", "b",\n'
-            '\t\t          "c"\n'
-            '\twrapper: "mywrapper"'
+            '    input: "a", "b",\n'
+            '                  "c"\n'
+            '    wrapper: "mywrapper"'
         )
 
         actual = formatter.get_formatted()
         expected = (
             "rule a:\n"
-            "\tinput:\n"
-            '\t\t"a", \n'
-            '\t\t"b", \n'
-            '\t\t"c", \n'
-            '\twrapper: "mywrapper" \n'
+            "    input:\n"
+            '        "a", \n'
+            '        "b", \n'
+            '        "c", \n'
+            '    wrapper: "mywrapper" \n'
         )
 
         assert actual == expected
@@ -105,12 +105,12 @@ class TestSimpleParamFormatting:
     def test_simple_rule_one_input(self):
         # Differences brought about: single quote to double quote (black),
         # input parameter indentation
-        stream = StringIO("rule a:\n" "\tinput: 'foo.txt'")
+        stream = StringIO("rule a:\n" "    input: 'foo.txt'")
         smk = Snakefile(stream)
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "\tinput:\n" '\t\t"foo.txt", \n'
+        expected = "rule a:\n" "    input:\n" '        "foo.txt", \n'
 
         assert actual == expected
 
@@ -124,8 +124,8 @@ class TestSimpleParamFormatting:
 
         actual = formatter.get_formatted()
         expected = """rule a:
-\tinput:
-\t\tlambda wildcards: foo(wildcards), \n"""
+    input:
+        lambda wildcards: foo(wildcards), \n"""
 
         assert actual == expected
 
@@ -139,9 +139,9 @@ class TestCommaParamFormatting:
     def test_expand_as_param(self):
         stream = StringIO(
             "rule a:\n"
-            "\tinput: \n"
-            '\t\texpand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
-            '\toutput:"foo.txt","bar.txt"\n'
+            "    input: \n"
+            '        expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
+            '    output:"foo.txt","bar.txt"\n'
         )
 
         smk = Snakefile(stream)
@@ -150,11 +150,11 @@ class TestCommaParamFormatting:
 
         expected = (
             "rule a:\n"
-            "\tinput:\n"
-            '\t\texpand("{f}/{p}", f=[1, 2], p=["1", "2"]), \n'
-            "\toutput:\n"
-            '\t\t"foo.txt", \n'
-            '\t\t"bar.txt", \n'
+            "    input:\n"
+            '        expand("{f}/{p}", f=[1, 2], p=["1", "2"]), \n'
+            "    output:\n"
+            '        "foo.txt", \n'
+            '        "bar.txt", \n'
         )
 
         assert actual == expected
@@ -162,9 +162,9 @@ class TestCommaParamFormatting:
     def test_lambda_function_with_multiple_input_params(self):
         stream = StringIO(
             "rule a:\n"
-            "\tinput: 'foo.txt'\n"
-            "\tresources:"
-            "\t\tmem_mb = lambda wildcards, attempt: attempt * 1000"
+            "    input: 'foo.txt'\n"
+            "    resources:"
+            "        mem_mb = lambda wildcards, attempt: attempt * 1000"
         )
         smk = Snakefile(stream)
         formatter = Formatter(smk)
@@ -172,10 +172,10 @@ class TestCommaParamFormatting:
         actual = formatter.get_formatted()
         expected = (
             "rule a:\n"
-            "\tinput:\n"
-            '\t\t"foo.txt", \n'
-            "\tresources:\n"
-            "\t\tmem_mb = lambda wildcards, attempt: attempt * 1000, \n"
+            "    input:\n"
+            '        "foo.txt", \n'
+            "    resources:\n"
+            "        mem_mb=lambda wildcards, attempt: attempt * 1000, \n"
         )
 
         assert actual == expected
@@ -187,11 +187,11 @@ class TestCommaParamFormatting:
         """
         snakefile = (
             "rule a:\n"
-            "\tinput:\n"
-            '\t\t"foo.txt", \n'
-            "\tparams:\n"
-            '\t\tobs = lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)], \n'
-            "\t\tp2 = 2, \n"
+            "    input:\n"
+            '        "foo.txt", \n'
+            "    params:\n"
+            '        obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)], \n'
+            "        p2=2, \n"
         )
         formatter = setup_formatter(snakefile)
 
@@ -219,42 +219,46 @@ class TestSpacingAroundKeywordFormatting:
         assert actual == expected
 
     def test_rule_needs_double_spacing_above(self):
-        formatter = setup_formatter('foo = "bar"\nrule all:\n\tinput:\n\t\t"a"\n')
+        formatter = setup_formatter('foo = "bar"\nrule all:\n    input:\n        "a"\n')
 
         actual = formatter.get_formatted()
-        expected = 'foo = "bar"\n\n\nrule all:\n\tinput:\n\t\t"a"\n'
+        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a"\n'
 
         assert actual == expected
 
     def test_rule_with_three_newlines_above_only_has_two_after_formatting(self):
-        formatter = setup_formatter('foo = "bar"\n\n\n\nrule all:\n\tinput:\n\t\t"a"\n')
+        formatter = setup_formatter(
+            'foo = "bar"\n\n\n\nrule all:\n    input:\n        "a"\n'
+        )
 
         actual = formatter.get_formatted()
-        expected = 'foo = "bar"\n\n\nrule all:\n\tinput:\n\t\t"a"\n'
+        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a"\n'
 
         assert actual == expected
 
     def test_rule_needs_double_spacing_below(self):
-        formatter = setup_formatter('rule all:\n\tinput:\n\t\t"a"\nfoo = "bar"\n')
+        formatter = setup_formatter('rule all:\n    input:\n        "a"\nfoo = "bar"\n')
 
         actual = formatter.get_formatted()
-        expected = 'rule all:\n\tinput:\n\t\t"a"\n\n\nfoo = "bar"\n'
+        expected = 'rule all:\n    input:\n        "a"\n\n\nfoo = "bar"\n'
 
         assert actual == expected
 
     def test_rule_with_three_newlines_below_only_has_two_after_formatting(self):
-        formatter = setup_formatter('rule all:\n\tinput:\n\t\t"a"\n\n\n\nfoo = "bar"')
+        formatter = setup_formatter(
+            'rule all:\n    input:\n        "a"\n\n\n\nfoo = "bar"'
+        )
 
         actual = formatter.get_formatted()
-        expected = 'rule all:\n\tinput:\n\t\t"a"\n\n\n\nfoo = "bar"'
+        expected = 'rule all:\n    input:\n        "a"\n\n\n\nfoo = "bar"'
 
         assert actual == expected
 
     def test_comment_exempt_from_keyword_spacing(self):
-        formatter = setup_formatter("# load config\n" "rule all:\n\tinput:files")
+        formatter = setup_formatter("# load config\n" "rule all:\n    input:files")
 
         actual = formatter.get_formatted()
-        expected = "# load config\nrule all:\n\tinput: \n\t\tfiles, \n"
+        expected = "# load config\nrule all:\n    input: \n        files, \n"
 
         assert actual == expected
 
@@ -274,8 +278,8 @@ rule all:
 # Rules
 # ======================================================
 rule all:
-\tinput: 
-\t\toutput_files,
+    input: 
+        output_files,
 
 
 # https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls"""

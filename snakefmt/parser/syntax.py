@@ -22,6 +22,7 @@ def is_colon(token):
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
+TAB = "    "
 
 
 def brack_open(token):
@@ -165,7 +166,7 @@ class KeywordSyntax(Syntax):
             elif t_t == tokenize.STRING and token.string[0] not in QUOTES:
                 buffer += " "
             if newline:
-                buffer += "\t" * self.cur_indent
+                buffer += TAB * self.cur_indent
                 newline = False
             buffer += token.string
 
