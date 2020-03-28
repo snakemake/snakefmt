@@ -6,7 +6,13 @@ from black import format_str as black_format_str, FileMode, InvalidInput
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
-from snakefmt.parser.syntax import Parameter, ParameterSyntax, SingleParam, TAB
+from snakefmt.parser.syntax import (
+    Parameter,
+    ParameterSyntax,
+    SingleParam,
+    TAB,
+    rule_like,
+)
 from snakefmt.types import TokenIterator
 
 
@@ -15,6 +21,9 @@ class Formatter(Parser):
         self, snakefile: TokenIterator, line_length: int = DEFAULT_LINE_LENGTH
     ):
         self._line_length = line_length
+        self.result = ""
+        self.from_rule = False
+        self.first = True
         super().__init__(snakefile)  # Call to parse snakefile
 
     def get_formatted(self):
@@ -24,27 +33,30 @@ class Formatter(Parser):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.buffer = ""
             return
+        self.add_newlines(keyword_name="")
         formatted = (
-            self.run_black_format_str(self.buffer, self.indent, InvalidPython) + "\n"
+            self.run_black_format_str(self.buffer, self.target_indent, InvalidPython)
+            + "\n"
         )
-        if self.indent == 0 and not self.first:
-            formatted = "\n" + formatted
+        self.result += formatted
         if self.first:
             self.first = False
-        self.result += formatted
         self.buffer = ""
 
     def process_keyword_context(self):
         context = self.grammar.context
+        self.add_newlines(context.keyword_name)
         formatted = TAB * (context.target_indent - 1)
         formatted = f"{formatted}{context.keyword_name}:{context.comment}" + "\n"
         self.result += formatted
+        if self.first:
+            self.first = False
 
     def process_keyword_param(self, param_context):
         self.result += self.format_params(param_context)
 
     def run_black_format_str(
-        self, string: str, indent: int, exception: Type[Exception]
+        self, string: str, target_indent: int, exception: Type[Exception]
     ) -> str:
         try:
             fmted = black_format_str(
@@ -63,7 +75,7 @@ class Formatter(Parser):
                 "And was not recognised as valid.\n"
                 "Did you use the right indentation?"
             ) from None
-        indented = textwrap.indent(fmted, TAB * indent)
+        indented = textwrap.indent(fmted, TAB * target_indent)
         return indented
 
     def format_param(
@@ -110,3 +122,15 @@ class Formatter(Parser):
         for elem in parameters.keyword_params:
             result += self.format_param(elem, used_indent, single_param)
         return result
+
+    def add_newlines(self, keyword_name: str = ""):
+        if self.target_indent > 1:
+            return
+        is_rule_like = keyword_name is not "" and keyword_name.split()[0] in rule_like
+        if self.from_rule:
+            self.result += "\n\n"
+        elif not self.first:
+            self.result += "\n"
+            if is_rule_like:
+                self.result += "\n"
+        self.from_rule = True if is_rule_like else False

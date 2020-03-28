@@ -7,7 +7,6 @@ from snakefmt.parser.syntax import (
     KeywordSyntax,
     ParameterSyntax,
     accept_python_code,
-    possibly_named_keywords,
 )
 
 
@@ -41,22 +40,18 @@ class Snakefile:
 
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
-        self.indent = 0
+        self.target_indent = 0
         self.grammar = Grammar(
-            SnakeGlobal(), KeywordSyntax("Global", self.indent, accepts_py=True)
+            SnakeGlobal(), KeywordSyntax("Global", self.target_indent, accepts_py=True)
         )
         self.context_stack = [self.grammar]
-
         self.snakefile = snakefile
-        self.result = ""
-        self.buffer = ""
-        self.first = True
 
         status = self.context.get_next_queriable(self.snakefile)
-        self.buffer += status.buffer
+        self.buffer = status.buffer
 
         while True:
-            if status.indent < self.indent:
+            if status.indent < self.target_indent:
                 self.context_exit(status)
 
             if status.eof:
@@ -104,19 +99,18 @@ class Parser(ABC):
 
     def process_keyword(self, status):
         keyword = status.token.string
-        is_rule_like = keyword in possibly_named_keywords
         accepts_py = True if keyword in accept_python_code else False
         new_grammar = self.language.get(keyword)
-        if self.indent == 0 and not self.first and is_rule_like:
-            self.result += "\n\n"
-        if self.first:
-            self.first = False
         if issubclass(new_grammar.context, KeywordSyntax):
-            self.indent += 1
+            self.target_indent += 1
             self.grammar = Grammar(
                 new_grammar.language(),
                 new_grammar.context(
-                    keyword, self.indent, self.context, self.snakefile, accepts_py
+                    keyword,
+                    self.target_indent,
+                    self.context,
+                    self.snakefile,
+                    accepts_py,
                 ),
             )
             self.context_stack.append(self.grammar)
@@ -125,7 +119,7 @@ class Parser(ABC):
 
         elif issubclass(new_grammar.context, ParameterSyntax):
             param_context = new_grammar.context(
-                keyword, self.indent + 1, self.language, self.snakefile
+                keyword, self.target_indent + 1, self.language, self.snakefile
             )
             self.process_keyword_param(param_context)
             self.context.add_processed_keyword(status.token)
@@ -137,12 +131,12 @@ class Parser(ABC):
             )
 
     def context_exit(self, status):
-        while self.indent > status.indent:
+        while self.target_indent > status.indent:
             callback_grammar = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
                 self.flush_buffer()
             else:
                 callback_grammar.context.check_empty()
-            self.indent -= 1
+            self.target_indent -= 1
             self.grammar = self.context_stack[-1]
-        assert len(self.context_stack) == self.indent + 1
+        assert len(self.context_stack) == self.target_indent + 1

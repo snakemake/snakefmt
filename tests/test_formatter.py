@@ -227,18 +227,16 @@ class TestNewlineSpacing:
         assert actual == expected
 
     def test_non_rule_has_no_keyword_spacing_below(self):
-        formatter = setup_formatter('configfile: "config.yaml"\nfoo = "bar"')
+        snakestring = 'configfile: "config.yaml"\nreport: "report.rst"\n'
+        formatter = setup_formatter(snakestring)
 
-        actual = formatter.get_formatted()
-        expected = 'configfile: "config.yaml" \nfoo = "bar"'
-
-        assert actual == expected
+        formatter.get_formatted() == snakestring
 
     def test_rule_needs_double_spacing_above(self):
         formatter = setup_formatter('foo = "bar"\nrule all:\n    input:\n        "a"\n')
 
         actual = formatter.get_formatted()
-        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a"\n'
+        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a",\n'
 
         assert actual == expected
 
@@ -248,7 +246,7 @@ class TestNewlineSpacing:
         )
 
         actual = formatter.get_formatted()
-        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a"\n'
+        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a",\n'
 
         assert actual == expected
 
@@ -256,7 +254,7 @@ class TestNewlineSpacing:
         formatter = setup_formatter('rule all:\n    input:\n        "a"\nfoo = "bar"\n')
 
         actual = formatter.get_formatted()
-        expected = 'rule all:\n    input:\n        "a"\n\n\nfoo = "bar"\n'
+        expected = 'rule all:\n    input:\n        "a",\n\n\nfoo = "bar"\n'
 
         assert actual == expected
 
@@ -266,7 +264,7 @@ class TestNewlineSpacing:
         )
 
         actual = formatter.get_formatted()
-        expected = 'rule all:\n    input:\n        "a"\n\n\n\nfoo = "bar"'
+        expected = 'rule all:\n    input:\n        "a",\n\n\nfoo = "bar"\n'
 
         assert actual == expected
 
@@ -274,7 +272,7 @@ class TestNewlineSpacing:
         formatter = setup_formatter("# load config\n" "rule all:\n    input:files")
 
         actual = formatter.get_formatted()
-        expected = "# load config\nrule all:\n    input: \n        files, \n"
+        expected = "# load config\nrule all:\n    input:\n        files,\n"
 
         assert actual == expected
 

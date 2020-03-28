@@ -12,7 +12,8 @@ from snakefmt.exceptions import (
 )
 
 accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
-possibly_named_keywords = {"rule", "checkpoint"}
+rule_like = {"rule", "checkpoint"}
+possibly_named_keywords = rule_like  # Though it may not always be that way
 
 
 def is_colon(token):
@@ -60,9 +61,8 @@ class Syntax:
         self.comment = ""
         self.token = None
 
-        if snakefile is None:
-            return
-        self.parse_and_validate_keyword(snakefile)
+        if snakefile is not None:
+            self.parse_and_validate_keyword(snakefile)
 
     def parse_and_validate_keyword(self, snakefile: TokenIterator):
         self.token = next(snakefile)
