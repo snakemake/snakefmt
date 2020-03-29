@@ -6,6 +6,7 @@ from snakefmt.parser.syntax import (
     ParamList,
     NoKeywordParamList,
     SingleParam,
+    SingleNumericParam,
 )
 
 
@@ -31,9 +32,9 @@ class SnakeRule(Language):
         input=Grammar(None, ParamList),
         output=Grammar(None, ParamList),
         params=Grammar(None, ParamList),
-        threads=Grammar(None, SingleParam),
+        threads=Grammar(None, SingleNumericParam),
         resources=Grammar(None, ParamList),
-        priority=Grammar(None, SingleParam),
+        priority=Grammar(None, SingleNumericParam),
         version=Grammar(None, SingleParam),
         log=Grammar(None, ParamList),
         message=Grammar(None, SingleParam),

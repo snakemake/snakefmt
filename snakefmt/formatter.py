@@ -6,10 +6,12 @@ from black import format_str as black_format_str, FileMode, InvalidInput
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
+from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.syntax import (
     Parameter,
     ParameterSyntax,
     SingleParam,
+    SingleNumericParam,
     TAB,
 )
 from snakefmt.types import TokenIterator
@@ -51,7 +53,8 @@ class Formatter(Parser):
 
     def process_keyword_param(self, param_context):
         self.add_newlines(param_context.target_indent - 1, param_context.keyword_name)
-        self.result += self.format_params(param_context)
+        in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
+        self.result += self.format_params(param_context, in_rule)
 
     def run_black_format_str(
         self, string: str, target_indent: int, exception: Type[Exception]
@@ -98,22 +101,23 @@ class Formatter(Parser):
         result = f"{used_indent}{result}"
         return result
 
-    def format_params(self, parameters: ParameterSyntax) -> str:
-        single_param = False
+    def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
         used_indent = TAB * (parameters.target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
 
-        is_shell = parameters.keyword_name == "shell"
+        p_class = parameters.__class__
+        single_param = issubclass(p_class, SingleParam)
+        # single parameter formatting cancelled if we are in rule-like context and param is not numeric
+        single_param_fmting = single_param
+        if in_rule and p_class is not SingleNumericParam:
+            single_param_fmting = False
 
-        if issubclass(parameters.__class__, SingleParam) and not is_shell:
-            single_param = True
+        if single_param_fmting:
             result += " "
             used_indent = ""
         else:
             result += "\n"
             used_indent += TAB
-        if is_shell:
-            single_param = True
 
         for elem in parameters.positional_params:
             result += self.format_param(elem, used_indent, single_param)
@@ -122,17 +126,17 @@ class Formatter(Parser):
         return result
 
     def add_newlines(self, cur_indent: int, keyword_name: str = ""):
-        is_rule_like = (
-            keyword_name is not "" and keyword_name.split()[0] in rule_like_formatted
-        )
         if cur_indent == 0:
             if self.from_rule:
                 self.result += "\n\n"
             elif not self.first:
-                if is_rule_like and not self.from_comment:
+                if self.rule_like(keyword_name) and not self.from_comment:
                     self.result += "\n\n"
                 elif keyword_name == "":
                     self.result += "\n"  # Add newline for python code
-            self.from_rule = True if is_rule_like else False
+            self.from_rule = True if self.rule_like(keyword_name) else False
         if self.first:
             self.first = False
+
+    def rule_like(self, kwrd):
+        return kwrd is not "" and kwrd.split()[0] in rule_like_formatted

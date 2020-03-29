@@ -332,6 +332,17 @@ class SingleParam(ParameterSyntax):
 ParamList = ParameterSyntax
 
 
+class SingleNumericParam(SingleParam):
+    def __init__(
+        self,
+        keyword_name: str,
+        target_indent: int,
+        incident_vocab,
+        snakefile: TokenIterator = None,
+    ):
+        super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
+
+
 class NoKeywordParamList(ParameterSyntax):
     def __init__(
         self,

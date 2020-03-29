@@ -98,7 +98,7 @@ class TestSimpleParamFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    def test_singleParamKeywordInRule_staysOnSameLine(self):
+    def test_singleParamKeywordInRule_NewlineIndented(self):
         formatter = setup_formatter(
             "rule a: \n"
             '    input: "a", "b",\n'
@@ -113,8 +113,19 @@ class TestSimpleParamFormatting:
             '        "a",\n'
             '        "b",\n'
             '        "c",\n'
-            '    wrapper: "mywrapper"\n'
+            "    wrapper:\n"
+            '        "mywrapper"\n'
         )
+
+        assert actual == expected
+
+    def test_singleNumericParamKeywordInRule_staysOnSameLine(self):
+        formatter = setup_formatter(
+            "rule a: \n" '    input: "c"\n' "    threads:\n" "        20"
+        )
+
+        actual = formatter.get_formatted()
+        expected = "rule a:\n" "    input:\n" '        "c",\n' "    threads: 20\n"
 
         assert actual == expected
 
