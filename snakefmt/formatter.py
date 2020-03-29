@@ -11,9 +11,10 @@ from snakefmt.parser.syntax import (
     ParameterSyntax,
     SingleParam,
     TAB,
-    rule_like,
 )
 from snakefmt.types import TokenIterator
+
+rule_like_formatted = {"rule", "checkpoint"}
 
 
 class Formatter(Parser):
@@ -33,26 +34,23 @@ class Formatter(Parser):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.buffer = ""
             return
-        self.add_newlines(keyword_name="")
-        formatted = (
-            self.run_black_format_str(self.buffer, self.target_indent, InvalidPython)
-            + "\n"
+        formatted = self.run_black_format_str(
+            self.buffer, self.target_indent, InvalidPython
         )
-        self.result += formatted
-        if self.first:
-            self.first = False
+        self.from_comment = True if formatted.split("\n")[-1][0] == "#" else False
+        self.add_newlines(self.target_indent, keyword_name="")
+        self.result += formatted + "\n"
         self.buffer = ""
 
     def process_keyword_context(self):
         context = self.grammar.context
-        self.add_newlines(context.keyword_name)
+        self.add_newlines(context.target_indent - 1, context.keyword_name)
         formatted = TAB * (context.target_indent - 1)
         formatted = f"{formatted}{context.keyword_name}:{context.comment}" + "\n"
         self.result += formatted
-        if self.first:
-            self.first = False
 
     def process_keyword_param(self, param_context):
+        self.add_newlines(param_context.target_indent - 1, param_context.keyword_name)
         self.result += self.format_params(param_context)
 
     def run_black_format_str(
@@ -123,14 +121,18 @@ class Formatter(Parser):
             result += self.format_param(elem, used_indent, single_param)
         return result
 
-    def add_newlines(self, keyword_name: str = ""):
-        if self.target_indent > 1:
-            return
-        is_rule_like = keyword_name is not "" and keyword_name.split()[0] in rule_like
-        if self.from_rule:
-            self.result += "\n\n"
-        elif not self.first:
-            self.result += "\n"
-            if is_rule_like:
-                self.result += "\n"
-        self.from_rule = True if is_rule_like else False
+    def add_newlines(self, cur_indent: int, keyword_name: str = ""):
+        is_rule_like = (
+            keyword_name is not "" and keyword_name.split()[0] in rule_like_formatted
+        )
+        if cur_indent == 0:
+            if self.from_rule:
+                self.result += "\n\n"
+            elif not self.first:
+                if is_rule_like and not self.from_comment:
+                    self.result += "\n\n"
+                elif keyword_name == "":
+                    self.result += "\n"  # Add newline for python code
+            self.from_rule = True if is_rule_like else False
+        if self.first:
+            self.first = False

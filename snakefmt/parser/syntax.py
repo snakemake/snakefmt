@@ -12,8 +12,7 @@ from snakefmt.exceptions import (
 )
 
 accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
-rule_like = {"rule", "checkpoint"}
-possibly_named_keywords = rule_like  # Though it may not always be that way
+possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 
 
 def is_colon(token):
