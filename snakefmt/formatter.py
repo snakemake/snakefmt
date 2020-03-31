@@ -8,6 +8,7 @@ from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.syntax import (
+    Syntax,
     Parameter,
     ParameterSyntax,
     SingleParam,
@@ -32,12 +33,17 @@ class Formatter(Parser):
     def get_formatted(self):
         return self.result
 
-    def flush_buffer(self):
+    def flush_buffer(self, status: Syntax.Status = None):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.buffer = ""
             return
+
+        add_pass = (
+            True if status is not None and status.indent > self.target_indent else False
+        )
+
         formatted = self.run_black_format_str(
-            self.buffer, self.target_indent, InvalidPython
+            self.buffer, self.target_indent, InvalidPython, add_pass
         )
         self.from_comment = True if formatted.split("\n")[-1][0] == "#" else False
         self.add_newlines(self.target_indent, keyword_name="")
@@ -57,27 +63,38 @@ class Formatter(Parser):
         self.result += self.format_params(param_context, in_rule)
 
     def run_black_format_str(
-        self, string: str, target_indent: int, exception: Type[Exception]
+        self,
+        string: str,
+        target_indent: int,
+        exception: Type[Exception],
+        add_pass: bool = False,
     ) -> str:
+        if add_pass:
+            pattern = f"{TAB * (target_indent + 1)}pass"
+            string += pattern
         try:
             fmted = black_format_str(
                 string, mode=FileMode(line_length=self._line_length)
-            )[:-1]
-        except InvalidInput as err:
+            )
+        except InvalidInput:
             if exception == InvalidPython:
                 msg = "python code"
             elif exception == InvalidParameterSyntax:
                 msg = "a parameter value"
             else:
-                msg = str(err)
+                msg = "code"
             raise exception(
                 f"The following was treated as {msg} to format with black:"
                 f"\n```\n{string}\n```\n"
                 "And was not recognised as valid.\n"
                 "Did you use the right indentation?"
             ) from None
+
         indented = textwrap.indent(fmted, TAB * target_indent)
-        return indented
+        if add_pass:
+            indented = indented[: indented.rindex(pattern)]
+        assert indented[-1] == "\n"  # black should add this
+        return indented[:-1]
 
     def format_param(
         self, parameter: Parameter, used_indent: str, single_param: bool = False

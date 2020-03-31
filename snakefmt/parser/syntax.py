@@ -50,6 +50,8 @@ def not_to_ignore(token):
 
 
 class Syntax:
+    Status = namedtuple("Status", ["token", "indent", "buffer", "eof"])
+
     def __init__(
         self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
     ):
@@ -95,8 +97,6 @@ Keyword parsing
 
 
 class KeywordSyntax(Syntax):
-    Status = namedtuple("Status", ["token", "indent", "buffer", "eof"])
-
     def __init__(
         self,
         keyword_name: str,
@@ -132,23 +132,16 @@ class KeywordSyntax(Syntax):
                 f"{self.line_nb}{self.keyword_name} has no keywords attached to it."
             )
 
+    @property
+    def effective_indent(self):
+        return max(0, self.cur_indent - self.target_indent)
+
     def get_next_queriable(self, snakefile):
         buffer = ""
         newline, used_name = False, True
         while True:
             token = next(snakefile)
             t_t = token.type
-            if t_t == tokenize.NAME:
-                if self.cur_indent <= self.target_indent:
-                    if self.queriable:
-                        self.queriable = False
-                        return self.Status(token, self.cur_indent, buffer, False)
-                if used_name:
-                    buffer += " "
-                else:
-                    used_name = True
-            else:
-                used_name = False
             if t_t == tokenize.INDENT:
                 self.cur_indent += 1
                 continue
@@ -162,11 +155,23 @@ class KeywordSyntax(Syntax):
                 self.queriable, newline = True, True
                 buffer += "\n"
                 continue
-            elif t_t == tokenize.STRING and token.string[0] not in QUOTES:
-                buffer += " "
-            if newline:
-                buffer += TAB * self.cur_indent
+
+            if newline:  # Records relative tabbing, used for python code formatting
+                buffer += TAB * self.effective_indent
                 newline = False
+
+            if t_t == tokenize.NAME:
+                if self.queriable:
+                    self.queriable = False
+                    return self.Status(token, self.cur_indent, buffer, False)
+                if used_name:
+                    buffer += " "
+                else:
+                    used_name = True
+            else:
+                used_name = False
+            if t_t == tokenize.STRING and token.string[0] not in QUOTES:
+                buffer += " "
             buffer += token.string
 
 
