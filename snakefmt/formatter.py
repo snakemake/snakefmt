@@ -26,7 +26,7 @@ class Formatter(Parser):
     ):
         self._line_length = line_length
         self.result = ""
-        self.from_rule = False
+        self.from_rule, self.from_comment, self.from_python = False, False, False
         self.first = True
         super().__init__(snakefile)  # Call to parse snakefile
 
@@ -35,26 +35,31 @@ class Formatter(Parser):
 
     def flush_buffer(self, status: Syntax.Status = None):
         if len(self.buffer) == 0 or self.buffer.isspace():
+            self.result += self.buffer
             self.buffer = ""
             return
 
-        add_pass = (
+        self.from_python = (
             True if status is not None and status.indent > self.target_indent else False
         )
 
-        formatted = self.run_black_format_str(
-            self.buffer, self.target_indent, InvalidPython, add_pass
-        )
-        self.from_comment = True if formatted.split("\n")[-1][0] == "#" else False
-        self.add_newlines(self.target_indent, keyword_name="")
-        self.result += formatted + "\n"
+        if not self.from_python:
+            formatted = self.run_black_format_str(
+                self.buffer, self.target_indent, InvalidPython
+            )
+            self.from_comment = True if formatted.splitlines()[-1][0] == "#" else False
+            self.add_newlines(self.target_indent, keyword_name="")
+        else:
+            formatted = self.buffer
+        self.result += formatted
         self.buffer = ""
 
     def process_keyword_context(self):
         context = self.grammar.context
         self.add_newlines(context.target_indent - 1, context.keyword_name)
-        formatted = TAB * (context.target_indent - 1)
-        formatted = f"{formatted}{context.keyword_name}:{context.comment}" + "\n"
+        formatted = f"{context.keyword_name}:{context.comment}" + "\n"
+        if not self.from_python:
+            formatted = f"{TAB * (context.target_indent - 1)}{formatted}"
         self.result += formatted
 
     def process_keyword_param(self, param_context):
@@ -63,15 +68,8 @@ class Formatter(Parser):
         self.result += self.format_params(param_context, in_rule)
 
     def run_black_format_str(
-        self,
-        string: str,
-        target_indent: int,
-        exception: Type[Exception],
-        add_pass: bool = False,
+        self, string: str, target_indent: int, exception: Type[Exception],
     ) -> str:
-        if add_pass:
-            pattern = f"{TAB * (target_indent + 1)}pass"
-            string += pattern
         try:
             fmted = black_format_str(
                 string, mode=FileMode(line_length=self._line_length)
@@ -91,10 +89,7 @@ class Formatter(Parser):
             ) from None
 
         indented = textwrap.indent(fmted, TAB * target_indent)
-        if add_pass:
-            indented = indented[: indented.rindex(pattern)]
-        assert indented[-1] == "\n"  # black should add this
-        return indented[:-1]
+        return indented
 
     def format_param(
         self, parameter: Parameter, used_indent: str, single_param: bool = False
@@ -106,8 +101,10 @@ class Formatter(Parser):
             val = val.replace("\n", "").replace(TAB, "")
             if used_indent != "":
                 val = val.replace('""', '"\n"')
+
         val = self.run_black_format_str(val, 0, InvalidParameterSyntax)
-        val = val.replace("\n", f"\n{used_indent}")
+        assert val[-1] == "\n"  # Black adds this; remove it
+        val = val[:-1].replace("\n", f"\n{used_indent}")
 
         if single_param:
             result = f"{val}{comments}\n"

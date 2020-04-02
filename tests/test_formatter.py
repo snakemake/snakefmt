@@ -1,9 +1,11 @@
+"""Formatting tests
+"""
 from io import StringIO
 
 import pytest
 from unittest import mock
 
-from snakefmt.formatter import Formatter
+from snakefmt.formatter import Formatter, TAB
 from snakefmt.parser.parser import Snakefile
 
 
@@ -59,15 +61,38 @@ class TestPythonFormatting:
         assert formatter.get_formatted() == python_code
 
     def test_python_code_inside_run_keyword(self):
-        python_code = (
+        snake_code = (
             "rule a:\n"
             "    run:\n"
             "        def s(a):\n"
             "            if a:\n"
             '                return "Hello World"\n'
         )
-        formatter = setup_formatter(python_code)
-        assert formatter.get_formatted() == python_code
+        formatter = setup_formatter(snake_code)
+        assert formatter.get_formatted() == snake_code
+
+    def test_snakemake_code_inside_python_code(self):
+        # The rules inside python code get formatted
+        formatter = setup_formatter(
+            "if condition:\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}input: "a", "b"\n'
+            "else:\n"
+            f"{TAB * 1}rule b:\n"
+            f'{TAB * 2}script: "c.py"'
+        )
+        expected = (
+            "if condition:\n"
+            f"{TAB * 1}rule a:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"a",\n'
+            f'{TAB * 3}"b",\n'
+            "else:\n"
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}script:\n"
+            f'{TAB * 3}"c.py"\n'
+        )
+        assert formatter.get_formatted() == expected
 
 
 class TestSimpleParamFormatting:

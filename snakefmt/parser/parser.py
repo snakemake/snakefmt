@@ -141,4 +141,5 @@ class Parser(ABC):
             else:
                 callback_grammar.context.check_empty()
             self.grammar = self.context_stack[-1]
+            self.context.cur_indent = max(self.target_indent - 1, 0)
         assert len(self.context_stack) == self.target_indent + 1
