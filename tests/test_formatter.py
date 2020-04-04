@@ -1,18 +1,15 @@
 """Formatting tests
+
+The tests implicitly assume that the input syntax is correct ie that no parsing-related
+errors arise, as tested in test_parser.py.
 """
 from io import StringIO
 
 import pytest
 from unittest import mock
 
-from snakefmt.formatter import Formatter, TAB
-from snakefmt.parser.parser import Snakefile
-
-
-def setup_formatter(snake: str):
-    stream = StringIO(snake)
-    smk = Snakefile(stream)
-    return Formatter(smk)
+from tests import setup_formatter, Snakefile, Formatter
+from snakefmt.formatter import TAB
 
 
 def test_emptyInput_emptyOutput():

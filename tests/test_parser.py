@@ -6,6 +6,7 @@ from io import StringIO
 
 import pytest
 
+from tests import setup_formatter, Snakefile, Formatter
 from snakefmt.exceptions import (
     InvalidPython,
     DuplicateKeyWordError,
@@ -16,8 +17,7 @@ from snakefmt.exceptions import (
     InvalidParameterSyntax,
     NamedKeywordError,
 )
-from snakefmt.formatter import Formatter
-from snakefmt.parser.parser import Snakefile
+from snakefmt.formatter import TAB
 
 
 class TestKeywordSyntaxErrors:
@@ -57,7 +57,7 @@ class TestKeywordSyntaxErrors:
         In that case black will complain of invalid python and not format it.
         """
         with pytest.raises(InvalidPython):
-            stream = StringIO("Rule a: 3")
+            stream = StringIO(f"role a: \n" f'{TAB * 1}input: "b"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
@@ -157,3 +157,30 @@ class TestIndentationErrors:
             )
             snakefile = Snakefile(stream)
             Formatter(snakefile)
+
+
+class TestPythonCode:
+    def test_invalid_python_code_fails(self):
+        python_code = f"if invalid code here:\n" f"{TAB * 1}break"
+        with pytest.raises(InvalidPython):
+            setup_formatter(python_code)
+
+    def test_snakecode_inside_base_level_python_code_passes(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}if condition2:\n"
+            f"{TAB * 2}rule a:\n"
+            f'{TAB * 3}input:"in"\n'
+        )
+        setup_formatter(snake)
+
+    def test_snakecode_inside_run_directive_fails(self):
+        snake_code = (
+            f"rule a:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}if condition:\n"
+            f"{TAB * 3}rule b:\n"
+            f'{TAB * 4}input: "in"\n'
+        )
+        with pytest.raises(InvalidPython):
+            setup_formatter(snake_code)
