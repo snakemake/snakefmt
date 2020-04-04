@@ -1,5 +1,6 @@
 import textwrap
 from typing import Type
+import re
 
 from black import format_str as black_format_str, FileMode, InvalidInput
 
@@ -92,19 +93,26 @@ class Formatter(Parser):
         return indented
 
     def format_param(
-        self, parameter: Parameter, used_indent: str, single_param: bool = False
+        self,
+        parameter: Parameter,
+        used_indent: str,
+        inline_formatting: bool,
+        single_param: bool = False,
     ):
+        if inline_formatting:
+            used_indent = ""
         comments = "\n{i}".format(i=used_indent).join(parameter.comments)
         val = parameter.value
-        if parameter.is_string:
-            val = val.replace('"""', '"')
-            val = val.replace("\n", "").replace(TAB, "")
-            if used_indent != "":
-                val = val.replace('""', '"\n"')
 
-        val = self.run_black_format_str(val, 0, InvalidParameterSyntax)
-        assert val[-1] == "\n"  # Black adds this; remove it
-        val = val[:-1].replace("\n", f"\n{used_indent}")
+        if parameter.is_string:
+            if not inline_formatting:
+                val = val.replace('""', '"\n"')
+            val = self.run_black_format_str(val, 0, InvalidParameterSyntax)[:-1]
+        else:
+            val = self.run_black_format_str(f"param({val})", 0, InvalidParameterSyntax)
+            val = re.match(r"param\((.*)\)", val, re.DOTALL).group(1)
+            val = val.replace("\n", "").replace(TAB, "")
+        val = val.replace("\n", f"\n{used_indent}")
 
         if single_param:
             result = f"{val}{comments}\n"
@@ -118,25 +126,24 @@ class Formatter(Parser):
     def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
         used_indent = TAB * (parameters.target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
+        used_indent += TAB
 
         p_class = parameters.__class__
         single_param = issubclass(p_class, SingleParam)
         # single parameter formatting cancelled if we are in rule-like context and param is not numeric
-        single_param_fmting = single_param
+        inline_fmting = single_param
         if in_rule and p_class is not SingleNumericParam:
-            single_param_fmting = False
+            inline_fmting = False
 
-        if single_param_fmting:
+        if inline_fmting:
             result += " "
-            used_indent = ""
         else:
             result += "\n"
-            used_indent += TAB
 
         for elem in parameters.positional_params:
-            result += self.format_param(elem, used_indent, single_param)
+            result += self.format_param(elem, used_indent, inline_fmting, single_param)
         for elem in parameters.keyword_params:
-            result += self.format_param(elem, used_indent, single_param)
+            result += self.format_param(elem, used_indent, inline_fmting, single_param)
         return result
 
     def add_newlines(self, cur_indent: int, keyword_name: str = ""):

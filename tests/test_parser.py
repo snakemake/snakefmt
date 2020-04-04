@@ -92,20 +92,20 @@ class TestKeywordSyntaxErrors:
             Formatter(snakefile)
 
 
-class TestParamSyntaxErrors:
-    def test_key_value_no_key(self):
+class TestParamSyntax:
+    def test_key_value_no_key_fails(self):
         with pytest.raises(InvalidParameterSyntax, match="Operator ="):
             stream = StringIO("rule a:" '\n\tinput: = "file.txt"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_key_value_invalid_key(self):
+    def test_key_value_invalid_key_fails(self):
         with pytest.raises(InvalidParameterSyntax, match="Invalid key"):
             stream = StringIO("rule a:" '\n\tinput: \n\t\t2 = "file.txt"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_too_many_params(self):
+    def test_too_many_params_fails(self):
         with pytest.raises(TooManyParameters, match="benchmark"):
             stream = StringIO("rule a:" '\n\tbenchmark: "f1.txt", "f2.txt"')
             snakefile = Snakefile(stream)
@@ -116,6 +116,14 @@ class TestParamSyntaxErrors:
             stream = StringIO("rule a: \n" '\tcontainer: a = "envs/sing.img"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
+
+    def test_dictionary_unpacking_passes(self):
+        snake_code = (
+            f"rule a:\n"
+            f'{TAB * 1}params: **config["params"]\n'
+            f'{TAB * 1}shell: "mycommand {{params}}"'
+        )
+        setup_formatter(snake_code)
 
 
 class TestIndentationErrors:

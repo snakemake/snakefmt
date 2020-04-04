@@ -107,15 +107,15 @@ class TestSimpleParamFormatting:
     def test_shell_keyword_get_newlineIndented(self):
         formatter = setup_formatter(
             "rule a:\n"
-            '    shell: "for i in $(seq 1 5)"\n'
-            '        "do echo $i"\n'
+            '    shell: "for i in $(seq 1 5);"\n'
+            '        "do echo $i;"\n'
             '        "done"'
         )
         expected = (
             "rule a:\n"
             "    shell:\n"
-            '        "for i in $(seq 1 5)"\n'
-            '        "do echo $i"\n'
+            '        "for i in $(seq 1 5);"\n'
+            '        "do echo $i;"\n'
             '        "done"\n'
         )
         assert formatter.get_formatted() == expected
