@@ -181,11 +181,11 @@ Parameter parsing
 
 
 class Parameter:
-    def __init__(self):
+    def __init__(self, line_nb: str):
+        self.line_nb = line_nb
         self.key = ""
         self.value = ""
         self.comments = list()
-        self.is_string = True
         self.len = 0
 
     def has_key(self) -> bool:
@@ -195,8 +195,6 @@ class Parameter:
         return len(self.value) > 0
 
     def add_elem(self, token: Token):
-        if token.type != tokenize.STRING:
-            self.is_string = False
         if len(self.value) > 0 and token.type == tokenize.NAME:
             self.value += " "
 
@@ -215,7 +213,6 @@ class Parameter:
             ) from None
         self.key = self.value
         self.value = ""
-        self.is_string = True
 
 
 class ParameterSyntax(Syntax):
@@ -246,7 +243,7 @@ class ParameterSyntax(Syntax):
 
     def parse_params(self, snakefile: TokenIterator):
         self.found_newline, self.in_lambda = False, False
-        cur_param = Parameter()
+        cur_param = Parameter(self.line_nb)
 
         while True:
             cur_param = self.process_token(cur_param)
@@ -277,13 +274,15 @@ class ParameterSyntax(Syntax):
             self.cur_indent -= 1
         elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
             self.found_newline = True
+            if cur_param.has_value():
+                cur_param.add_elem(self.token)
         elif t_t == tokenize.COMMENT:
             cur_param.comments.append(" " + self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
             self.flush_param(cur_param)
-            cur_param = Parameter()
+            cur_param = Parameter(self.line_nb)
         elif t_t != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self._brackets.append(self.token.string)

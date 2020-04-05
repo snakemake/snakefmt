@@ -1,6 +1,6 @@
 import textwrap
 from typing import Type
-import re
+from ast import parse as ast_parse
 
 from black import format_str as black_format_str, FileMode, InvalidInput
 
@@ -45,9 +45,7 @@ class Formatter(Parser):
         )
 
         if not self.from_python:
-            formatted = self.run_black_format_str(
-                self.buffer, self.target_indent, InvalidPython
-            )
+            formatted = self.run_black_format_str(self.buffer, self.target_indent)
             self.from_comment = True if formatted.splitlines()[-1][0] == "#" else False
             self.add_newlines(self.target_indent, keyword_name="")
         else:
@@ -68,22 +66,14 @@ class Formatter(Parser):
         in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
         self.result += self.format_params(param_context, in_rule)
 
-    def run_black_format_str(
-        self, string: str, target_indent: int, exception: Type[Exception],
-    ) -> str:
+    def run_black_format_str(self, string: str, target_indent: int) -> str:
         try:
             fmted = black_format_str(
                 string, mode=FileMode(line_length=self._line_length)
             )
         except InvalidInput:
-            if exception == InvalidPython:
-                msg = "python code"
-            elif exception == InvalidParameterSyntax:
-                msg = "a parameter value"
-            else:
-                msg = "code"
-            raise exception(
-                f"The following was treated as {msg} to format with black:"
+            raise InvalidPython(
+                f"The following was treated as python code to format with black:"
                 f"\n```\n{string}\n```\n"
                 "And was not recognised as valid.\n"
                 "Did you use the right indentation?"
@@ -104,14 +94,20 @@ class Formatter(Parser):
         comments = "\n{i}".format(i=used_indent).join(parameter.comments)
         val = parameter.value
 
-        if parameter.is_string:
-            if not inline_formatting:
-                val = val.replace('""', '"\n"')
-            val = self.run_black_format_str(val, 0, InvalidParameterSyntax)[:-1]
-        else:
-            val = self.run_black_format_str(f"param({val})", 0, InvalidParameterSyntax)
-            val = re.match(r"param\((.*)\)", val, re.DOTALL).group(1)
-            val = val.replace("\n", "").replace(TAB, "")
+        try:
+            ast_parse(f"param({val})")
+        except SyntaxError:
+            raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
+
+        if inline_formatting:
+            val = val.replace("\n", "")
+        try:
+            val = self.run_black_format_str(val, 0)
+        except InvalidPython:
+            if "**" in val:
+                val = val.replace("** ", "**")
+            pass
+        val = val.strip("\n")
         val = val.replace("\n", f"\n{used_indent}")
 
         if single_param:
