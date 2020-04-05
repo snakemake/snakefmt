@@ -336,7 +336,7 @@ class SingleParam(ParameterSyntax):
 ParamList = ParameterSyntax
 
 
-class SingleNumericParam(SingleParam):
+class RuleInlineSingleParam(SingleParam):
     def __init__(
         self,
         keyword_name: str,

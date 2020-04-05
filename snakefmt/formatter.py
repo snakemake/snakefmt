@@ -13,7 +13,7 @@ from snakefmt.parser.syntax import (
     Parameter,
     ParameterSyntax,
     SingleParam,
-    SingleNumericParam,
+    RuleInlineSingleParam,
     TAB,
 )
 from snakefmt.types import TokenIterator
@@ -126,9 +126,9 @@ class Formatter(Parser):
 
         p_class = parameters.__class__
         single_param = issubclass(p_class, SingleParam)
-        # single parameter formatting cancelled if we are in rule-like context and param is not numeric
         inline_fmting = single_param
-        if in_rule and p_class is not SingleNumericParam:
+        # single parameter formatting cancelled if we are in rule-like context and param is not inline
+        if in_rule and p_class is not RuleInlineSingleParam:
             inline_fmting = False
 
         if inline_fmting:

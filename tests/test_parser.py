@@ -20,7 +20,7 @@ from snakefmt.exceptions import (
 from snakefmt.formatter import TAB
 
 
-class TestKeywordSyntaxErrors:
+class TestKeywordSyntax:
     def test_nocolon(self):
         with pytest.raises(SyntaxError, match="Colon.*expected"):
             stream = StringIO("rule a")
@@ -105,17 +105,22 @@ class TestParamSyntax:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_too_many_params_fails(self):
+    def test_single_parameter_keyword_disallows_multiple_parameters(self):
         with pytest.raises(TooManyParameters, match="benchmark"):
             stream = StringIO("rule a:" '\n\tbenchmark: "f1.txt", "f2.txt"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_positional_required(self):
+    def test_single_parameter_keyword_disallows_kwarg(self):
         with pytest.raises(InvalidParameter, match="container .* positional"):
             stream = StringIO("rule a: \n" '\tcontainer: a = "envs/sing.img"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
+
+    def test_parameter_list_keyword_disallows_kwarg(self):
+        with pytest.raises(InvalidParameterSyntax):
+            snake_code = f"envvars:\n" f'{TAB * 1}"VAR1"' f'{TAB * 1}var2 = "VAR2"'
+            setup_formatter(snake_code)
 
     def test_dictionary_unpacking_passes(self):
         snake_code = (

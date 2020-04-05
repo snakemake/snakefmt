@@ -6,7 +6,7 @@ from snakefmt.parser.syntax import (
     ParamList,
     NoKeywordParamList,
     SingleParam,
-    SingleNumericParam,
+    RuleInlineSingleParam,
 )
 
 
@@ -32,9 +32,9 @@ class SnakeRule(Language):
         input=Grammar(None, ParamList),
         output=Grammar(None, ParamList),
         params=Grammar(None, ParamList),
-        threads=Grammar(None, SingleNumericParam),
+        threads=Grammar(None, RuleInlineSingleParam),
         resources=Grammar(None, ParamList),
-        priority=Grammar(None, SingleNumericParam),
+        priority=Grammar(None, RuleInlineSingleParam),
         version=Grammar(None, SingleParam),
         log=Grammar(None, ParamList),
         message=Grammar(None, SingleParam),
@@ -52,6 +52,7 @@ class SnakeRule(Language):
         notebook=Grammar(None, SingleParam),
         wrapper=Grammar(None, SingleParam),
         cwl=Grammar(None, SingleParam),
+        cache=Grammar(None, RuleInlineSingleParam),
     )
 
 
@@ -65,6 +66,7 @@ class SnakeSubworkflow(Language):
 
 class SnakeGlobal(Language):
     spec = dict(
+        envvars=Grammar(None, NoKeywordParamList),
         include=Grammar(None, SingleParam),
         workdir=Grammar(None, SingleParam),
         configfile=Grammar(None, SingleParam),
@@ -79,4 +81,5 @@ class SnakeGlobal(Language):
         onerror=Grammar(PythonCode, KeywordSyntax),
         wildcard_constraints=Grammar(None, ParamList),
         singularity=Grammar(None, SingleParam),
+        container=Grammar(None, SingleParam),
     )
