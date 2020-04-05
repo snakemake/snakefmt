@@ -482,7 +482,7 @@ description = "Snakemake is a workflow management system that aims to reduce the
 name = "snakemake"
 optional = false
 python-versions = "*"
-version = "5.10.0"
+version = "5.13.0"
 
 [package.dependencies]
 appdirs = "*"
@@ -500,6 +500,7 @@ toposort = "*"
 wrapt = "*"
 
 [package.extras]
+google-cloud = ["crc32c", "oauth2client", "google-api-python-client", "google-cloud-storage"]
 messaging = ["slacker"]
 reports = ["jinja2", "networkx", "pygments", "pygraphviz"]
 
@@ -832,7 +833,7 @@ smmap = [
     {file = "smmap-3.0.1.tar.gz", hash = "sha256:171484fe62793e3626c8b05dd752eb2ca01854b0c55a1efc0dc4210fccb65446"},
 ]
 snakemake = [
-    {file = "snakemake-5.10.0.tar.gz", hash = "sha256:a3fa8b12db84938c919996d61be66031bcb99c4b4d017278731324a6112b0d59"},
+    {file = "snakemake-5.13.0.tar.gz", hash = "sha256:a9271d622594316a3264e89904dfbb9d38d49d8c5b173d8c1f0d9cfdf4c95687"},
 ]
 toml = [
     {file = "toml-0.10.0-py2.7.egg", hash = "sha256:f1db651f9657708513243e61e6cc67d101a39bad662eaa9b5546f789338e07a3"},
