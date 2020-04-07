@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from snakefmt.types import TokenIterator
 from snakefmt.parser.grammar import Grammar, SnakeGlobal
 from snakefmt.parser.syntax import (
+    Vocabulary,
     Syntax,
     KeywordSyntax,
     ParameterSyntax,
@@ -58,7 +59,7 @@ class Parser(ABC):
                 break
 
             keyword = status.token.string
-            if self.language.recognises(keyword):
+            if self.vocab.recognises(keyword):
                 self.flush_buffer(status)
                 status = self.process_keyword(status)
             else:
@@ -74,11 +75,11 @@ class Parser(ABC):
         self.flush_buffer()
 
     @property
-    def language(self):
-        return self.grammar.language
+    def vocab(self) -> Vocabulary:
+        return self.grammar.vocab
 
     @property
-    def context(self):
+    def context(self) -> KeywordSyntax:
         return self.grammar.context
 
     @property
@@ -100,11 +101,11 @@ class Parser(ABC):
     def process_keyword(self, status):
         keyword = status.token.string
         accepts_py = True if keyword in accept_python_code else False
-        new_grammar = self.language.get(keyword)
+        new_grammar = self.vocab.get(keyword)
         if issubclass(new_grammar.context, KeywordSyntax):
             new_target_indent = self.context.cur_indent + 1
             self.grammar = Grammar(
-                new_grammar.language(),
+                new_grammar.vocab(),
                 new_grammar.context(
                     keyword,
                     new_target_indent,
@@ -122,7 +123,7 @@ class Parser(ABC):
 
         elif issubclass(new_grammar.context, ParameterSyntax):
             param_context = new_grammar.context(
-                keyword, self.target_indent + 1, self.language, self.snakefile
+                keyword, self.target_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context)
             self.context.add_processed_keyword(status.token)
@@ -135,7 +136,7 @@ class Parser(ABC):
 
     def context_exit(self, status: Syntax.Status) -> None:
         while self.target_indent > status.indent:
-            callback_grammar = self.context_stack.pop()
+            callback_grammar: KeywordSyntax = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
                 self.flush_buffer()
             else:

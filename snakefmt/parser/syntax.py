@@ -1,6 +1,7 @@
 import tokenize
+from typing import NamedTuple
 
-from snakefmt.types import namedtuple, Token, TokenIterator
+from snakefmt.types import Token, TokenIterator, Parameter
 from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
@@ -15,14 +16,17 @@ accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 
 
-def is_colon(token):
-    return token.type == tokenize.OP and token.string == ":"
-
-
+"""
+Token parsing 
+"""
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
 TAB = "    "
+
+
+def is_colon(token):
+    return token.type == tokenize.OP and token.string == ":"
 
 
 def brack_open(token):
@@ -49,8 +53,31 @@ def not_to_ignore(token):
     )
 
 
+class Vocabulary:
+    """
+    Responsible for recognising keywords
+    """
+
+    spec = dict()
+
+    def recognises(self, keyword: str) -> bool:
+        return keyword in self.spec
+
+    def get(self, keyword: str):
+        return self.spec[keyword]
+
+
 class Syntax:
-    Status = namedtuple("Status", ["token", "indent", "buffer", "eof"])
+    """
+    Responsible for reading and processing tokens
+    Classes derived from it raise syntax errors when snakemake syntax is not respected
+    """
+
+    class Status(NamedTuple):
+        token: Token
+        indent: int
+        buffer: str
+        eof: bool
 
     def __init__(
         self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
@@ -180,47 +207,12 @@ Parameter parsing
 """
 
 
-class Parameter:
-    def __init__(self, line_nb: str):
-        self.line_nb = line_nb
-        self.key = ""
-        self.value = ""
-        self.comments = list()
-        self.len = 0
-
-    def has_key(self) -> bool:
-        return len(self.key) > 0
-
-    def has_value(self) -> bool:
-        return len(self.value) > 0
-
-    def add_elem(self, token: Token):
-        if len(self.value) > 0 and token.type == tokenize.NAME:
-            self.value += " "
-
-        self.value += token.string
-
-    def to_key_val_mode(self, token: Token):
-        if not self.has_value():
-            raise InvalidParameterSyntax(
-                f"L{token.start[0]}:Operator = used with no preceding key"
-            )
-        try:
-            exec(f"{self.value} = 0")
-        except SyntaxError:
-            raise InvalidParameterSyntax(
-                f"L{token.start[0]}:Invalid key {self.value}"
-            ) from None
-        self.key = self.value
-        self.value = ""
-
-
 class ParameterSyntax(Syntax):
     def __init__(
         self,
         keyword_name: str,
         target_indent: int,
-        incident_vocab,
+        incident_vocab: Vocabulary,
         snakefile: TokenIterator,
     ):
         super().__init__(keyword_name, target_indent, snakefile)
@@ -317,7 +309,7 @@ class SingleParam(ParameterSyntax):
         self,
         keyword_name: str,
         target_indent: int,
-        incident_vocab,
+        incident_vocab: Vocabulary,
         snakefile: TokenIterator = None,
     ):
         super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
@@ -340,7 +332,7 @@ class RuleInlineSingleParam(SingleParam):
         self,
         keyword_name: str,
         target_indent: int,
-        incident_vocab,
+        incident_vocab: Vocabulary,
         snakefile: TokenIterator = None,
     ):
         super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
@@ -351,7 +343,7 @@ class NoKeywordParamList(ParameterSyntax):
         self,
         keyword_name: str,
         target_indent: int,
-        incident_vocab,
+        incident_vocab: Vocabulary,
         snakefile: TokenIterator = None,
     ):
         super().__init__(keyword_name, target_indent, incident_vocab, snakefile)

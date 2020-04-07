@@ -1,6 +1,7 @@
-from typing import NamedTuple, Optional, Type, Union
+from typing import NamedTuple, Union, Type, Optional
 
 from snakefmt.parser.syntax import (
+    Vocabulary,
     Syntax,
     KeywordSyntax,
     ParamList,
@@ -10,27 +11,21 @@ from snakefmt.parser.syntax import (
 )
 
 
-class Language:
-    spec = dict()
-
-    def recognises(self, keyword: str) -> bool:
-        if keyword in self.spec:
-            return True
-        return False
-
-    def get(self, keyword: str):
-        return self.spec[keyword]
-
-
 class Grammar(NamedTuple):
-    language: Optional[Language]
+    """
+    Ties together a vocabulary and a syntax reader
+    When a keyword from `vocab` is recognised, a new grammar is induced
+    """
+
+    vocab: Optional[Union[Type[Vocabulary], Vocabulary]]
     context: Union[Type[Syntax], Syntax]
 
 
-PythonCode = Language  # Alias
+class PythonCode(Vocabulary):
+    pass
 
 
-class SnakeRule(Language):
+class SnakeRule(Vocabulary):
     spec = dict(
         input=Grammar(None, ParamList),
         output=Grammar(None, ParamList),
@@ -59,7 +54,7 @@ class SnakeRule(Language):
     )
 
 
-class SnakeSubworkflow(Language):
+class SnakeSubworkflow(Vocabulary):
     spec = dict(
         snakefile=Grammar(None, SingleParam),
         workdir=Grammar(None, SingleParam),
@@ -67,7 +62,7 @@ class SnakeSubworkflow(Language):
     )
 
 
-class SnakeGlobal(Language):
+class SnakeGlobal(Vocabulary):
     spec = dict(
         envvars=Grammar(None, NoKeywordParamList),
         include=Grammar(None, SingleParam),
