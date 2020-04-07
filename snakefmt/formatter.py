@@ -88,7 +88,7 @@ class Formatter(Parser):
         used_indent: str,
         inline_formatting: bool,
         single_param: bool = False,
-    ):
+    ) -> str:
         if inline_formatting:
             used_indent = ""
         comments = "\n{i}".format(i=used_indent).join(parameter.comments)

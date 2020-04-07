@@ -1,6 +1,6 @@
 import tokenize
-from snakefmt.types import namedtuple, Token, TokenIterator
 
+from snakefmt.types import namedtuple, Token, TokenIterator
 from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
@@ -101,7 +101,7 @@ class KeywordSyntax(Syntax):
         self,
         keyword_name: str,
         target_indent: int,
-        incident_context: Syntax = None,
+        incident_context: "KeywordSyntax" = None,
         snakefile: TokenIterator = None,
         accepts_py: bool = False,
     ):
@@ -133,10 +133,10 @@ class KeywordSyntax(Syntax):
             )
 
     @property
-    def effective_indent(self):
+    def effective_indent(self) -> int:
         return max(0, self.cur_indent - self.target_indent)
 
-    def get_next_queriable(self, snakefile):
+    def get_next_queriable(self, snakefile) -> Syntax.Status:
         buffer = ""
         newline, used_name = False, True
         while True:
@@ -225,11 +225,11 @@ class ParameterSyntax(Syntax):
     ):
         super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
-        self.positional_params = list()
-        self.keyword_params = list()
+        self.positional_params, self.keyword_params = list(), list()
         self.eof = False
         self.incident_vocab = incident_vocab
         self._brackets = list()
+        self.found_newline, self.in_lambda = False, False
 
         self.parse_params(snakefile)
 
@@ -242,7 +242,6 @@ class ParameterSyntax(Syntax):
         return len(self._brackets) > 0
 
     def parse_params(self, snakefile: TokenIterator):
-        self.found_newline, self.in_lambda = False, False
         cur_param = Parameter(self.line_nb)
 
         while True:
@@ -266,7 +265,7 @@ class ParameterSyntax(Syntax):
                 return True
         return False
 
-    def process_token(self, cur_param: Parameter):
+    def process_token(self, cur_param: Parameter) -> Parameter:
         t_t = self.token.type
         if t_t == tokenize.INDENT:
             self.cur_indent += 1
@@ -300,7 +299,7 @@ class ParameterSyntax(Syntax):
             cur_param.add_elem(self.token)
         return cur_param
 
-    def flush_param(self, parameter: Parameter, skip_empty: bool = False):
+    def flush_param(self, parameter: Parameter, skip_empty: bool = False) -> None:
         if not parameter.has_value() and skip_empty:
             return
 

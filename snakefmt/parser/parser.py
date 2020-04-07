@@ -82,11 +82,11 @@ class Parser(ABC):
         return self.grammar.context
 
     @property
-    def target_indent(self):
+    def target_indent(self) -> int:
         return self.context.target_indent
 
     @abstractmethod
-    def flush_buffer(self, status: Syntax.Status = None):
+    def flush_buffer(self, status: Syntax.Status = None) -> None:
         pass
 
     @abstractmethod
@@ -133,7 +133,7 @@ class Parser(ABC):
                 param_context.eof,
             )
 
-    def context_exit(self, status):
+    def context_exit(self, status: Syntax.Status) -> None:
         while self.target_indent > status.indent:
             callback_grammar = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
@@ -142,4 +142,3 @@ class Parser(ABC):
                 callback_grammar.context.check_empty()
             self.grammar = self.context_stack[-1]
             self.context.cur_indent = max(self.target_indent - 1, 0)
-        assert len(self.context_stack) == self.target_indent + 1

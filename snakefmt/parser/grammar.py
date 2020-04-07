@@ -1,7 +1,7 @@
-from typing import Tuple
+from typing import NamedTuple, Optional, Type, Union
 
 from snakefmt.parser.syntax import (
-    namedtuple,
+    Syntax,
     KeywordSyntax,
     ParamList,
     NoKeywordParamList,
@@ -18,11 +18,14 @@ class Language:
             return True
         return False
 
-    def get(self, keyword: str) -> Tuple:
+    def get(self, keyword: str):
         return self.spec[keyword]
 
 
-Grammar = namedtuple("Grammar", ["language", "context"])
+class Grammar(NamedTuple):
+    language: Optional[Language]
+    context: Union[Type[Syntax], Syntax]
+
 
 PythonCode = Language  # Alias
 
