@@ -140,10 +140,12 @@ class Parser(ABC):
 
     def context_exit(self, status: Syntax.Status) -> None:
         while self.target_indent > status.indent:
-            callback_grammar: KeywordSyntax = self.context_stack.pop()
+            callback_grammar: Grammar = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
                 self.flush_buffer()
             else:
                 callback_grammar.context.check_empty()
             self.grammar = self.context_stack[-1]
-            self.context.cur_indent = max(self.target_indent - 1, 0)
+        self.context.cur_indent = status.indent
+        if self.target_indent > 0:
+            self.target_indent = status.indent + 1

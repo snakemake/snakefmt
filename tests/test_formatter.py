@@ -91,6 +91,25 @@ class TestPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    def test_multiple_rules_inside_python_code(self):
+        formatter = setup_formatter(
+            "if condition:\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}wrapper: "a"\n'
+            f"{TAB * 1}rule b:\n"
+            f'{TAB * 2}script: "b"'
+        )
+        expected = (
+            "if condition:\n"
+            f"{TAB * 1}rule a:\n"
+            f"{TAB * 2}wrapper:\n"
+            f'{TAB * 3}"a"\n'
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}script:\n"
+            f'{TAB * 3}"b"\n'
+        )
+        assert formatter.get_formatted() == expected
+
 
 class TestSimpleParamFormatting:
     def test_singleParamKeyword_staysOnSameLine(self):

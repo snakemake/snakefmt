@@ -257,23 +257,24 @@ class ParameterSyntax(Syntax):
         return False
 
     def process_token(self, cur_param: Parameter) -> Parameter:
-        t_t = self.token.type
-        if t_t == tokenize.INDENT:
+        token_type = self.token.type
+        if token_type == tokenize.INDENT:
             self.cur_indent += 1
-        elif t_t == tokenize.DEDENT:
-            self.cur_indent -= 1
-        elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
+        elif token_type == tokenize.DEDENT:
+            if self.cur_indent > 0:
+                self.cur_indent -= 1
+        elif token_type == tokenize.NEWLINE or token_type == tokenize.NL:
             self.found_newline = True
             if cur_param.has_value():
                 cur_param.add_elem(self.token)
-        elif t_t == tokenize.COMMENT:
+        elif token_type == tokenize.COMMENT:
             cur_param.comments.append(" " + self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
             self.flush_param(cur_param)
             cur_param = Parameter(self.line_nb)
-        elif t_t != tokenize.ENDMARKER:
+        elif token_type != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self._brackets.append(self.token.string)
             if brack_close(self.token):
