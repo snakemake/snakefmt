@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 from snakefmt.types import TokenIterator
 from snakefmt.parser.grammar import Grammar, SnakeGlobal
+from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.syntax import (
     Vocabulary,
     Syntax,
@@ -133,6 +134,9 @@ class Parser(ABC):
                 status.buffer,
                 param_context.eof,
             )
+
+        else:
+            raise UnsupportedSyntax()
 
     def context_exit(self, status: Syntax.Status) -> None:
         while self.target_indent > status.indent:

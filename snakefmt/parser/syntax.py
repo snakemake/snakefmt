@@ -25,27 +25,27 @@ BRACKETS_CLOSE = {")", "]", "}"}
 TAB = "    "
 
 
-def is_colon(token):
+def is_colon(token: Token):
     return token.type == tokenize.OP and token.string == ":"
 
 
-def brack_open(token):
+def brack_open(token: Token):
     return token.type == tokenize.OP and token.string in BRACKETS_OPEN
 
 
-def brack_close(token):
+def brack_close(token: Token):
     return token.type == tokenize.OP and token.string in BRACKETS_CLOSE
 
 
-def is_equal_sign(token):
+def is_equal_sign(token: Token):
     return token.type == tokenize.OP and token.string == "="
 
 
-def is_comma_sign(token):
+def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
 
 
-def not_to_ignore(token):
+def not_to_ignore(token: Token):
     return (
         len(token.string) > 0
         and not token.string.isspace()
@@ -168,17 +168,16 @@ class KeywordSyntax(Syntax):
         newline, used_name = False, True
         while True:
             token = next(snakefile)
-            t_t = token.type
-            if t_t == tokenize.INDENT:
+            if token.type == tokenize.INDENT:
                 self.cur_indent += 1
                 continue
-            elif t_t == tokenize.DEDENT:
+            elif token.type == tokenize.DEDENT:
                 if self.cur_indent > 0:
                     self.cur_indent -= 1
                 continue
-            elif t_t == tokenize.ENDMARKER:
+            elif token.type == tokenize.ENDMARKER:
                 return self.Status(token, self.cur_indent, buffer, True)
-            elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
+            elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
                 self.queriable, newline = True, True
                 buffer += "\n"
                 continue
@@ -187,7 +186,7 @@ class KeywordSyntax(Syntax):
                 buffer += TAB * self.effective_indent
                 newline = False
 
-            if t_t == tokenize.NAME:
+            if token.type == tokenize.NAME:
                 if self.queriable:
                     self.queriable = False
                     return self.Status(token, self.cur_indent, buffer, False)
@@ -197,7 +196,7 @@ class KeywordSyntax(Syntax):
                     used_name = True
             else:
                 used_name = False
-            if t_t == tokenize.STRING and token.string[0] not in QUOTES:
+            if token.type == tokenize.STRING and token.string[0] not in QUOTES:
                 buffer += " "
             buffer += token.string
 

@@ -32,3 +32,7 @@ class NoParametersError(Exception):
 
 class TooManyParameters(Exception):
     pass
+
+
+class UnsupportedSyntax(Exception):
+    pass
