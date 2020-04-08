@@ -13,6 +13,7 @@ from snakefmt.exceptions import (
 )
 
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
+possibly_duplicated_keywords = {"include"}
 
 
 """

@@ -9,6 +9,7 @@ from snakefmt.parser.syntax import (
     Syntax,
     KeywordSyntax,
     ParameterSyntax,
+    possibly_duplicated_keywords,
 )
 
 
@@ -74,8 +75,6 @@ class Parser(ABC):
                         f"in {self.context.keyword_name} definition"
                     )
                 else:
-                    if status.indent == 0:  # Ensures fail-early on invalid python code
-                        self.flush_buffer()
                     self.buffer += keyword
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
@@ -136,7 +135,8 @@ class Parser(ABC):
                 keyword, self.target_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context)
-            self.context.add_processed_keyword(status.token, status.token.string)
+            if keyword not in possibly_duplicated_keywords:
+                self.context.add_processed_keyword(status.token, status.token.string)
             return Syntax.Status(
                 param_context.token,
                 param_context.cur_indent,
