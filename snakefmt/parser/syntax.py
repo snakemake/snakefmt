@@ -12,7 +12,6 @@ from snakefmt.exceptions import (
     NamedKeywordError,
 )
 
-accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 
 
@@ -78,6 +77,7 @@ class Syntax:
         indent: int
         buffer: str
         eof: bool
+        pythonable: bool
 
     def __init__(
         self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
@@ -128,25 +128,26 @@ class KeywordSyntax(Syntax):
         self,
         keyword_name: str,
         target_indent: int,
-        incident_context: "KeywordSyntax" = None,
         snakefile: TokenIterator = None,
+        incident_context: "KeywordSyntax" = None,
+        from_python: bool = False,
         accepts_py: bool = False,
     ):
         super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
         self.queriable = True
+        self.from_python = from_python
 
         if incident_context is not None:
-            incident_context.add_processed_keyword(self.token, self.keyword_name)
             if self.token.type != tokenize.NEWLINE:
                 raise SyntaxError(
                     f"{self.line_nb}Newline expected after keyword '{self.keyword_name}'"
                 )
+            if not from_python:
+                incident_context.add_processed_keyword(self.token, self.keyword_name)
 
-    def add_processed_keyword(self, token: Token, keyword: str = ""):
-        if keyword is "":
-            keyword = token.string
+    def add_processed_keyword(self, token: Token, keyword: str):
         if keyword in self.processed_keywords:
             raise DuplicateKeyWordError(
                 f"L{token.start[0]}: '{keyword}' specified twice."
@@ -166,6 +167,7 @@ class KeywordSyntax(Syntax):
     def get_next_queriable(self, snakefile) -> Syntax.Status:
         buffer = ""
         newline, used_name = False, True
+        pythonable = False
         while True:
             token = next(snakefile)
             if token.type == tokenize.INDENT:
@@ -176,7 +178,7 @@ class KeywordSyntax(Syntax):
                     self.cur_indent -= 1
                 continue
             elif token.type == tokenize.ENDMARKER:
-                return self.Status(token, self.cur_indent, buffer, True)
+                return self.Status(token, self.cur_indent, buffer, True, pythonable)
             elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
                 self.queriable, newline = True, True
                 buffer += "\n"
@@ -189,7 +191,9 @@ class KeywordSyntax(Syntax):
             if token.type == tokenize.NAME:
                 if self.queriable:
                     self.queriable = False
-                    return self.Status(token, self.cur_indent, buffer, False)
+                    return self.Status(
+                        token, self.cur_indent, buffer, False, pythonable
+                    )
                 if used_name:
                     buffer += " "
                 else:
@@ -198,6 +202,8 @@ class KeywordSyntax(Syntax):
                 used_name = False
             if token.type == tokenize.STRING and token.string[0] not in QUOTES:
                 buffer += " "
+            if not pythonable and token.type != tokenize.COMMENT:
+                pythonable = True
             buffer += token.string
 
 

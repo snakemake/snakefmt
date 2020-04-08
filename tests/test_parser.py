@@ -187,6 +187,20 @@ class TestPythonCode:
         )
         setup_formatter(snake)
 
+    def test_multicopy_rule_name_inside_python_code_passes(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"a"\n'
+            f"else if condition2:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"b"\n'
+            f"else:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"c"'
+        )
+        setup_formatter(snake)
+
     def test_snakecode_inside_run_directive_fails(self):
         snake_code = (
             f"rule a:\n"

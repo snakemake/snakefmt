@@ -34,15 +34,11 @@ class Formatter(Parser):
     def get_formatted(self):
         return self.result
 
-    def flush_buffer(self, status: Syntax.Status = None):
+    def flush_buffer(self, from_python: bool = False):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.result += self.buffer
             self.buffer = ""
             return
-
-        from_python = (
-            True if status is not None and status.indent > self.target_indent else False
-        )
 
         if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.target_indent)
