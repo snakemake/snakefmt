@@ -35,7 +35,7 @@ class TestPythonFormatting:
         mock_method.assert_called_once()
 
     def test_python_code_with_multi_indent_passes(self):
-        python_code = "if p:\n" "    for elem in p:\n" "        dothing(elem)\n"
+        python_code = "if p:\n" f"{TAB * 1}for elem in p:\n" f"{TAB * 2}dothing(elem)\n"
         # test black gets called
         with mock.patch(
             "snakefmt.formatter.Formatter.run_black_format_str", spec=True
@@ -51,8 +51,8 @@ class TestPythonFormatting:
     def test_python_code_with_rawString(self):
         python_code = (
             "def get_read_group(wildcards):\n"
-            '    myvar = r"bytes"\n'
-            '    return r"\t@RID"\n'
+            f'{TAB * 1}myvar = r"bytes"\n'
+            f'{TAB * 1}return r"\t@RID"\n'
         )
         formatter = setup_formatter(python_code)
         assert formatter.get_formatted() == python_code
@@ -60,10 +60,10 @@ class TestPythonFormatting:
     def test_python_code_inside_run_keyword(self):
         snake_code = (
             "rule a:\n"
-            "    run:\n"
-            "        def s(a):\n"
-            "            if a:\n"
-            '                return "Hello World"\n'
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}def s(a):\n"
+            f"{TAB * 2}    if a:\n"
+            f'{TAB * 3}    return "Hello World"\n'
         )
         formatter = setup_formatter(snake_code)
         assert formatter.get_formatted() == snake_code
@@ -97,7 +97,7 @@ class TestSimpleParamFormatting:
         """
         Keywords that expect a single parameter do not have newline + indent
         """
-        formatter = setup_formatter("configfile: \n" '    "foo.yaml"')
+        formatter = setup_formatter("configfile: \n" f'{TAB * 1}"foo.yaml"')
 
         actual = formatter.get_formatted()
         expected = 'configfile: "foo.yaml"\n'
@@ -107,59 +107,64 @@ class TestSimpleParamFormatting:
     def test_shell_keyword_get_newlineIndented(self):
         formatter = setup_formatter(
             "rule a:\n"
-            '    shell: "for i in $(seq 1 5);"\n'
-            '        "do echo $i;"\n'
-            '        "done"'
+            f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
+            f'{TAB * 2}"do echo $i;"\n'
+            f'{TAB * 2}"done"'
         )
         expected = (
             "rule a:\n"
-            "    shell:\n"
-            '        "for i in $(seq 1 5);"\n'
-            '        "do echo $i;"\n'
-            '        "done"\n'
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"for i in $(seq 1 5);"\n'
+            f'{TAB * 2}"do echo $i;"\n'
+            f'{TAB * 2}"done"\n'
         )
         assert formatter.get_formatted() == expected
 
     def test_singleParamKeywordInRule_NewlineIndented(self):
         formatter = setup_formatter(
-            "rule a: \n"
-            '    input: "a", "b",\n'
-            '                  "c"\n'
-            '    wrapper: "mywrapper"'
+            f"rule a: \n"
+            f'{TAB * 1}input: "a", "b",\n'
+            f'{TAB * 4}"c"\n'
+            f'{TAB * 1}wrapper: "mywrapper"'
         )
 
         actual = formatter.get_formatted()
         expected = (
             "rule a:\n"
-            "    input:\n"
-            '        "a",\n'
-            '        "b",\n'
-            '        "c",\n'
-            "    wrapper:\n"
-            '        "mywrapper"\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"a",\n'
+            f'{TAB * 2}"b",\n'
+            f'{TAB * 2}"c",\n'
+            f"{TAB * 1}wrapper:\n"
+            f'{TAB * 2}"mywrapper"\n'
         )
 
         assert actual == expected
 
     def test_singleNumericParamKeywordInRule_staysOnSameLine(self):
         formatter = setup_formatter(
-            "rule a: \n" '    input: "c"\n' "    threads:\n" "        20"
+            "rule a: \n" f'{TAB * 1}input: "c"\n' f"{TAB * 1}threads:\n" f"{TAB * 2}20"
         )
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "    input:\n" '        "c",\n' "    threads: 20\n"
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"c",\n'
+            f"{TAB * 1}threads: 20\n"
+        )
 
         assert actual == expected
 
     def test_simple_rule_one_input(self):
         # Differences brought about: single quote to double quote (black),
         # input parameter indentation
-        stream = StringIO("rule a:\n" "    input: 'foo.txt'")
+        stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
         smk = Snakefile(stream)
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" "    input:\n" '        "foo.txt",\n'
+        expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
 
         assert actual == expected
 
@@ -188,9 +193,10 @@ class TestCommaParamFormatting:
     def test_expand_as_param(self):
         stream = StringIO(
             "rule a:\n"
-            "    input: \n"
-            '        expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
-            '    output:"foo.txt","bar.txt"\n'
+            f"{TAB * 1}input: \n"
+            f"{TAB * 2}"
+            'expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
+            f'{TAB * 1}output:"foo.txt","bar.txt"\n'
         )
 
         smk = Snakefile(stream)
@@ -199,32 +205,33 @@ class TestCommaParamFormatting:
 
         expected = (
             "rule a:\n"
-            "    input:\n"
-            '        expand("{f}/{p}", f=[1, 2], p=["1", "2"]),\n'
-            "    output:\n"
-            '        "foo.txt",\n'
-            '        "bar.txt",\n'
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}"
+            'expand("{f}/{p}", f=[1, 2], p=["1", "2"]),\n'
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f'{TAB * 2}"bar.txt",\n'
         )
 
         assert actual == expected
 
     def test_lambda_function_with_multiple_input_params(self):
         stream = StringIO(
-            "rule a:\n"
-            "    input: 'foo.txt' \n"
-            "    resources:"
-            "        mem_mb = lambda wildcards, attempt: attempt * 1000"
+            f"rule a:\n"
+            f'{TAB * 1}input: "foo.txt" \n'
+            f"{TAB * 1}resources:"
+            f"{TAB * 2}mem_mb = lambda wildcards, attempt: attempt * 1000"
         )
         smk = Snakefile(stream)
         formatter = Formatter(smk)
 
         actual = formatter.get_formatted()
         expected = (
-            "rule a:\n"
-            "    input:\n"
-            '        "foo.txt",\n'
-            "    resources:\n"
-            "        mem_mb=lambda wildcards, attempt: attempt * 1000,\n"
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f"{TAB * 1}resources:\n"
+            f"{TAB * 2}mem_mb=lambda wildcards, attempt: attempt * 1000,\n"
         )
 
         assert actual == expected
@@ -235,12 +242,13 @@ class TestCommaParamFormatting:
         Ie, the lambda needs to be parsed as a parameter.
         """
         snakefile = (
-            "rule a:\n"
-            "    input:\n"
-            '        "foo.txt",\n'
-            "    params:\n"
-            '        obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)],\n'
-            "        p2=2,\n"
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f"{TAB * 1}params:\n"
+            f"{TAB * 2}"
+            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)],\n'
+            f"{TAB * 2}p2=2,\n"
         )
         formatter = setup_formatter(snakefile)
 
@@ -266,46 +274,69 @@ class TestNewlineSpacing:
         formatter.get_formatted() == snakestring
 
     def test_rule_needs_double_spacing_above(self):
-        formatter = setup_formatter('foo = "bar"\nrule all:\n    input:\n        "a"\n')
-
+        formatter = setup_formatter(
+            f'foo = "bar"\n' f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a"\n'
+        )
+        expected = (
+            f'foo = "bar"\n\n\n' f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a",\n'
+        )
         actual = formatter.get_formatted()
-        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a",\n'
 
         assert actual == expected
 
     def test_rule_with_three_newlines_above_only_has_two_after_formatting(self):
         formatter = setup_formatter(
-            'foo = "bar"\n\n\n\nrule all:\n    input:\n        "a"\n'
+            f'foo = "bar"\n\n\n\n' f"rule all:\n" f'{TAB * 1}input:{TAB * 2}"a"\n'
         )
 
         actual = formatter.get_formatted()
-        expected = 'foo = "bar"\n\n\nrule all:\n    input:\n        "a",\n'
+        expected = (
+            f'foo = "bar"\n\n\n' f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a",\n'
+        )
 
         assert actual == expected
 
     def test_rule_needs_double_spacing_below(self):
-        formatter = setup_formatter('rule all:\n    input:\n        "a"\nfoo = "bar"\n')
+        formatter = setup_formatter(
+            f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a"\n' f'foo = "bar"\n'
+        )
 
         actual = formatter.get_formatted()
-        expected = 'rule all:\n    input:\n        "a",\n\n\nfoo = "bar"\n'
+        expected = (
+            f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a",\n\n\n' f'foo = "bar"\n'
+        )
 
         assert actual == expected
 
     def test_rule_with_three_newlines_below_only_has_two_after_formatting(self):
         formatter = setup_formatter(
-            'rule all:\n    input:\n        "a"\n\n\n\nfoo = "bar"'
+            f"rule all:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"a",\n'
+            f"\n\n\n"
+            f'foo = "bar"'
         )
 
         actual = formatter.get_formatted()
-        expected = 'rule all:\n    input:\n        "a",\n\n\nfoo = "bar"\n'
+        expected = (
+            f"rule all:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"a",\n'
+            f"\n\n"
+            f'foo = "bar"\n'
+        )
 
         assert actual == expected
 
     def test_comment_exempt_from_keyword_spacing(self):
-        formatter = setup_formatter("# load config\n" "rule all:\n    input:files")
+        formatter = setup_formatter(
+            f"# load config\n" f"rule all:\n" f"{TAB * 1}input:files\n"
+        )
 
         actual = formatter.get_formatted()
-        expected = "# load config\nrule all:\n    input:\n        files,\n"
+        expected = (
+            f"# load config\n" f"rule all:\n" f"{TAB * 1}input:\n" f"{TAB * 2}files,\n"
+        )
 
         assert actual == expected
 

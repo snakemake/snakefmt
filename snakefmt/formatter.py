@@ -71,12 +71,9 @@ class Formatter(Parser):
             fmted = black_format_str(
                 string, mode=FileMode(line_length=self._line_length)
             )
-        except InvalidInput:
+        except InvalidInput as e:
             raise InvalidPython(
-                f"The following was treated as python code to format with black:"
-                f"\n```\n{string}\n```\n"
-                "And was not recognised as valid.\n"
-                "Did you use the right indentation?"
+                f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
 
         indented = textwrap.indent(fmted, TAB * target_indent)
