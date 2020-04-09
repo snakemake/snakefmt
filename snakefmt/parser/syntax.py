@@ -13,7 +13,7 @@ from snakefmt.exceptions import (
 )
 
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
-possibly_duplicated_keywords = {"include"}
+possibly_duplicated_keywords = {"include", "ruleorder", "localrules"}
 
 """
 Token parsing 
@@ -196,14 +196,15 @@ class KeywordSyntax(Syntax):
 
             if newline:  # Records relative tabbing, used for python code formatting
                 buffer += TAB * self.effective_indent
-                newline = False
 
             if token.type == tokenize.NAME and self.queriable:
                 self.queriable = False
                 return self.Status(token, self.cur_indent, buffer, False, pythonable)
-            if used_name and is_spaceable(token):
+            if used_name and is_spaceable(token) and not newline:
                 buffer += " "
             used_name = token.type == tokenize.NAME
+            if newline:
+                newline = False
             if not pythonable and token.type != tokenize.COMMENT:
                 pythonable = True
             buffer += token.string

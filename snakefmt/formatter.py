@@ -1,6 +1,7 @@
 import textwrap
 from typing import Type
 from ast import parse as ast_parse
+import re
 
 from black import format_str as black_format_str, FileMode, InvalidInput
 
@@ -102,6 +103,7 @@ class Formatter(Parser):
                 val = val.replace("** ", "**")
             pass
         val = val.strip("\n")
+        val = re.sub("\n +", "\n", val)
         val = val.replace("\n", f"\n{used_indent}")
 
         if single_param:

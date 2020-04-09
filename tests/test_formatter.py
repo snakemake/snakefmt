@@ -150,6 +150,21 @@ class TestSimpleParamFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    def test_triple_quoted_string_not_over_indented(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}"
+            '"""for i in $(seq 1 5)\\'
+            "\n"
+            f"{TAB * 2}"
+            "do echo $i\\"
+            "\n"
+            f'{TAB * 2}done"""\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_singleParamKeywordInRule_NewlineIndented(self):
         formatter = setup_formatter(
             f"rule a: \n"
