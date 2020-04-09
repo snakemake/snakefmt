@@ -204,6 +204,19 @@ class TestPythonCode:
         )
         setup_formatter(snake)
 
+    def test_multicopy_rule_name_after_python_code_fails(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"a"\n'
+            f"rule b:\n"
+            f'{TAB * 1}wrapper:"b"\n'
+            f"rule b:\n"
+            f'{TAB * 1}wrapper:"b"'
+        )
+        with pytest.raises(DuplicateKeyWordError):
+            setup_formatter(snake)
+
     def test_snakecode_inside_run_directive_fails(self):
         snake_code = (
             f"rule a:\n"

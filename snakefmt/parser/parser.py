@@ -62,10 +62,11 @@ class Parser(ABC):
             keyword = status.token.string
             if self.vocab.recognises(keyword):
                 from_python = False
-                if self.context.from_python or (
-                    status.pythonable and status.indent > self.target_indent
-                ):
-                    from_python = True
+                if status.indent > self.target_indent:
+                    if self.context.from_python or status.pythonable:
+                        from_python = True
+                    else:  # Over-indented context gets reset
+                        self.context.cur_indent = max(self.target_indent - 1, 0)
                 self.flush_buffer(from_python)
                 status = self.process_keyword(status, from_python)
             else:
@@ -112,12 +113,11 @@ class Parser(ABC):
         new_grammar = self.vocab.get(keyword)
         accepts_py = new_grammar.vocab is PythonCode
         if issubclass(new_grammar.context, KeywordSyntax):
-            new_target_indent = self.context.cur_indent + 1
             self.grammar = Grammar(
                 new_grammar.vocab(),
                 new_grammar.context(
                     keyword,
-                    new_target_indent,
+                    self.context.cur_indent + 1,
                     snakefile=self.snakefile,
                     incident_context=self.context,
                     from_python=from_python,

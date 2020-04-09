@@ -288,6 +288,29 @@ class TestCommaParamFormatting:
         assert actual == expected
 
 
+class TestReformatting_SMK_BREAK:
+    """
+    Cases where snakemake v5.13.0 raises errors, but snakefmt reformats
+    such that snakemake can then run fine
+    """
+
+    def test_key_value_parameter_repositioning(self):
+        formatter = setup_formatter(
+            f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}a="b",\n' f'{TAB * 2}"c"\n'
+        )
+        expected = (
+            f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"c",\n' f'{TAB * 2}a="b",\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_rule_re_indenting(self):
+        formatter = setup_formatter(
+            f"{TAB * 1}rule a:\n" f"{TAB * 2}wrapper:\n" f'{TAB * 3}"a"\n'
+        )
+        expected = f"rule a:\n" f"{TAB * 1}wrapper:\n" f'{TAB * 2}"a"\n'
+        assert formatter.get_formatted() == expected
+
+
 class TestNewlineSpacing:
     def test_non_rule_has_no_keyword_spacing_above(self):
         formatter = setup_formatter("# load config\n" 'configfile: "config.yaml"')
