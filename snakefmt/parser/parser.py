@@ -78,6 +78,7 @@ class Parser(ABC):
                     self.buffer += keyword
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
+            self.context.cur_indent = status.indent
         self.flush_buffer()
 
     @property
@@ -132,7 +133,7 @@ class Parser(ABC):
 
         elif issubclass(new_grammar.context, ParameterSyntax):
             param_context = new_grammar.context(
-                keyword, self.target_indent + 1, self.vocab, self.snakefile
+                keyword, self.context.cur_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context)
             if keyword not in possibly_duplicated_keywords:

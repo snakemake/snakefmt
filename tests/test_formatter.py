@@ -110,6 +110,17 @@ class TestPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    def test_parameter_keywords_inside_python_code(self):
+        snakecode = (
+            "if condition:\n"
+            f'{TAB * 1}include: "a"\n'
+            f"else:\n"
+            f'{TAB * 1}include: "b"\n'
+            f'include: "c"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestSimpleParamFormatting:
     def test_singleParamKeyword_staysOnSameLine(self):

@@ -15,7 +15,6 @@ from snakefmt.exceptions import (
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 possibly_duplicated_keywords = {"include"}
 
-
 """
 Token parsing 
 """
@@ -43,6 +42,16 @@ def is_equal_sign(token: Token):
 
 def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
+
+
+def is_spaceable(token: Token):
+    if (
+        token.type == tokenize.NAME
+        or token.type == tokenize.STRING
+        or token.type == tokenize.NUMBER
+    ):
+        return True
+    return False
 
 
 def not_to_ignore(token: Token):
@@ -189,20 +198,12 @@ class KeywordSyntax(Syntax):
                 buffer += TAB * self.effective_indent
                 newline = False
 
-            if token.type == tokenize.NAME:
-                if self.queriable:
-                    self.queriable = False
-                    return self.Status(
-                        token, self.cur_indent, buffer, False, pythonable
-                    )
-                if used_name:
-                    buffer += " "
-                else:
-                    used_name = True
-            else:
-                used_name = False
-            if token.type == tokenize.STRING and token.string[0] not in QUOTES:
+            if token.type == tokenize.NAME and self.queriable:
+                self.queriable = False
+                return self.Status(token, self.cur_indent, buffer, False, pythonable)
+            if used_name and is_spaceable(token):
                 buffer += " "
+            used_name = token.type == tokenize.NAME
             if not pythonable and token.type != tokenize.COMMENT:
                 pythonable = True
             buffer += token.string
