@@ -181,7 +181,7 @@ class TestPythonCode:
         with pytest.raises(InvalidPython):
             setup_formatter(python_code)
 
-    def test_snakecode_inside_base_level_python_code_passes(self):
+    def test_rules_inside_python_code_passes(self):
         snake = (
             f"if condition1:\n"
             f"{TAB * 1}if condition2:\n"
@@ -201,6 +201,16 @@ class TestPythonCode:
             f"else:\n"
             f"{TAB * 1}rule all:\n"
             f'{TAB * 2}wrapper:"c"'
+        )
+        setup_formatter(snake)
+
+    def test_multicopy_parameter_keyword_inside_python_code_passes(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}if condition2:\n"
+            f'{TAB * 2}configfile: "f1"\n'
+            f"{TAB * 1}else:\n"
+            f'{TAB * 2}configfile: "f2"\n'
         )
         setup_formatter(snake)
 

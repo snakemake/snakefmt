@@ -326,6 +326,13 @@ class TestReformatting_SMK_BREAK:
         assert formatter.get_formatted() == expected
 
 
+class TestCommentTreatment:
+    def test_comment_after_parameter_keyword_not_absorbed(self):
+        snakecode = f'include: "a"\n\n# A comment\n'
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+
 class TestNewlineSpacing:
     def test_non_rule_has_no_keyword_spacing_above(self):
         formatter = setup_formatter("# load config\n" 'configfile: "config.yaml"')

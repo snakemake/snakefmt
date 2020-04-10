@@ -70,7 +70,7 @@ class Parser(ABC):
                 self.flush_buffer(from_python)
                 status = self.process_keyword(status, from_python)
             else:
-                if not self.context.accepts_python_code:
+                if not self.context.accepts_python_code and not keyword[0] == "#":
                     raise SyntaxError(
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.context.keyword_name} definition"
@@ -136,7 +136,7 @@ class Parser(ABC):
                 keyword, self.context.cur_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context)
-            if keyword not in possibly_duplicated_keywords:
+            if keyword not in possibly_duplicated_keywords and not from_python:
                 self.context.add_processed_keyword(status.token, status.token.string)
             return Syntax.Status(
                 param_context.token,

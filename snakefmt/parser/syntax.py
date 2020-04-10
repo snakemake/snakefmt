@@ -54,12 +54,8 @@ def is_spaceable(token: Token):
     return False
 
 
-def not_to_ignore(token: Token):
-    return (
-        len(token.string) > 0
-        and not token.string.isspace()
-        and not token.type == tokenize.COMMENT
-    )
+def not_empty(token: Token):
+    return len(token.string) > 0 and not token.string.isspace()
 
 
 class Vocabulary:
@@ -259,11 +255,17 @@ class ParameterSyntax(Syntax):
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
     def check_exit(self, cur_param: Parameter):
-        if self.found_newline and not_to_ignore(self.token):
-            if self.cur_indent < self.target_indent:
-                self.flush_param(cur_param, skip_empty=True)
-                return True
-        return False
+        res = False
+        if self.found_newline and not_empty(self.token):
+            # Special condition for comments: they do not trigger indents/dedents.
+            if self.token.type == tokenize.COMMENT:
+                if self.token.start[1] < self.target_indent:
+                    res = True
+            elif self.cur_indent < self.target_indent:
+                res = True
+        if res:
+            self.flush_param(cur_param, skip_empty=True)
+        return res
 
     def process_token(self, cur_param: Parameter) -> Parameter:
         token_type = self.token.type
