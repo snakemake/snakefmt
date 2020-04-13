@@ -36,7 +36,10 @@ class TestCLI:
         params = ["fake.txt"]
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
-        assert f'Path "{params[0]}" does not exist' in actual.output
+        expected_pattern = re.compile(
+            r"Path [\'\"]{}[\'\"] does not exist".format(params[0])
+        )
+        assert expected_pattern.search(actual.output)
 
     def test_dashMixedWithFiles_nonZeroExit(self, cli_runner):
         params = ["-", str(Path().resolve())]
@@ -46,13 +49,13 @@ class TestCLI:
 
     def test_invalidIncludeRegex_nonZeroExit(self, cli_runner):
         params = ["--include", "?", str(Path().resolve())]
-        actual = cli_runner.invoke(main, params, mix_stderr=True)
+        actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
         assert "Invalid regular expression" in str(actual.exception)
 
     def test_invalidExcludeRegex_nonZeroExit(self, cli_runner):
         params = ["--exclude", "?", str(Path().resolve())]
-        actual = cli_runner.invoke(main, params, mix_stderr=True)
+        actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
         assert "Invalid regular expression" in str(actual.exception)
 
