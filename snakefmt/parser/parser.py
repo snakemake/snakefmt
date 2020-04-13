@@ -2,14 +2,14 @@ import tokenize
 from abc import ABC, abstractmethod
 
 from snakefmt.types import TokenIterator
-from snakefmt.parser.grammar import Grammar, SnakeGlobal
+from snakefmt.parser.grammar import Grammar, SnakeGlobal, PythonCode
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.syntax import (
     Vocabulary,
     Syntax,
     KeywordSyntax,
     ParameterSyntax,
-    accept_python_code,
+    possibly_duplicated_keywords,
 )
 
 
@@ -61,10 +61,16 @@ class Parser(ABC):
 
             keyword = status.token.string
             if self.vocab.recognises(keyword):
-                self.flush_buffer(status)
-                status = self.process_keyword(status)
+                from_python = False
+                if status.indent > self.target_indent:
+                    if self.context.from_python or status.pythonable:
+                        from_python = True
+                    else:  # Over-indented context gets reset
+                        self.context.cur_indent = max(self.target_indent - 1, 0)
+                self.flush_buffer(from_python)
+                status = self.process_keyword(status, from_python)
             else:
-                if not self.context.accepts_python_code:
+                if not self.context.accepts_python_code and not keyword[0] == "#":
                     raise SyntaxError(
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.context.keyword_name} definition"
@@ -73,6 +79,7 @@ class Parser(ABC):
                     self.buffer += keyword
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
+            self.context.cur_indent = status.indent
         self.flush_buffer()
 
     @property
@@ -88,7 +95,7 @@ class Parser(ABC):
         return self.context.target_indent
 
     @abstractmethod
-    def flush_buffer(self, status: Syntax.Status = None) -> None:
+    def flush_buffer(self, from_python: bool = False) -> None:
         pass
 
     @abstractmethod
@@ -99,20 +106,22 @@ class Parser(ABC):
     def process_keyword_param(self, param_context):
         pass
 
-    def process_keyword(self, status):
+    def process_keyword(
+        self, status: Syntax.Status, from_python: bool = False
+    ) -> Syntax.Status:
         keyword = status.token.string
-        accepts_py = True if keyword in accept_python_code else False
         new_grammar = self.vocab.get(keyword)
+        accepts_py = new_grammar.vocab is PythonCode
         if issubclass(new_grammar.context, KeywordSyntax):
-            new_target_indent = self.context.cur_indent + 1
             self.grammar = Grammar(
                 new_grammar.vocab(),
                 new_grammar.context(
                     keyword,
-                    new_target_indent,
-                    self.context,
-                    self.snakefile,
-                    accepts_py,
+                    self.context.cur_indent + 1,
+                    snakefile=self.snakefile,
+                    incident_context=self.context,
+                    from_python=from_python,
+                    accepts_py=accepts_py,
                 ),
             )
             self.context_stack.append(self.grammar)
@@ -124,15 +133,17 @@ class Parser(ABC):
 
         elif issubclass(new_grammar.context, ParameterSyntax):
             param_context = new_grammar.context(
-                keyword, self.target_indent + 1, self.vocab, self.snakefile
+                keyword, self.context.cur_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context)
-            self.context.add_processed_keyword(status.token)
+            if keyword not in possibly_duplicated_keywords and not from_python:
+                self.context.add_processed_keyword(status.token, status.token.string)
             return Syntax.Status(
                 param_context.token,
                 param_context.cur_indent,
                 status.buffer,
                 param_context.eof,
+                False,
             )
 
         else:
@@ -140,10 +151,14 @@ class Parser(ABC):
 
     def context_exit(self, status: Syntax.Status) -> None:
         while self.target_indent > status.indent:
-            callback_grammar: KeywordSyntax = self.context_stack.pop()
+            callback_grammar: Grammar = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
                 self.flush_buffer()
             else:
                 callback_grammar.context.check_empty()
             self.grammar = self.context_stack[-1]
-            self.context.cur_indent = max(self.target_indent - 1, 0)
+
+        self.context.from_python = callback_grammar.context.from_python
+        self.context.cur_indent = status.indent
+        if self.target_indent > 0:
+            self.target_indent = status.indent + 1

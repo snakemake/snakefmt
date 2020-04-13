@@ -12,9 +12,8 @@ from snakefmt.exceptions import (
     NamedKeywordError,
 )
 
-accept_python_code = {"run", "onstart", "onsuccess", "onerror"}
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
-
+possibly_duplicated_keywords = {"include", "ruleorder", "localrules"}
 
 """
 Token parsing 
@@ -45,12 +44,18 @@ def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
 
 
-def not_to_ignore(token: Token):
-    return (
-        len(token.string) > 0
-        and not token.string.isspace()
-        and not token.type == tokenize.COMMENT
-    )
+def is_spaceable(token: Token):
+    if (
+        token.type == tokenize.NAME
+        or token.type == tokenize.STRING
+        or token.type == tokenize.NUMBER
+    ):
+        return True
+    return False
+
+
+def not_empty(token: Token):
+    return len(token.string) > 0 and not token.string.isspace()
 
 
 class Vocabulary:
@@ -78,6 +83,7 @@ class Syntax:
         indent: int
         buffer: str
         eof: bool
+        pythonable: bool
 
     def __init__(
         self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
@@ -128,25 +134,26 @@ class KeywordSyntax(Syntax):
         self,
         keyword_name: str,
         target_indent: int,
-        incident_context: "KeywordSyntax" = None,
         snakefile: TokenIterator = None,
+        incident_context: "KeywordSyntax" = None,
+        from_python: bool = False,
         accepts_py: bool = False,
     ):
         super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
         self.queriable = True
+        self.from_python = from_python
 
         if incident_context is not None:
-            incident_context.add_processed_keyword(self.token, self.keyword_name)
             if self.token.type != tokenize.NEWLINE:
                 raise SyntaxError(
                     f"{self.line_nb}Newline expected after keyword '{self.keyword_name}'"
                 )
+            if not from_python:
+                incident_context.add_processed_keyword(self.token, self.keyword_name)
 
-    def add_processed_keyword(self, token: Token, keyword: str = ""):
-        if keyword is "":
-            keyword = token.string
+    def add_processed_keyword(self, token: Token, keyword: str):
         if keyword in self.processed_keywords:
             raise DuplicateKeyWordError(
                 f"L{token.start[0]}: '{keyword}' specified twice."
@@ -166,6 +173,7 @@ class KeywordSyntax(Syntax):
     def get_next_queriable(self, snakefile) -> Syntax.Status:
         buffer = ""
         newline, used_name = False, True
+        pythonable = False
         while True:
             token = next(snakefile)
             if token.type == tokenize.INDENT:
@@ -176,7 +184,7 @@ class KeywordSyntax(Syntax):
                     self.cur_indent -= 1
                 continue
             elif token.type == tokenize.ENDMARKER:
-                return self.Status(token, self.cur_indent, buffer, True)
+                return self.Status(token, self.cur_indent, buffer, True, pythonable)
             elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
                 self.queriable, newline = True, True
                 buffer += "\n"
@@ -184,20 +192,17 @@ class KeywordSyntax(Syntax):
 
             if newline:  # Records relative tabbing, used for python code formatting
                 buffer += TAB * self.effective_indent
-                newline = False
 
-            if token.type == tokenize.NAME:
-                if self.queriable:
-                    self.queriable = False
-                    return self.Status(token, self.cur_indent, buffer, False)
-                if used_name:
-                    buffer += " "
-                else:
-                    used_name = True
-            else:
-                used_name = False
-            if token.type == tokenize.STRING and token.string[0] not in QUOTES:
+            if token.type == tokenize.NAME and self.queriable:
+                self.queriable = False
+                return self.Status(token, self.cur_indent, buffer, False, pythonable)
+            if used_name and is_spaceable(token) and not newline:
                 buffer += " "
+            used_name = token.type == tokenize.NAME
+            if newline:
+                newline = False
+            if not pythonable and token.type != tokenize.COMMENT:
+                pythonable = True
             buffer += token.string
 
 
@@ -250,30 +255,37 @@ class ParameterSyntax(Syntax):
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
     def check_exit(self, cur_param: Parameter):
-        if self.found_newline and not_to_ignore(self.token):
-            if self.cur_indent < self.target_indent:
-                self.flush_param(cur_param, skip_empty=True)
-                return True
-        return False
+        res = False
+        if self.found_newline and not_empty(self.token):
+            # Special condition for comments: they do not trigger indents/dedents.
+            if self.token.type == tokenize.COMMENT:
+                if self.token.start[1] < self.target_indent:
+                    res = True
+            elif self.cur_indent < self.target_indent:
+                res = True
+        if res:
+            self.flush_param(cur_param, skip_empty=True)
+        return res
 
     def process_token(self, cur_param: Parameter) -> Parameter:
-        t_t = self.token.type
-        if t_t == tokenize.INDENT:
+        token_type = self.token.type
+        if token_type == tokenize.INDENT:
             self.cur_indent += 1
-        elif t_t == tokenize.DEDENT:
-            self.cur_indent -= 1
-        elif t_t == tokenize.NEWLINE or t_t == tokenize.NL:
+        elif token_type == tokenize.DEDENT:
+            if self.cur_indent > 0:
+                self.cur_indent -= 1
+        elif token_type == tokenize.NEWLINE or token_type == tokenize.NL:
             self.found_newline = True
             if cur_param.has_value():
                 cur_param.add_elem(self.token)
-        elif t_t == tokenize.COMMENT:
+        elif token_type == tokenize.COMMENT:
             cur_param.comments.append(" " + self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
             self.flush_param(cur_param)
             cur_param = Parameter(self.line_nb)
-        elif t_t != tokenize.ENDMARKER:
+        elif token_type != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self._brackets.append(self.token.string)
             if brack_close(self.token):

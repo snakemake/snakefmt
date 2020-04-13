@@ -1,6 +1,7 @@
 import textwrap
 from typing import Type
 from ast import parse as ast_parse
+import re
 
 from black import format_str as black_format_str, FileMode, InvalidInput
 
@@ -27,38 +28,35 @@ class Formatter(Parser):
     ):
         self._line_length = line_length
         self.result = ""
-        self.from_rule, self.from_comment, self.from_python = False, False, False
+        self.from_rule, self.from_comment = False, False
         self.first = True
         super().__init__(snakefile)  # Call to parse snakefile
 
     def get_formatted(self):
         return self.result
 
-    def flush_buffer(self, status: Syntax.Status = None):
+    def flush_buffer(self, from_python: bool = False):
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.result += self.buffer
             self.buffer = ""
             return
 
-        self.from_python = (
-            True if status is not None and status.indent > self.target_indent else False
-        )
-
-        if not self.from_python:
+        if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.target_indent)
             self.from_comment = True if formatted.splitlines()[-1][0] == "#" else False
             self.add_newlines(self.target_indent, keyword_name="")
         else:
-            formatted = self.buffer
+            formatted = self.buffer.rstrip(TAB)
         self.result += formatted
         self.buffer = ""
 
     def process_keyword_context(self):
-        context = self.grammar.context
-        self.add_newlines(context.target_indent - 1, context.keyword_name)
-        formatted = f"{context.keyword_name}:{context.comment}" + "\n"
-        if not self.from_python:
-            formatted = f"{TAB * (context.target_indent - 1)}{formatted}"
+        cur_indent = self.context.cur_indent
+        self.add_newlines(cur_indent, self.context.keyword_name)
+        formatted = (
+            f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}"
+            + "\n"
+        )
         self.result += formatted
 
     def process_keyword_param(self, param_context):
@@ -105,6 +103,7 @@ class Formatter(Parser):
                 val = val.replace("** ", "**")
             pass
         val = val.strip("\n")
+        val = re.sub("\n +", "\n", val)
         val = val.replace("\n", f"\n{used_indent}")
 
         if single_param:

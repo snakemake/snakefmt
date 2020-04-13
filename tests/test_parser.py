@@ -61,17 +61,20 @@ class TestKeywordSyntax:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_consecutive_duplicate_keyword_SMK_NOBREAK(self):
+    def test_duplicate_parameter_fails_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="threads"):
             stream = StringIO("rule a:" "\n\tthreads: 3" "\n\tthreads: 5")
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_non_consecutive_duplicate_keyword_SMK_NOBREAK(self):
+    def test_duplicate_rule_fails_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="rule a"):
             stream = StringIO("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
+
+    def test_authorised_duplicate_keyword_passes(self):
+        setup_formatter('include: "a"\n' 'include: "b"\n')
 
     def test_empty_keyword_SMK_NOBREAK(self):
         with pytest.raises(EmptyContextError, match="rule"):
@@ -178,7 +181,7 @@ class TestPythonCode:
         with pytest.raises(InvalidPython):
             setup_formatter(python_code)
 
-    def test_snakecode_inside_base_level_python_code_passes(self):
+    def test_rules_inside_python_code_passes(self):
         snake = (
             f"if condition1:\n"
             f"{TAB * 1}if condition2:\n"
@@ -186,6 +189,43 @@ class TestPythonCode:
             f'{TAB * 3}input:"in"\n'
         )
         setup_formatter(snake)
+
+    def test_multicopy_rule_name_inside_python_code_passes(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"a"\n'
+            f"else if condition2:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"b"\n'
+            f"else:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"c"'
+        )
+        setup_formatter(snake)
+
+    def test_multicopy_parameter_keyword_inside_python_code_passes(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}if condition2:\n"
+            f'{TAB * 2}configfile: "f1"\n'
+            f"{TAB * 1}else:\n"
+            f'{TAB * 2}configfile: "f2"\n'
+        )
+        setup_formatter(snake)
+
+    def test_multicopy_rule_name_after_python_code_fails(self):
+        snake = (
+            f"if condition1:\n"
+            f"{TAB * 1}rule all:\n"
+            f'{TAB * 2}wrapper:"a"\n'
+            f"rule b:\n"
+            f'{TAB * 1}wrapper:"b"\n'
+            f"rule b:\n"
+            f'{TAB * 1}wrapper:"b"'
+        )
+        with pytest.raises(DuplicateKeyWordError):
+            setup_formatter(snake)
 
     def test_snakecode_inside_run_directive_fails(self):
         snake_code = (

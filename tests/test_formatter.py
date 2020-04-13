@@ -91,6 +91,36 @@ class TestPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    def test_multiple_rules_inside_python_code(self):
+        formatter = setup_formatter(
+            "if condition:\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}wrapper: "a"\n'
+            f"{TAB * 1}rule b:\n"
+            f'{TAB * 2}script: "b"'
+        )
+        expected = (
+            "if condition:\n"
+            f"{TAB * 1}rule a:\n"
+            f"{TAB * 2}wrapper:\n"
+            f'{TAB * 3}"a"\n'
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}script:\n"
+            f'{TAB * 3}"b"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_parameter_keywords_inside_python_code(self):
+        snakecode = (
+            "if condition:\n"
+            f'{TAB * 1}include: "a"\n'
+            f"else:\n"
+            f'{TAB * 1}include: "b"\n'
+            f'include: "c"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestSimpleParamFormatting:
     def test_singleParamKeyword_staysOnSameLine(self):
@@ -119,6 +149,21 @@ class TestSimpleParamFormatting:
             f'{TAB * 2}"done"\n'
         )
         assert formatter.get_formatted() == expected
+
+    def test_triple_quoted_string_not_over_indented(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}"
+            '"""for i in $(seq 1 5)\\'
+            "\n"
+            f"{TAB * 2}"
+            "do echo $i\\"
+            "\n"
+            f'{TAB * 2}done"""\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
 
     def test_singleParamKeywordInRule_NewlineIndented(self):
         formatter = setup_formatter(
@@ -256,6 +301,36 @@ class TestCommaParamFormatting:
         expected = snakefile
 
         assert actual == expected
+
+
+class TestReformatting_SMK_BREAK:
+    """
+    Cases where snakemake v5.13.0 raises errors, but snakefmt reformats
+    such that snakemake can then run fine
+    """
+
+    def test_key_value_parameter_repositioning(self):
+        formatter = setup_formatter(
+            f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}a="b",\n' f'{TAB * 2}"c"\n'
+        )
+        expected = (
+            f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"c",\n' f'{TAB * 2}a="b",\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_rule_re_indenting(self):
+        formatter = setup_formatter(
+            f"{TAB * 1}rule a:\n" f"{TAB * 2}wrapper:\n" f'{TAB * 3}"a"\n'
+        )
+        expected = f"rule a:\n" f"{TAB * 1}wrapper:\n" f'{TAB * 2}"a"\n'
+        assert formatter.get_formatted() == expected
+
+
+class TestCommentTreatment:
+    def test_comment_after_parameter_keyword_not_absorbed(self):
+        snakecode = f'include: "a"\n\n# A comment\n'
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
 
 
 class TestNewlineSpacing:

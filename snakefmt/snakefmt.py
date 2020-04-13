@@ -56,7 +56,7 @@ def get_snakefiles_in_dir(
 
         # Then ignore with `exclude` option.
         try:
-            normalized_path = "/" + child.resolve().relative_to(root).as_posix()
+            normalized_path = str(child.resolve())
         except OSError as err:
             logging.debug(f"Ignoring: {child} cannot be read because {err}.")
             continue
@@ -68,9 +68,6 @@ def get_snakefiles_in_dir(
                 continue
             logging.error(f"{child} caused error")
             raise ValueError(err)
-
-        if child.is_dir():
-            normalized_path += "/"
 
         exclude_match = exclude.search(normalized_path)
         if exclude_match and exclude_match.group(0):
