@@ -3,15 +3,16 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import List, Union, Set, Pattern, Iterator
+from typing import List, Union, Set, Pattern, Iterator, Optional
 
 import click
+import toml
 from black import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import __version__, DEFAULT_LINE_LENGTH
-from snakefmt.parser.parser import Snakefile
 from snakefmt.formatter import Formatter
+from snakefmt.parser.parser import Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
@@ -30,6 +31,39 @@ def construct_regex(regex: str) -> Pattern[str]:
         if "\n" in regex
         else re.compile(regex)
     )
+
+
+def read_snakefmt_defaults_from_pyproject_toml(
+    ctx: click.Context, param: click.Parameter, value: Optional[str] = None
+) -> Optional[str]:
+    """Inject Snakefmt configuration from "pyproject.toml" into defaults in `ctx`.
+    Returns the path to a successfully found and read configuration file, None
+    otherwise.
+    """
+    if not value:
+        path = Path("pyproject.toml")
+        if path.is_file():
+            value = str(path)
+        else:
+            return None
+
+    try:
+        pyproject_toml = toml.load(value)
+        config = pyproject_toml.get("tool", {}).get("snakefmt", {})
+    except (toml.TomlDecodeError, OSError) as error:
+        raise click.FileError(
+            filename=value, hint=f"Error reading configuration file: {error}"
+        )
+
+    if not config:
+        return None
+
+    if ctx.default_map is None:
+        ctx.default_map = {}
+    ctx.default_map.update(  # type: ignore  # bad types in .pyi
+        {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
+    )
+    return value
 
 
 def get_snakefiles_in_dir(
@@ -92,11 +126,18 @@ def get_snakefiles_in_dir(
 
 @click.command()
 @click.option(
-    "-l", "--line-length", default=DEFAULT_LINE_LENGTH, show_default=True, type=int,
+    "-l",
+    "--line-length",
+    default=DEFAULT_LINE_LENGTH,
+    show_default=True,
+    type=int,
+    help="Lines longer than INT will be wrapped.",
+    metavar="INT",
 )
 @click.option(
     "--include",
     type=str,
+    metavar="PATTERN",
     default=DEFAULT_INCLUDES,
     help=(
         "A regular expression that matches files and directories that should be "
@@ -110,6 +151,7 @@ def get_snakefiles_in_dir(
 @click.option(
     "--exclude",
     type=str,
+    metavar="PATTERN",
     default=DEFAULT_EXCLUDES,
     help=(
         "A regular expression that matches files and directories that should be "
@@ -126,6 +168,19 @@ def get_snakefiles_in_dir(
         exists=True, file_okay=True, dir_okay=True, readable=True, allow_dash=True
     ),
 )
+@click.option(
+    "--config",
+    type=click.Path(
+        exists=False, file_okay=True, dir_okay=False, readable=True, allow_dash=False
+    ),
+    metavar="PATH",
+    is_eager=True,
+    callback=read_snakefmt_defaults_from_pyproject_toml,
+    help=(
+        "Read configuration from PATH. By default, will try to read from "
+        "`./pyproject.toml`"
+    ),
+)
 @click.help_option("--help", "-h")
 @click.version_option(__version__, "--version", "-V")
 @click.option("-v", "--verbose", help="Turns on debug-level logging.", is_flag=True)
@@ -136,9 +191,13 @@ def main(
     include: str,
     exclude: str,
     src: List[PathLike],
+    config: PathLike,
     verbose: bool,
 ):
-    """The uncompromising Snakemake code formatter."""
+    """The uncompromising Snakemake code formatter.
+
+    SRC specifies directories and files to format. Directories will be searched for
+    file names that conform to the include/exclude patterns provided."""
     log_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=log_level)
 
