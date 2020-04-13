@@ -9,6 +9,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from snakefmt.formatter import TAB
 from snakefmt.snakefmt import (
     construct_regex,
     main,
@@ -61,6 +62,78 @@ class TestCLI:
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
         assert "Invalid regular expression" in str(actual.exception)
+
+    def test_stdinAsSrc_WritesToStdout(self, cli_runner):
+        stdin = f"rule all:\n{TAB}input: 'c'"
+        params = ["--verbose", "-"]
+
+        actual = cli_runner.invoke(main, params, input=stdin)
+
+        assert actual.exit_code == 0
+
+        expected_output = f'rule all:\n{TAB}input:\n{TAB*2}"c",\n\n'
+
+        assert actual.output == expected_output
+
+    def test_config_adherence_for_python_outside_rules(self, cli_runner, tmp_path):
+        stdin = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        line_length = 30
+        config = tmp_path / "pyproject.toml"
+        config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
+        params = ["--config", str(config), "-"]
+
+        actual = cli_runner.invoke(main, params, input=stdin)
+
+        assert actual.exit_code == 0
+
+        expected_output = """include: \"a\"
+
+list_of_lots_of_things = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+]
+
+"""
+
+        assert actual.output == expected_output
+
+    def test_config_adherence_for_code_inside_rules(self, cli_runner, tmp_path):
+        stdin = f"rule a:\n{TAB}input:\n{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        line_length = 30
+        config = tmp_path / "pyproject.toml"
+        config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
+        params = ["--config", str(config), "-"]
+
+        actual = cli_runner.invoke(main, params, input=stdin)
+
+        assert actual.exit_code == 0
+
+        expected_output = f"""rule a:
+{TAB*1}input:
+{TAB*2}list_of_lots_of_things=[
+{TAB*3}1,
+{TAB*3}2,
+{TAB*3}3,
+{TAB*3}4,
+{TAB*3}5,
+{TAB*3}6,
+{TAB*3}7,
+{TAB*3}8,
+{TAB*3}9,
+{TAB*3}10,
+{TAB*2}],
+        
+"""
+
+        assert actual.output == expected_output
 
 
 class TestReadSnakefmtDefaultsFromPyprojectToml:

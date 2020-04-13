@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 import sys
 from pathlib import Path
@@ -16,7 +15,7 @@ from snakefmt.parser.parser import Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
-PathLike = Union[Path, str, os.PathLike]
+PathLike = Union[Path, str]
 DEFAULT_EXCLUDES = r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|buck-out|build|dist)"
 DEFAULT_INCLUDES = r"(\.smk$|^Snakefile)"
 
@@ -191,7 +190,7 @@ def main(
     include: str,
     exclude: str,
     src: List[PathLike],
-    config: PathLike,
+    config: Optional[PathLike],
     verbose: bool,
 ):
     """The uncompromising Snakemake code formatter.
@@ -227,23 +226,27 @@ def main(
     gitignore = get_gitignore(Path())
     for s in src:
         path = Path(s)
-        if path.is_dir():
+        if s == "-" or path.is_file():
+            # if a file was explicitly given, we don't care about its extension
+            sources.add(path)
+        elif path.is_dir():
             sources.update(
                 get_snakefiles_in_dir(
                     path, root, include_regex, exclude_regex, gitignore
                 )
             )
-        elif path.is_file() or s == "-":
-            # if a file was explicitly given, we don't care about its extension
-            sources.add(path)
         else:
             logging.warning(f"ignoring invalid path: {s}")
 
     for s in sources:
-        logging.info(f"Formatting {s}")
+        if s.name == "-":
+            logging.info("Formatting from stdin")
+            s = sys.stdin
+        else:
+            logging.info(f"Formatting {s}")
         snakefile = Snakefile(s)
-        f = Formatter(snakefile, line_length=line_length)
-        print(f.get_formatted())
+        formatter = Formatter(snakefile, line_length=line_length, black_config=config)
+        print(formatter.get_formatted())
 
 
 if __name__ == "__main__":
