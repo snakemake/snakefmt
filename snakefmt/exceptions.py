@@ -36,3 +36,11 @@ class TooManyParameters(Exception):
 
 class UnsupportedSyntax(Exception):
     pass
+
+
+class InvalidBlackConfiguration(Exception):
+    pass
+
+
+class MalformattedToml(Exception):
+    pass

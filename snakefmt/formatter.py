@@ -1,16 +1,22 @@
-import textwrap
-from typing import Type
-from ast import parse as ast_parse
 import re
+import textwrap
+from ast import parse as ast_parse
+from pathlib import Path
+from typing import Optional, Union
 
-from black import format_str as black_format_str, FileMode, InvalidInput
+import black
+import toml
 
 from snakefmt import DEFAULT_LINE_LENGTH
-from snakefmt.exceptions import InvalidPython, InvalidParameterSyntax
-from snakefmt.parser.parser import Parser
+from snakefmt.exceptions import (
+    InvalidPython,
+    InvalidParameterSyntax,
+    InvalidBlackConfiguration,
+    MalformattedToml,
+)
 from snakefmt.parser.grammar import SnakeRule
+from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import (
-    Syntax,
     Parameter,
     ParameterSyntax,
     SingleParam,
@@ -19,18 +25,50 @@ from snakefmt.parser.syntax import (
 )
 from snakefmt.types import TokenIterator
 
+PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
 
 class Formatter(Parser):
     def __init__(
-        self, snakefile: TokenIterator, line_length: int = DEFAULT_LINE_LENGTH
+        self,
+        snakefile: TokenIterator,
+        line_length: int = DEFAULT_LINE_LENGTH,
+        black_config: Optional[PathLike] = None,
     ):
         self._line_length = line_length
         self.result = ""
         self.from_rule, self.from_comment = False, False
         self.first = True
+
+        if black_config is None:
+            self.black_mode = black.FileMode(line_length=self.line_length)
+        else:
+            self.black_mode = self.read_black_config(black_config)
+
         super().__init__(snakefile)  # Call to parse snakefile
+
+    def read_black_config(self, path: PathLike) -> black.FileMode:
+        if not Path(path).is_file():
+            raise FileNotFoundError(f"{path} is not a file.")
+
+        try:
+            pyproject_toml = toml.load(path)
+            config = pyproject_toml.get("tool", {}).get("black", {})
+        except toml.TomlDecodeError as error:
+            raise MalformattedToml(error)
+
+        if "line_length" not in config:
+            config["line_length"] = self.line_length
+
+        try:
+            return black.FileMode(**config)
+        except TypeError as error:
+            raise InvalidBlackConfiguration(error)
+
+    @property
+    def line_length(self) -> int:
+        return self._line_length
 
     def get_formatted(self):
         return self.result
@@ -66,10 +104,8 @@ class Formatter(Parser):
 
     def run_black_format_str(self, string: str, target_indent: int) -> str:
         try:
-            fmted = black_format_str(
-                string, mode=FileMode(line_length=self._line_length)
-            )
-        except InvalidInput as e:
+            fmted = black.format_str(string, mode=self.black_mode)
+        except black.InvalidInput as e:
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
