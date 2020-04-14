@@ -185,6 +185,40 @@ class TestPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_line_wrapped_python_code_outside_rule(self):
+        content = "list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\ninclude: snakefile"
+        line_length = 30
+        formatter = setup_formatter(content, line_length=line_length)
+
+        actual = formatter.get_formatted()
+        expected = (
+            "list_of_lots_of_things = [\n"
+            f"{TAB}1,\n{TAB}2,\n{TAB}3,\n{TAB}4,\n{TAB}5,\n{TAB}6,\n{TAB}7,\n"
+            f"{TAB}8,\n{TAB}9,\n{TAB}10,\n"
+            "]\n"
+            "include: snakefile\n"
+        )
+
+        assert actual == expected
+
+    @pytest.mark.xfail(reason="Indenting out by one for elements in list")
+    def test_line_wrapped_python_code_inside_rule(self):
+        content = f"rule a:\n{TAB}input:\n{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        line_length = 30
+        formatter = setup_formatter(content, line_length=line_length)
+
+        actual = formatter.get_formatted()
+        expected = (
+            "rule a:\n"
+            f"{TAB*1}input:\n"
+            f"{TAB*2}list_of_lots_of_things=[\n"
+            f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
+            f"{TAB*3}6,\n{TAB*3}7,\n{TAB*3}8,\n{TAB*3}9,\n{TAB*3}10,\n"
+            f"{TAB*2}],\n"
+        )
+
+        assert actual == expected
+
 
 class TestSimpleParamFormatting:
     def test_singleParamKeyword_staysOnSameLine(self):

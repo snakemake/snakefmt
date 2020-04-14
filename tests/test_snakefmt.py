@@ -105,6 +105,7 @@ list_of_lots_of_things = [
 
         assert actual.output == expected_output
 
+    @pytest.mark.xfail(reason="Indenting out by one for elements in list")
     def test_config_adherence_for_code_inside_rules(self, cli_runner, tmp_path):
         stdin = f"rule a:\n{TAB}input:\n{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
         line_length = 30
@@ -116,22 +117,14 @@ list_of_lots_of_things = [
 
         assert actual.exit_code == 0
 
-        expected_output = f"""rule a:
-{TAB*1}input:
-{TAB*2}list_of_lots_of_things=[
-{TAB*3}1,
-{TAB*3}2,
-{TAB*3}3,
-{TAB*3}4,
-{TAB*3}5,
-{TAB*3}6,
-{TAB*3}7,
-{TAB*3}8,
-{TAB*3}9,
-{TAB*3}10,
-{TAB*2}],
-        
-"""
+        expected_output = (
+            "rule a:\n"
+            f"{TAB*1}input:\n"
+            f"{TAB*2}list_of_lots_of_things=[\n"
+            f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
+            f"{TAB*3}6,\n{TAB*3}7,\n{TAB*3}8,\n{TAB*3}9,\n{TAB*3}10,\n"
+            f"{TAB*2}],\n"
+        )
 
         assert actual.output == expected_output
 
