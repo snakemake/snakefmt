@@ -16,7 +16,7 @@ possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 possibly_duplicated_keywords = {"include", "ruleorder", "localrules"}
 
 """
-Token parsing 
+Token parsing
 """
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
@@ -105,13 +105,19 @@ class Syntax:
             if self.keyword_name in possibly_named_keywords:
                 if self.token.type != tokenize.NAME:
                     raise NamedKeywordError(
-                        f"{self.line_nb}Invalid name {self.token.string} for '{self.keyword_name}'"
+                        (
+                            f"{self.line_nb}Invalid name {self.token.string} "
+                            f"for '{self.keyword_name}'"
+                        )
                     )
                 self.keyword_name += f" {self.token.string}"
                 self.token = next(snakefile)
         if not is_colon(self.token):
             raise SyntaxError(
-                f"{self.line_nb}Colon (not '{self.token.string}') expected after '{self.keyword_name}'"
+                (
+                    f"{self.line_nb}Colon (not '{self.token.string}') expected after "
+                    f"'{self.keyword_name}'"
+                )
             )
         self.token = next(snakefile)
 
@@ -148,7 +154,10 @@ class KeywordSyntax(Syntax):
         if incident_context is not None:
             if self.token.type != tokenize.NEWLINE:
                 raise SyntaxError(
-                    f"{self.line_nb}Newline expected after keyword '{self.keyword_name}'"
+                    (
+                        f"{self.line_nb}Newline expected after keyword "
+                        f"'{self.keyword_name}'"
+                    )
                 )
             if not from_python:
                 incident_context.add_processed_keyword(self.token, self.keyword_name)
@@ -297,7 +306,10 @@ class ParameterSyntax(Syntax):
                     self.in_lambda = True
                 if self.incident_vocab.recognises(cur_param.value):
                     raise InvalidParameterSyntax(
-                        f"{self.line_nb}Over-indented recognised keyword found: '{cur_param.value}'"
+                        (
+                            f"{self.line_nb}Over-indented recognised keyword found: "
+                            f"'{cur_param.value}'"
+                        )
                     )
             cur_param.add_elem(self.token)
         return cur_param
@@ -306,7 +318,7 @@ class ParameterSyntax(Syntax):
         if not parameter.has_value() and skip_empty:
             return
 
-        if parameter.has_key():
+        if parameter.has_key():  # noqa: W601
             self.keyword_params.append(parameter)
         else:
             self.positional_params.append(parameter)
@@ -327,11 +339,17 @@ class SingleParam(ParameterSyntax):
 
         if self.num_params() > 1:
             raise TooManyParameters(
-                f"{self.line_nb}{self.keyword_name} definition expects a single parameter"
+                (
+                    f"{self.line_nb}{self.keyword_name} definition expects a single "
+                    f"parameter"
+                )
             )
         if not len(self.keyword_params) == 0:
             raise InvalidParameter(
-                f"{self.line_nb}{self.keyword_name} definition requires a positional (not key/value) parameter"
+                (
+                    f"{self.line_nb}{self.keyword_name} definition requires a "
+                    f"positional (not key/value) parameter"
+                )
             )
 
 
@@ -361,5 +379,8 @@ class NoKeywordParamList(ParameterSyntax):
 
         if len(self.keyword_params) > 0:
             raise InvalidParameterSyntax(
-                f"{self.line_nb}{self.keyword_name} definition does not accept key/value parameters"
+                (
+                    f"{self.line_nb}{self.keyword_name} definition does not accept "
+                    f"key/value parameters"
+                )
             )
