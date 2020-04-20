@@ -24,6 +24,7 @@ toml = "^0.10.0"
 pytest = "^5.2"
 pre-commit = "^2.1.1"
 pytest-cov = "^2.8.1"
+flake8 = "^3.7.9"
 
 [tool.poetry.urls]
 "Snakemake Documentation" = "https://snakemake.readthedocs.io/"

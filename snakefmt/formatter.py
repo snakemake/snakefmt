@@ -146,7 +146,7 @@ class Formatter(Parser):
             result = f"{val}{comments}\n"
         else:
             result = f"{val},{comments}\n"
-        if parameter.has_key():
+        if parameter.has_key():  # noqa: W601
             result = f"{parameter.key}={result}"
         result = f"{used_indent}{result}"
         return result
@@ -159,7 +159,7 @@ class Formatter(Parser):
         p_class = parameters.__class__
         single_param = issubclass(p_class, SingleParam)
         inline_fmting = single_param
-        # single parameter formatting cancelled if we are in rule-like context and param is not inline
+        # Cancel single param formatting if in rule-like context and param not inline
         if in_rule and p_class is not RuleInlineSingleParam:
             inline_fmting = False
 
@@ -188,4 +188,4 @@ class Formatter(Parser):
             self.first = False
 
     def rule_like(self, kwrd):
-        return kwrd is not "" and kwrd.split()[0] in rule_like_formatted
+        return kwrd != "" and kwrd.split()[0] in rule_like_formatted
