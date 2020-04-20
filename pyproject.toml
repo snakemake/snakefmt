@@ -5,8 +5,8 @@ description = "The uncompromising Snakemake code formatter"
 authors = ["Michael Hall <michael@mbh.sh>", "Brice Letcher <bletcher@ebi.ac.uk>"]
 license = "MIT"
 readme = "README.md"
-#homepage = ""  # todo
-#repository = ""  # todo
+homepage = "https://github.com/snakemake/snakefmt"
+repository = "https://github.com/snakemake/snakefmt"
 #documentation = ""  # todo
 keywords = ["snakemake", "formatter", "code", "codeformatter", "workflow-management"]
 
@@ -23,6 +23,7 @@ toml = "^0.10.0"
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 pre-commit = "^2.1.1"
+pytest-cov = "^2.8.1"
 
 [tool.poetry.urls]
 "Snakemake Documentation" = "https://snakemake.readthedocs.io/"
