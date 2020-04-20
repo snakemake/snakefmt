@@ -1,0 +1,45 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: python_poetry_package
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master, dev ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run:  |
+              python -m pip install --upgrade pip
+              python -m pip install poetry
+              poetry install --no-interaction
+      - name: Check formatting with black
+        run:  poetry run black --check .
+      - name: Lint with flake8
+        run:  poetry run flake8 --count snakefmt/
+      - name: Test and generate coverage report with pytest
+        run:  |
+              # have to do this as use of tmpdir in tests changes directory
+              covg_report="$(pwd)/coverage.xml"
+              poetry run pytest --cov=snakefmt --cov-report=xml:$covg_report --cov-branch tests/
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file:             ./coverage.xml
+          flags:            unittests
+          fail_ci_if_error: true
