@@ -27,3 +27,7 @@ class Diff:
             diff = difflib.ndiff(original_lines, new_lines)
 
         return "".join(diff)
+
+    @staticmethod
+    def is_changed(original: str, new: str) -> bool:
+        return original != new
