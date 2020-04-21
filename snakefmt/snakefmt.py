@@ -227,9 +227,9 @@ def main(
     sources: Set[PathLike] = set()
     root = Path()
     gitignore = get_gitignore(Path())
-    for s in src:
-        path = Path(s)
-        if s == "-" or path.is_file():
+    for path in src:
+        path = Path(path)
+        if path.name == "-" or path.is_file():
             # if a file was explicitly given, we don't care about its extension
             sources.add(path)
         elif path.is_dir():
@@ -239,15 +239,15 @@ def main(
                 )
             )
         else:
-            logging.warning(f"ignoring invalid path: {s}")
+            logging.warning(f"ignoring invalid path: {path}")
 
-    for s in sources:
-        if s.name == "-":
+    for path in sources:
+        if path.name == "-":
             logging.info("Formatting from stdin")
-            s = sys.stdin
+            path = sys.stdin
         else:
-            logging.info(f"Formatting {s}")
-        snakefile = Snakefile(s)
+            logging.info(f"Formatting {path}")
+        snakefile = Snakefile(path)
         formatter = Formatter(snakefile, line_length=line_length, black_config=config)
         print(formatter.get_formatted())
 
