@@ -5,40 +5,39 @@ This repository provides formatting for [Snakemake][snakemake] files. It follows
 ## Install
 
 ``` bash
-   
-    git clone https://github.com/snakemake/snakefmt
-    pip install poetry
-    cd snakefmt && poetry install
-    poetry shell
+git clone https://github.com/snakemake/snakefmt
+pip install poetry
+cd snakefmt && poetry install
+poetry shell
 ```
 
 ## Usage
 
 ```
-    Usage: snakefmt [OPTIONS] [SRC]...
+Usage: snakefmt [OPTIONS] [SRC]...
 
-      The uncompromising Snakemake code formatter.
+  The uncompromising Snakemake code formatter.
 
-    Options:
-      -l, --line-length INTEGER  [default: 88]
-      --include TEXT             A regular expression that matches files and
-                                 directories that should be included on recursive
-                                 searches.  An empty value means all files are
-                                 included regardless of the name.  Use forward
-                                 slashes for directories on all platforms
-                                 (Windows, too).  Exclusions are calculated first,
-                                 inclusions later.  [default: (\.smk$|^Snakefile)]
-      --exclude TEXT             A regular expression that matches files and
-                                 directories that should be excluded on recursive
-                                 searches.  An empty value means no paths are
-                                 excluded. Use forward slashes for directories on
-                                 all platforms (Windows, too). Exclusions are
-                                 calculated first, inclusions later.  [default: (\
-                                 .snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\
-                                 .tox|\.venv|\.svn|_build|buck-out|build|dist)]
-      -h, --help                 Show this message and exit.
-      -V, --version              Show the version and exit.
-      -v, --verbose              Turns on debug-level logging.
+Options:
+  -l, --line-length INTEGER  [default: 88]
+  --include TEXT             A regular expression that matches files and
+							 directories that should be included on recursive
+							 searches.  An empty value means all files are
+							 included regardless of the name.  Use forward
+							 slashes for directories on all platforms
+							 (Windows, too).  Exclusions are calculated first,
+							 inclusions later.  [default: (\.smk$|^Snakefile)]
+  --exclude TEXT             A regular expression that matches files and
+							 directories that should be excluded on recursive
+							 searches.  An empty value means no paths are
+							 excluded. Use forward slashes for directories on
+							 all platforms (Windows, too). Exclusions are
+							 calculated first, inclusions later.  [default: (\
+							 .snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\
+							 .tox|\.venv|\.svn|_build|buck-out|build|dist)]
+  -h, --help                 Show this message and exit.
+  -V, --version              Show the version and exit.
+  -v, --verbose              Turns on debug-level logging.
 ```
 
 ## Design
@@ -66,51 +65,49 @@ Example File
 Input
 
 ```python
+SAMPLES = ["s1", "s2"]
+CONDITIONS = ["a", "b"]
 
-    SAMPLES = ["s1", "s2"]
-    CONDITIONS = ["a", "b"]
+if True:
+	rule can_be_inside_python_code:
+		input: "parameters", "get_indented"
+		threads: 4 # Numeric params stay unindented
+		params: key_val = "PEP8_formatted"
+		run:
 
-    if True:
-        rule can_be_inside_python_code:
-            input: "parameters", "get_indented"
-            threads: 4 # Numeric params stay unindented
-            params: key_val = "PEP8_formatted"
-            run:
+					print("weirdly_spaced_string_gets_respaced")
 
-                        print("weirdly_spaced_string_gets_respaced")
-
-    rule gets_separated_by_two_newlines:
-        input:
-            files=expand("long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",sample=SAMPLES, condition=CONDITIONS)
+rule gets_separated_by_two_newlines:
+	input:
+		files=expand("long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",sample=SAMPLES, condition=CONDITIONS)
 ```
 
 
 Output
 
 ```python
+SAMPLES=["s1","s2"]
+CONDITIONS=["a","b"]
 
-    SAMPLES=["s1","s2"]
-    CONDITIONS=["a","b"]
-
-    if True:
-        rule can_be_inside_python_code:
-            input:
-                "parameters",
-                "get_indented",
-            threads: 4 # Numeric params stay unindented
-            params:
-                key_val="PEP8_formatted",
-            run:
-                print("weirdly_spaced_string_gets_respaced")
+if True:
+	rule can_be_inside_python_code:
+		input:
+			"parameters",
+			"get_indented",
+		threads: 4 # Numeric params stay unindented
+		params:
+			key_val="PEP8_formatted",
+		run:
+			print("weirdly_spaced_string_gets_respaced")
 
 
-    rule gets_separated_by_two_newlines:
-        input:
-            files=expand(
-            "long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",
-            sample=SAMPLES,
-            condition=CONDITIONS,
-            ),
+rule gets_separated_by_two_newlines:
+	input:
+		files=expand(
+		"long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",
+		sample=SAMPLES,
+		condition=CONDITIONS,
+		),
 ```
     
 
