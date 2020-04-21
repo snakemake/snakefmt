@@ -78,3 +78,33 @@ class TestCompare:
         )
 
         assert actual == expected
+
+
+class TestIsChanged:
+    def test_same_strings_compact_returns_false(self):
+        original = "foo\n    bar"
+        new = "foo\n    bar"
+        diff = Diff(compact=True)
+
+        assert not diff.is_changed(original, new)
+
+    def test_same_strings_non_compact_returns_false(self):
+        original = "foo\n    bar"
+        new = "foo\n    bar"
+        diff = Diff(compact=False)
+
+        assert not diff.is_changed(original, new)
+
+    def test_different_strings_compact_returns_false(self):
+        original = "foo\n    bar"
+        new = "foo\n    baz"
+        diff = Diff(compact=True)
+
+        assert diff.is_changed(original, new)
+
+    def test_different_strings_non_compact_returns_false(self):
+        original = "foo\n    bar\n"
+        new = "foo\n    bar"
+        diff = Diff(compact=True)
+
+        assert diff.is_changed(original, new)
