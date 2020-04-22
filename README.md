@@ -18,26 +18,46 @@ Usage: snakefmt [OPTIONS] [SRC]...
 
   The uncompromising Snakemake code formatter.
 
+  SRC specifies directories and files to format. Directories will be
+  searched for file names that conform to the include/exclude patterns
+  provided.
+
 Options:
-  -l, --line-length INTEGER  [default: 88]
-  --include TEXT             A regular expression that matches files and
-							 directories that should be included on recursive
-							 searches.  An empty value means all files are
-							 included regardless of the name.  Use forward
-							 slashes for directories on all platforms
-							 (Windows, too).  Exclusions are calculated first,
-							 inclusions later.  [default: (\.smk$|^Snakefile)]
-  --exclude TEXT             A regular expression that matches files and
-							 directories that should be excluded on recursive
-							 searches.  An empty value means no paths are
-							 excluded. Use forward slashes for directories on
-							 all platforms (Windows, too). Exclusions are
-							 calculated first, inclusions later.  [default: (\
-							 .snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\
-							 .tox|\.venv|\.svn|_build|buck-out|build|dist)]
-  -h, --help                 Show this message and exit.
-  -V, --version              Show the version and exit.
-  -v, --verbose              Turns on debug-level logging.
+  -l, --line-length INT  Lines longer than INT will be wrapped.  [default: 88]
+  --check                Don't write the files back, just return the status.
+                         Return code 0 means nothing would change. Return code
+                         1 means some files would be reformatted. Return code
+                         123 means there was an internal error.
+
+  -d, --diff             Don't write the files back, just output a diff for
+                         each file to stdout.
+
+  --compact-diff         Same as --diff but only shows lines that would change
+                         plus a few lines of context.
+
+  --include PATTERN      A regular expression that matches files and
+                         directories that should be included on recursive
+                         searches.  An empty value means all files are
+                         included regardless of the name.  Use forward slashes
+                         for directories on all platforms (Windows, too).
+                         Exclusions are calculated first, inclusions later.
+                         [default: (\.smk$|^Snakefile)]
+
+  --exclude PATTERN      A regular expression that matches files and
+                         directories that should be excluded on recursive
+                         searches.  An empty value means no paths are
+                         excluded. Use forward slashes for directories on all
+                         platforms (Windows, too). Exclusions are calculated
+                         first, inclusions later.  [default: (\.snakemake|\.eg
+                         gs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_
+                         build|buck-out|build|dist)]
+
+  -c, --config PATH      Read configuration from PATH. By default, will try to
+                         read from `./pyproject.toml`
+
+  -h, --help             Show this message and exit.
+  -V, --version          Show the version and exit.
+  -v, --verbose          Turns on debug-level logging.
 ```
 
 ## Design
