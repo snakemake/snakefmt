@@ -1,5 +1,12 @@
 from typing import List
+from enum import Enum
 import difflib
+
+
+class CheckExitCode(Enum):
+    NO_CHANGE = 0
+    WOULD_CHANGE = 1
+    INTERNAL_ERROR = 123
 
 
 class Diff:

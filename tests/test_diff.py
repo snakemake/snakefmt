@@ -82,8 +82,8 @@ class TestCompare:
 
 class TestIsChanged:
     def test_same_strings_compact_returns_false(self):
-        original = "foo\n    bar"
-        new = "foo\n    bar"
+        original = "foo\n    bar\n\n"
+        new = "foo\n    bar\n\n"
         diff = Diff(compact=True)
 
         assert not diff.is_changed(original, new)
