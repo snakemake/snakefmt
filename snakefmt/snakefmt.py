@@ -1,6 +1,7 @@
 import logging
 import re
 import sys
+from io import StringIO
 from pathlib import Path
 from typing import List, Union, Set, Pattern, Iterator, Optional
 
@@ -10,6 +11,7 @@ from black import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import __version__, DEFAULT_LINE_LENGTH
+from snakefmt.diff import Diff, CheckExitCode
 from snakefmt.formatter import Formatter
 from snakefmt.parser.parser import Snakefile
 
@@ -137,6 +139,31 @@ def get_snakefiles_in_dir(
     metavar="INT",
 )
 @click.option(
+    "--check",
+    is_flag=True,
+    help=(
+        f"Don't write the files back, just return the status. Return code "
+        f"{CheckExitCode.NO_CHANGE.value} means nothing would change. Return code "
+        f"{CheckExitCode.WOULD_CHANGE.value} means some files would be reformatted. "
+        f"Return code {CheckExitCode.INTERNAL_ERROR.value} means there was an internal "
+        f"error."
+    ),
+)
+@click.option(
+    "-d",
+    "--diff",
+    is_flag=True,
+    help="Don't write the files back, just output a diff for each file to stdout.",
+)
+@click.option(
+    "--compact-diff",
+    is_flag=True,
+    help=(
+        "Same as --diff but only shows lines that would change plus a few lines of "
+        "context."
+    ),
+)
+@click.option(
     "--include",
     type=str,
     metavar="PATTERN",
@@ -171,6 +198,7 @@ def get_snakefiles_in_dir(
     ),
 )
 @click.option(
+    "-c",
     "--config",
     type=click.Path(
         exists=False, file_okay=True, dir_okay=False, readable=True, allow_dash=False
@@ -190,6 +218,9 @@ def get_snakefiles_in_dir(
 def main(
     ctx: click.Context,
     line_length: int,
+    check: bool,
+    diff: bool,
+    compact_diff: bool,
     include: str,
     exclude: str,
     src: List[PathLike],
@@ -210,6 +241,15 @@ def main(
     if "-" in src and len(src) > 1:
         raise click.BadArgumentUsage("Cannot mix stdin (-) with other files")
 
+    if check and (diff or compact_diff):
+        logging.warning(
+            "Both --check and --diff/--compact-diff given. Only running --check..."
+        )
+    elif diff and compact_diff:
+        logging.warning(
+            "Both --diff and --compact-diff given. Returning compact diff..."
+        )
+
     try:
         include_regex = construct_regex(include)
     except re.error:
@@ -224,16 +264,16 @@ def main(
             f"Invalid regular expression for --exclude given: {exclude!r}"
         )
 
-    sources: Set[PathLike] = set()
+    files_to_format: Set[PathLike] = set()
     root = Path()
     gitignore = get_gitignore(Path())
     for path in src:
         path = Path(path)
         if path.name == "-" or path.is_file():
             # if a file was explicitly given, we don't care about its extension
-            sources.add(path)
+            files_to_format.add(path)
         elif path.is_dir():
-            sources.update(
+            files_to_format.update(
                 get_snakefiles_in_dir(
                     path, root, include_regex, exclude_regex, gitignore
                 )
@@ -241,15 +281,68 @@ def main(
         else:
             logging.warning(f"ignoring invalid path: {path}")
 
-    for path in sources:
-        if path.name == "-":
-            logging.info("Formatting from stdin")
+    differ = Diff(compact=compact_diff)
+    files_changed = 0
+    files_with_errors = 0
+    for path in files_to_format:
+        path_is_stdin = path.name == "-"
+        if path_is_stdin:
+            logging.debug("Formatting from stdin")
             path = sys.stdin
         else:
-            logging.info(f"Formatting {path}")
-        snakefile = Snakefile(path)
+            logging.debug(f"Formatting {path}")
+
+        try:
+            original_content = path.read_text()
+        except AttributeError:
+            original_content = path.read()
+
+        if check:
+            try:
+                snakefile = Snakefile(StringIO(original_content))
+                formatter = Formatter(
+                    snakefile, line_length=line_length, black_config=config
+                )
+                formatted_content = formatter.get_formatted()
+                is_changed = differ.is_changed(original_content, formatted_content)
+                if is_changed:
+                    logging.debug("Formatted content is different from original")
+                    files_changed += 1
+            except Exception as error:
+                logging.error(str(error))
+                files_with_errors += 1
+            continue
+
+        snakefile = Snakefile(StringIO(original_content))
         formatter = Formatter(snakefile, line_length=line_length, black_config=config)
-        print(formatter.get_formatted())
+        formatted_content = formatter.get_formatted()
+        if diff or compact_diff:
+            filename = "stdin" if path_is_stdin else str(path)
+            click.echo(f"{'=' * 5}> Diff for {filename} <{'=' * 5}\n")
+            difference = differ.compare(original_content, formatted_content)
+            click.echo(difference)
+        else:
+            if path_is_stdin:
+                sys.stdout.write(formatted_content)
+            else:
+                write_file_back = differ.is_changed(original_content, formatted_content)
+                if write_file_back:
+                    logging.info(f"Writing formatted content to {path}")
+                    with path.open("w") as out_handle:
+                        out_handle.write(formatted_content)
+
+    if check:
+        if files_with_errors > 0:
+            logging.info(f"{files_with_errors} file(s) contain errors 🤕")
+            ctx.exit(CheckExitCode.INTERNAL_ERROR.value)
+        elif files_changed > 0:
+            logging.info(f"{files_changed} file(s) would be changed 😬")
+            ctx.exit(CheckExitCode.WOULD_CHANGE.value)
+        else:
+            logging.info(f"{len(files_to_format)} file(s) would be left unchanged 🎉")
+            ctx.exit(CheckExitCode.NO_CHANGE.value)
+
+    logging.info("All done 🎉")
 
 
 if __name__ == "__main__":

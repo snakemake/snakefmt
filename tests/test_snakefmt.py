@@ -10,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from snakefmt.formatter import TAB
+from snakefmt.diff import CheckExitCode
 from snakefmt.snakefmt import (
     construct_regex,
     main,
@@ -71,7 +72,7 @@ class TestCLI:
 
         assert actual.exit_code == 0
 
-        expected_output = f'rule all:\n{TAB}input:\n{TAB*2}"c",\n\n'
+        expected_output = f'rule all:\n{TAB}input:\n{TAB*2}"c",\n'
 
         assert actual.output == expected_output
 
@@ -100,7 +101,6 @@ list_of_lots_of_things = [
     9,
     10,
 ]
-
 """
 
         assert actual.output == expected_output
@@ -127,6 +127,189 @@ list_of_lots_of_things = [
         )
 
         assert actual.output == expected_output
+
+    def test_check_file_needs_no_changes_exit_code_0(self, cli_runner):
+        stdin = 'include: "a"\n'
+        params = ["--check", "-"]
+
+        actual = cli_runner.invoke(main, params, input=stdin)
+        expected = CheckExitCode.NO_CHANGE.value
+
+        assert actual.exit_code == expected
+
+    def test_check_file_needs_changes_exit_code_1(self, cli_runner):
+        stdin = 'include:  "a"\n'
+        params = ["--check", "-"]
+
+        actual = cli_runner.invoke(main, params, input=stdin)
+        expected = CheckExitCode.WOULD_CHANGE.value
+
+        assert actual.exit_code == expected
+
+    def test_check_file_syntax_invalid_exit_code_123(self, cli_runner):
+        stdin = "foo:  \n"
+        params = ["--check", "-"]
+
+        actual = cli_runner.invoke(main, params, input=stdin)
+        expected = CheckExitCode.INTERNAL_ERROR.value
+
+        assert actual.exit_code == expected
+
+    def test_check_does_not_format_file(self, cli_runner, tmp_path):
+        content = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8]"
+        snakefile = tmp_path / "Snakefile"
+        snakefile.write_text(content)
+        params = ["--check", str(snakefile)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
+        assert result.exit_code == expected_exit_code
+
+        expected_contents = content
+        actual_contents = snakefile.read_text()
+        assert actual_contents == expected_contents
+
+    def test_check_two_files_both_unchanged(self, cli_runner, tmp_path):
+        content = 'include: "a"\n'
+        file1 = tmp_path / "Snakefile"
+        file1.write_text(content)
+        file2 = tmp_path / "Snakefile2"
+        file2.write_text(content)
+        params = ["--check", str(file1), str(file2)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_exit_code = CheckExitCode.NO_CHANGE.value
+        assert result.exit_code == expected_exit_code
+
+    def test_check_two_files_one_will_change(self, cli_runner, tmp_path):
+        content = 'include: "a"\n'
+        file1 = tmp_path / "Snakefile"
+        file1.write_text(content)
+        file2 = tmp_path / "Snakefile2"
+        content += "x='foo'"
+        file2.write_text(content)
+        params = ["--check", str(file1), str(file2)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
+        assert result.exit_code == expected_exit_code
+
+    def test_check_two_files_one_has_errors(self, cli_runner, tmp_path):
+        content = 'include: "a"\n'
+        file1 = tmp_path / "Snakefile"
+        file1.write_text(content)
+        file2 = tmp_path / "Snakefile2"
+        content += "if:"
+        file2.write_text(content)
+        params = ["--check", str(file1), str(file2)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_exit_code = CheckExitCode.INTERNAL_ERROR.value
+        assert result.exit_code == expected_exit_code
+
+    def test_diff_works_as_expected(self, cli_runner):
+        stdin = "include: 'a'\n"
+        params = ["--diff", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+        expected_exit_code = 0
+
+        assert result.exit_code == expected_exit_code
+
+        expected_output = (
+            "=====> Diff for stdin <=====\n"
+            "\n"
+            "- include: 'a'\n"
+            "?          ^ ^\n"
+            '+ include: "a"\n'
+            "?          ^ ^\n\n"
+        )
+
+        assert result.output == expected_output
+
+    def test_compact_diff_works_as_expected(self, cli_runner):
+        stdin = "include: 'a'\n"
+        params = ["--compact-diff", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+        expected_exit_code = 0
+
+        assert result.exit_code == expected_exit_code
+
+        expected_output = (
+            "=====> Diff for stdin <=====\n"
+            "\n"
+            "--- original\n"
+            "+++ new\n"
+            "@@ -1 +1 @@\n"
+            "-include: 'a'\n"
+            '+include: "a"\n\n'
+        )
+
+        assert result.output == expected_output
+
+    def test_diff_does_not_format_file(self, cli_runner, tmp_path):
+        content = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8]"
+        snakefile = tmp_path / "Snakefile"
+        snakefile.write_text(content)
+        params = ["--diff", str(snakefile)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_exit_code = 0
+        assert result.exit_code == expected_exit_code
+
+        expected_contents = content
+        actual_contents = snakefile.read_text()
+        assert actual_contents == expected_contents
+
+    def test_check_and_diff_only_runs_check(self, cli_runner, tmp_path):
+        content = 'include: "a"\n'
+        file1 = tmp_path / "Snakefile"
+        file1.write_text(content)
+        file2 = tmp_path / "Snakefile2"
+        content += "x='foo'"
+        file2.write_text(content)
+        params = ["--check", "--diff", str(file1), str(file2)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
+        assert result.exit_code == expected_exit_code
+        assert result.output == ""
+
+    def test_file_requires_no_changes_no_write_back_happens(self, cli_runner, tmp_path):
+        content = 'include: "a"\n'
+        file = tmp_path / "Snakefile"
+        file.write_text(content)
+        params = [str(file)]
+        expected_stat = file.stat()
+
+        result = cli_runner.invoke(main, params)
+        actual_stat = file.stat()
+
+        assert actual_stat == expected_stat
+
+    def test_file_requires_changes_write_back_happens(self, cli_runner, tmp_path):
+        content = 'include: "a"'
+        file = tmp_path / "Snakefile"
+        file.write_text(content)
+        params = [str(file)]
+        original_stat = file.stat()
+
+        result = cli_runner.invoke(main, params)
+        actual_stat = file.stat()
+
+        assert actual_stat != original_stat
+
+        actual_content = file.read_text()
+        expected_content = content + "\n"
+
+        assert actual_content == expected_content
 
 
 class TestReadSnakefmtDefaultsFromPyprojectToml:
@@ -283,7 +466,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
     def test_malformatted_toml_raises_error(self, tmpdir):
         os.chdir(tmpdir)
         pyproject = Path("pyproject.toml")
-        pyproject.write_text("foo:bar,baz\n{dict}\&&&&")
+        pyproject.write_text("foo:bar,baz\n{dict}&&&&")
         default_map = dict()
         ctx = click.Context(click.Command("snakefmt"), default_map=default_map)
         param = mock.MagicMock()
