@@ -336,19 +336,21 @@ list_of_lots_of_things = [
 
         assert actual_content == expected_content
 
-    def test_src_dir_is_searched_for_files(self, cli_runner, tmp_path):
-        content = 'include: "a"'
-        snakedir = tmp_path / "workflows"
-        snakedir.mkdir()
-        snakefile = snakedir / "Snakefile"
-        snakefile.write_text(content)
-        params = [str(tmp_path)]
+    def test_src_dir_is_searched_for_files(self, cli_runner):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = 'include: "a"'
+            abs_tmpdir = Path(tmpdir).resolve()
+            snakedir = abs_tmpdir / "workflows"
+            snakedir.mkdir()
+            snakefile = snakedir / "Snakefile"
+            snakefile.write_text(content)
+            params = [str(tmpdir)]
 
-        cli_runner.invoke(main, params)
-        expected_contents = content + "\n"
-        actual_contents = snakefile.read_text()
+            cli_runner.invoke(main, params)
+            expected_contents = content + "\n"
+            actual_contents = snakefile.read_text()
 
-        assert actual_contents == expected_contents
+            assert actual_contents == expected_contents
 
 
 class TestReadSnakefmtDefaultsFromPyprojectToml:
