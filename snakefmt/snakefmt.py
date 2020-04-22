@@ -333,7 +333,7 @@ def main(
 
     if check:
         if files_with_errors > 0:
-            logging.info(f"{files_with_errors} file(s) contain errors 🤕")
+            logging.info(f"{files_with_errors} file(s) contains errors 🤕")
             ctx.exit(CheckExitCode.INTERNAL_ERROR.value)
         elif files_changed > 0:
             logging.info(f"{files_changed} file(s) would be changed 😬")
