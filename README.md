@@ -1,3 +1,5 @@
+# Snakefmt
+
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/snakemake/snakefmt/python_poetry_package)](https://github.com/snakemake/snakefmt/actions)
 [![codecov](https://codecov.io/gh/snakemake/snakefmt/branch/master/graph/badge.svg)](https://codecov.io/gh/snakemake/snakefmt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -5,6 +7,21 @@
 ![Python versions](https://img.shields.io/badge/Python%20versions->=3.6-blue)
 
 This repository provides formatting for [Snakemake][snakemake] files. It follows the design and specifications of [Black][black].
+
+[TOC]:#
+
+# Table of Contents
+- [Install](#install)
+- [Usage](#usage)
+  - [Basic Usage](#basic-usage)
+  - [Full Usage](#full-usage)
+- [Design](#design)
+  - [Syntax](#syntax)
+  - [Formatting](#formatting)
+- [Example File](#example-file)
+- [Contributing](#contributing)
+
+
 
 ## Install
 
@@ -17,7 +34,36 @@ poetry shell
 
 ## Usage
 
+### Basic Usage
+
+Format a single Snakefile.
+
+```shell
+snakefmt Snakefile
 ```
+
+Format all Snakefiles within a directory.
+
+```shell
+snakefmt workflows/
+```
+
+Format all Snakefiles under the current directory.
+
+```shell
+snakefmt .
+```
+
+Format a file but write the output to stdout.
+
+```shell
+snakefmt - < Snakefile
+```
+
+### Full Usage
+
+```
+$ snakefmt --help
 Usage: snakefmt [OPTIONS] [SRC]...
 
   The uncompromising Snakemake code formatter.
@@ -63,6 +109,79 @@ Options:
   -V, --version          Show the version and exit.
   -v, --verbose          Turns on debug-level logging.
 ```
+
+#### Check
+##### `--check`
+
+Using the option will not write any formatted code back to file. It will instead check whether any changes *would* be made. It returns one of three possible exit codes:
+
+**0** - indicates **no changes** would be made
+```
+$ echo 'include: "foo.txt"' | snakefmt --check -                                        
+[INFO] 1 file(s) would be left unchanged 🎉
+$ echo "Exit code: $?"
+Exit code: 0
+```
+
+**1** - indicates **changes** would be made
+```
+$ echo 'include:"foo.txt"' | snakefmt --check - 
+[INFO] 1 file(s) would be changed 😬
+$ echo "Exit code: $?"
+Exit code: 1
+```
+
+**123** - indicates there was an **internal error** such as invalid syntax
+```
+$ echo 'include:' | snakefmt --check -            
+[ERROR] L2: In include definition.
+[INFO] 1 file(s) contains errors 🤕
+$ echo "Exit code: $?"
+Exit code: 123
+```
+
+#### Compact diff
+##### `--compact-diff`
+
+As the name implies, a more compact version of [`--diff`](#diff). Using this option will not write any formatted code back to file. It will instead print a compact diff of how the code looks before and after formatting. The diff is compact as it only prints the lines that will change, with a few lines of surrounding context.
+
+```
+$ echo 'x = 1\ny = 3\n\n\nrule foo:\n\tinput: "foo.txt"' | snakefmt --compact-diff -
+=====> Diff for stdin <=====
+
+--- original
++++ new
+@@ -3,4 +3,5 @@
+ 
+ 
+ rule foo:
+-       input: "foo.txt"
++    input:
++        "foo.txt",
+
+[INFO] All done 🎉
+```
+
+The above example shows that the variable assignments at the beginning of the file are not included in the compact diff (but would be included in a full diff).
+
+#### Diff
+##### `--diff`
+
+Using this option will not write any formatted code back to file. It will instead print a diff of how the code looks before and after formatting.
+
+```
+$ echo 'rule foo:\n\tinput: "foo.txt"' | snakefmt --diff -
+=====> Diff for stdin <=====
+
+  rule foo:
+-       input: "foo.txt"
++     input:
++         "foo.txt",
+
+[INFO] All done 🎉
+```
+
+If multiple files are specified, a diff for each file is written to stdout, separated by `=====> Diff for <filepath> <=====`.
 
 ## Design
 
