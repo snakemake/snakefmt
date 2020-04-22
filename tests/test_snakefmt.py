@@ -107,7 +107,11 @@ list_of_lots_of_things = [
 
     @pytest.mark.xfail(reason="Indenting out by one for elements in list")
     def test_config_adherence_for_code_inside_rules(self, cli_runner, tmp_path):
-        stdin = f"rule a:\n{TAB}input:\n{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        stdin = (
+            f"rule a:\n"
+            f"{TAB}input:\n"
+            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        )
         line_length = 30
         config = tmp_path / "pyproject.toml"
         config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
@@ -310,7 +314,7 @@ list_of_lots_of_things = [
         params = [str(file)]
         expected_stat = file.stat()
 
-        result = cli_runner.invoke(main, params)
+        cli_runner.invoke(main, params)
         actual_stat = file.stat()
 
         assert actual_stat == expected_stat
@@ -322,7 +326,7 @@ list_of_lots_of_things = [
         params = [str(file)]
         original_stat = file.stat()
 
-        result = cli_runner.invoke(main, params)
+        cli_runner.invoke(main, params)
         actual_stat = file.stat()
 
         assert actual_stat != original_stat
@@ -340,10 +344,10 @@ list_of_lots_of_things = [
         snakefile.write_text(content)
         params = [str(tmp_path)]
 
-        result = cli_runner.invoke(main, params)
-
+        cli_runner.invoke(main, params)
         expected_contents = content + "\n"
         actual_contents = snakefile.read_text()
+
         assert actual_contents == expected_contents
 
 
@@ -364,7 +368,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
         assert actual_default_map == expected_default_map
 
-    def test_no_value_passed_and_pyproject_present_but_empty_changes_nothing_returns_pyproject_path(
+    def test_pyproject_present_but_empty_changes_nothing_returns_pyproject_path(
         self, tmpdir
     ):
         os.chdir(tmpdir)

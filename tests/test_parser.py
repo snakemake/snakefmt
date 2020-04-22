@@ -53,7 +53,8 @@ class TestKeywordSyntax:
 
     def test_implicitly_unrecognised_keyword(self):
         """
-        The keyword lives in the 'base' space, so could also be interpreted as Python code.
+        The keyword lives in the 'base' space, so could also be interpreted as Python
+        code.
         In that case black will complain of invalid python and not format it.
         """
         with pytest.raises(InvalidPython):

@@ -95,7 +95,7 @@ class TestPythonFormatting:
         """
         formatter = setup_formatter("#configfile: 'foo.yaml'")
 
-        actual = formatter.get_formatted()
+        formatter.get_formatted()
         mock_method.assert_called_once()
 
     def test_python_code_with_multi_indent_passes(self):
@@ -186,7 +186,10 @@ class TestPythonFormatting:
         assert formatter.get_formatted() == snakecode
 
     def test_line_wrapped_python_code_outside_rule(self):
-        content = "list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\ninclude: snakefile"
+        content = (
+            "list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n"
+            "include: snakefile"
+        )
         line_length = 30
         formatter = setup_formatter(content, line_length=line_length)
 
@@ -203,7 +206,11 @@ class TestPythonFormatting:
 
     @pytest.mark.xfail(reason="Indenting out by one for elements in list")
     def test_line_wrapped_python_code_inside_rule(self):
-        content = f"rule a:\n{TAB}input:\n{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        content = (
+            f"rule a:\n"
+            f"{TAB}input:\n"
+            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        )
         line_length = 30
         formatter = setup_formatter(content, line_length=line_length)
 
@@ -313,7 +320,7 @@ class TestSimpleParamFormatting:
 
     def test_lambda_function_as_parameter(self):
         stream = StringIO(
-            """rule a: 
+            """rule a:
                 input: lambda wildcards: foo(wildcards)"""
         )
         smk = Snakefile(stream)
@@ -390,7 +397,7 @@ class TestCommaParamFormatting:
             f'{TAB * 2}"foo.txt",\n'
             f"{TAB * 1}params:\n"
             f"{TAB * 2}"
-            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)],\n'
+            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)],\n'  # noqa: E501  due to readability of test
             f"{TAB * 2}p2=2,\n"
         )
         formatter = setup_formatter(snakefile)
@@ -529,8 +536,11 @@ rule all:
 # Rules
 # ======================================================
 rule all:
-    input: 
+    input:
         output_files,
 
 
-# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls"""
+# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls
+"""
+
+        assert actual == expected
