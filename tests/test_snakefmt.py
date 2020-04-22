@@ -252,6 +252,27 @@ list_of_lots_of_things = [
 
         assert result.output == expected_output
 
+    def test_compact_diff_and_diff_given_runs_compact_diff(self, cli_runner):
+        stdin = "include: 'a'\n"
+        params = ["--compact-diff", "--diff", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+        expected_exit_code = 0
+
+        assert result.exit_code == expected_exit_code
+
+        expected_output = (
+            "=====> Diff for stdin <=====\n"
+            "\n"
+            "--- original\n"
+            "+++ new\n"
+            "@@ -1 +1 @@\n"
+            "-include: 'a'\n"
+            '+include: "a"\n\n'
+        )
+
+        assert result.output == expected_output
+
     def test_diff_does_not_format_file(self, cli_runner, tmp_path):
         content = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8]"
         snakefile = tmp_path / "Snakefile"
@@ -310,6 +331,20 @@ list_of_lots_of_things = [
         expected_content = content + "\n"
 
         assert actual_content == expected_content
+
+    def test_src_dir_is_searched_for_files(self, cli_runner, tmp_path):
+        content = 'include: "a"'
+        snakedir = tmp_path / "workflows"
+        snakedir.mkdir()
+        snakefile = snakedir / "Snakefile"
+        snakefile.write_text(content)
+        params = [str(tmp_path)]
+
+        result = cli_runner.invoke(main, params)
+
+        expected_contents = content + "\n"
+        actual_contents = snakefile.read_text()
+        assert actual_contents == expected_contents
 
 
 class TestReadSnakefmtDefaultsFromPyprojectToml:
