@@ -8,6 +8,8 @@
 
 This repository provides formatting for [Snakemake][snakemake] files. It follows the design and specifications of [Black][black].
 
+> **⚠️WARNING⚠️**: As this project is still in the very early stages of development, and thus not stable, we strongly recommend ensuring your files are under version control before doing any formatting. Alternatively, you can pipe the file in from stdin, which will print it to the screen, or use the `--diff` option. See [Usage](#usage) for more details.
+
 [TOC]:#
 
 # Table of Contents
