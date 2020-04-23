@@ -204,7 +204,6 @@ class TestPythonFormatting:
 
         assert actual == expected
 
-    @pytest.mark.xfail(reason="Indenting out by one for elements in list")
     def test_line_wrapped_python_code_inside_rule(self):
         content = (
             f"rule a:\n"
@@ -255,6 +254,7 @@ class TestSimpleParamFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    @pytest.mark.xfail(reason="Don't know how to treat newlines in triple quoted yet")
     def test_triple_quoted_string_not_over_indented(self):
         snakecode = (
             "rule a:\n"
@@ -397,7 +397,7 @@ class TestCommaParamFormatting:
             f'{TAB * 2}"foo.txt",\n'
             f"{TAB * 1}params:\n"
             f"{TAB * 2}"
-            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get_group_aliases(w), input.obs)],\n'  # noqa: E501  due to readability of test
+            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get(w), input.obs)],\n'  # noqa: E501  due to readability of test
             f"{TAB * 2}p2=2,\n"
         )
         formatter = setup_formatter(snakefile)

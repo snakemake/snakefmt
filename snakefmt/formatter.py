@@ -116,14 +116,14 @@ class Formatter(Parser):
     def format_param(
         self,
         parameter: Parameter,
-        used_indent: str,
+        target_indent: str,
         inline_formatting: bool,
         single_param: bool = False,
     ) -> str:
         if inline_formatting:
-            used_indent = ""
-        comments = "\n{i}".format(i=used_indent).join(parameter.comments)
-        val = parameter.value
+            target_indent = 0
+        comments = "\n{i}".format(i=target_indent).join(parameter.comments)
+        val = str(parameter)
 
         try:
             ast_parse(f"param({val})")
@@ -133,26 +133,26 @@ class Formatter(Parser):
         if inline_formatting:
             val = val.replace("\n", "")
         try:
-            val = self.run_black_format_str(val, 0)
+            val = self.run_black_format_str(val, target_indent)
+            if parameter.has_a_key():  # Remove space either side of '='
+                match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
+                val = f"{match_equal.group(1)}={match_equal.group(2)}"
+
         except InvalidPython:
             if "**" in val:
                 val = val.replace("** ", "**")
             pass
-        val = val.strip("\n")
-        val = re.sub("\n +", "\n", val)
-        val = val.replace("\n", f"\n{used_indent}")
 
+        val = val.strip("\n")
         if single_param:
             result = f"{val}{comments}\n"
         else:
             result = f"{val},{comments}\n"
-        if parameter.has_key():  # noqa: W601
-            result = f"{parameter.key}={result}"
-        result = f"{used_indent}{result}"
         return result
 
     def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
-        used_indent = TAB * (parameters.target_indent - 1)
+        target_indent = parameters.target_indent
+        used_indent = TAB * (target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
         used_indent += TAB
 
@@ -168,10 +168,10 @@ class Formatter(Parser):
         else:
             result += "\n"
 
-        for elem in parameters.positional_params:
-            result += self.format_param(elem, used_indent, inline_fmting, single_param)
-        for elem in parameters.keyword_params:
-            result += self.format_param(elem, used_indent, inline_fmting, single_param)
+        for elem in parameters.all_params:
+            result += self.format_param(
+                elem, target_indent, inline_fmting, single_param
+            )
         return result
 
     def add_newlines(self, cur_indent: int, keyword_name: str = ""):
