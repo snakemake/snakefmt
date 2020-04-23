@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 from enum import Enum
 import difflib
 
@@ -6,7 +6,17 @@ import difflib
 class CheckExitCode(Enum):
     NO_CHANGE = 0
     WOULD_CHANGE = 1
-    INTERNAL_ERROR = 123
+    ERROR = 123
+
+    def __eq__(self, other: Union[int, "CheckExitCode"]) -> bool:
+        if self.__class__ is other.__class__:
+            return self.name == other.name and self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        else:
+            raise NotImplementedError(
+                f"Equality between CheckExitCode and {type(other)} is not implemented."
+            )
 
 
 class Diff:

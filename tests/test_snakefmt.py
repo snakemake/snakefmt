@@ -137,7 +137,7 @@ list_of_lots_of_things = [
         params = ["--check", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-        expected = CheckExitCode.NO_CHANGE.value
+        expected = CheckExitCode.NO_CHANGE
 
         assert actual.exit_code == expected
 
@@ -146,7 +146,7 @@ list_of_lots_of_things = [
         params = ["--check", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-        expected = CheckExitCode.WOULD_CHANGE.value
+        expected = CheckExitCode.WOULD_CHANGE
 
         assert actual.exit_code == expected
 
@@ -155,7 +155,7 @@ list_of_lots_of_things = [
         params = ["--check", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-        expected = CheckExitCode.INTERNAL_ERROR.value
+        expected = CheckExitCode.ERROR
 
         assert actual.exit_code == expected
 
@@ -167,7 +167,7 @@ list_of_lots_of_things = [
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
+        expected_exit_code = CheckExitCode.WOULD_CHANGE
         assert result.exit_code == expected_exit_code
 
         expected_contents = content
@@ -184,7 +184,7 @@ list_of_lots_of_things = [
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.NO_CHANGE.value
+        expected_exit_code = CheckExitCode.NO_CHANGE
         assert result.exit_code == expected_exit_code
 
     def test_check_two_files_one_will_change(self, cli_runner, tmp_path):
@@ -198,7 +198,7 @@ list_of_lots_of_things = [
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
+        expected_exit_code = CheckExitCode.WOULD_CHANGE
         assert result.exit_code == expected_exit_code
 
     def test_check_two_files_one_has_errors(self, cli_runner, tmp_path):
@@ -212,7 +212,7 @@ list_of_lots_of_things = [
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.INTERNAL_ERROR.value
+        expected_exit_code = CheckExitCode.ERROR
         assert result.exit_code == expected_exit_code
 
     def test_diff_works_as_expected(self, cli_runner):
@@ -303,7 +303,7 @@ list_of_lots_of_things = [
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
+        expected_exit_code = CheckExitCode.WOULD_CHANGE
         assert result.exit_code == expected_exit_code
         assert result.output == ""
 
