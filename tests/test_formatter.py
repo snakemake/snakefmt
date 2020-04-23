@@ -155,6 +155,25 @@ class TestPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    def test_pythoncode_line_formatting_before_snakecode(self):
+        formatter = setup_formatter(
+            'if c["a"] == 2:\n'
+            f'{TAB * 1}include: "a"\n'
+            'elif c["b"] is "b":\n'
+            f'{TAB * 1}include: "b"\n'
+            'elif c["c"]=="c":\n'
+            f'{TAB * 1}include: "c"\n'
+        )
+        expected = (
+            'if c["a"] == 2:\n'
+            f'{TAB * 1}include: "a"\n'
+            'elif c["b"] is "b":\n'
+            f'{TAB * 1}include: "b"\n'
+            'elif c["c"] == "c":\n'  # adds spaces here
+            f'{TAB * 1}include: "c"\n'
+        )
+        assert formatter.get_formatted() == expected
+
     def test_multiple_rules_inside_python_code(self):
         formatter = setup_formatter(
             "if condition:\n"
