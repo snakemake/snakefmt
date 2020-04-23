@@ -437,6 +437,16 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_comments_after_parameters_kept(self):
+        snakecode = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"myparam", # a comment\n'
+            f'{TAB * 2}b="param2", # another comment\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestNewlineSpacing:
     def test_non_rule_has_no_keyword_spacing_above(self):

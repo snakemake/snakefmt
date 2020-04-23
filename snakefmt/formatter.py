@@ -122,7 +122,7 @@ class Formatter(Parser):
     ) -> str:
         if inline_formatting:
             target_indent = 0
-        comments = "\n{i}".format(i=target_indent).join(parameter.comments)
+        comments = f"\n{TAB * target_indent}".join(parameter.comments)
         val = str(parameter)
 
         try:
