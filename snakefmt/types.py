@@ -20,7 +20,13 @@ class Parameter:
         self.comments = list()
         self.len = 0
 
-    def has_key(self) -> bool:
+    def __repr__(self):
+        if self.has_a_key():
+            return f"{self.key}={self.value}"
+        else:
+            return self.value
+
+    def has_a_key(self) -> bool:
         return len(self.key) > 0
 
     def has_value(self) -> bool:

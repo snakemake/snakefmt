@@ -105,7 +105,6 @@ list_of_lots_of_things = [
 
         assert actual.output == expected_output
 
-    @pytest.mark.xfail(reason="Indenting out by one for elements in list")
     def test_config_adherence_for_code_inside_rules(self, cli_runner, tmp_path):
         stdin = (
             f"rule a:\n"
