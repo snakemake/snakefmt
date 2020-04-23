@@ -48,12 +48,6 @@ Format all Snakefiles within a directory.
 snakefmt workflows/
 ```
 
-Format all Snakefiles under the current directory.
-
-```shell
-snakefmt .
-```
-
 Format a file but write the output to stdout.
 
 ```shell
@@ -77,7 +71,7 @@ Options:
   --check                Don't write the files back, just return the status.
                          Return code 0 means nothing would change. Return code
                          1 means some files would be reformatted. Return code
-                         123 means there was an internal error.
+                         123 means there was an error.
 
   -d, --diff             Don't write the files back, just output a diff for
                          each file to stdout.
@@ -108,12 +102,13 @@ Options:
   -h, --help             Show this message and exit.
   -V, --version          Show the version and exit.
   -v, --verbose          Turns on debug-level logging.
+
 ```
 
 #### Check
 ##### `--check`
 
-Using the option will not write any formatted code back to file. It will instead check whether any changes *would* be made. It returns one of three possible exit codes:
+Does not write any formatted code back to file. It will instead check whether any changes *would* be made. It returns one of three possible exit codes:
 
 **0** - indicates **no changes** would be made
 ```
@@ -131,7 +126,7 @@ $ echo "Exit code: $?"
 Exit code: 1
 ```
 
-**123** - indicates there was an **internal error** such as invalid syntax
+**123** - indicates there was an **error** such as invalid syntax
 ```
 $ echo 'include:' | snakefmt --check -            
 [ERROR] L2: In include definition.
@@ -143,7 +138,7 @@ Exit code: 123
 #### Compact diff
 ##### `--compact-diff`
 
-As the name implies, a more compact version of [`--diff`](#diff). Using this option will not write any formatted code back to file. It will instead print a compact diff of how the code looks before and after formatting. The diff is compact as it only prints the lines that will change, with a few lines of surrounding context.
+Does not write any formatted code back to file. It will instead print a compact diff of how the code looks before and after formatting. The diff is compact as it only prints the lines that will change, with a few lines of surrounding context.
 
 ```
 $ echo 'x = 1\ny = 3\n\n\nrule foo:\n\tinput: "foo.txt"' | snakefmt --compact-diff -
@@ -167,7 +162,7 @@ The above example shows that the variable assignments at the beginning of the fi
 #### Diff
 ##### `--diff`
 
-Using this option will not write any formatted code back to file. It will instead print a diff of how the code looks before and after formatting.
+Does not write any formatted code back to file. It will instead print a diff of how the code looks before and after formatting.
 
 ```
 $ echo 'rule foo:\n\tinput: "foo.txt"' | snakefmt --diff -
