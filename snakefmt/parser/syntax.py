@@ -318,7 +318,7 @@ class ParameterSyntax(Syntax):
         if not parameter.has_value() and skip_empty:
             return
 
-        if parameter.has_key():  # noqa: W601
+        if parameter.has_a_key():  # noqa: W601
             self.keyword_params.append(parameter)
         else:
             self.positional_params.append(parameter)
