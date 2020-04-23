@@ -1,5 +1,5 @@
 import tokenize
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from snakefmt.types import Token, TokenIterator, Parameter
 from snakefmt.exceptions import (
@@ -44,18 +44,32 @@ def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
 
 
-def is_spaceable(token: Token):
-    if (
-        token.type == tokenize.NAME
-        or token.type == tokenize.STRING
-        or token.type == tokenize.NUMBER
-    ):
-        return True
-    return False
-
-
 def not_empty(token: Token):
     return len(token.string) > 0 and not token.string.isspace()
+
+
+"""
+Token spacing: for when cannot run black
+"""
+spacing_triggers = {
+    tokenize.NAME: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
+    tokenize.STRING: {tokenize.NAME, tokenize.OP},
+    tokenize.NUMBER: {tokenize.NAME, tokenize.OP},
+    tokenize.OP: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
+}
+
+
+def operator_skip_spacing(prev_token: Token, token: Token):
+    if prev_token.type != tokenize.OP and token.type != tokenize.OP:
+        return False
+    elif (
+        prev_token.string in BRACKETS_OPEN
+        or token.string in BRACKETS_CLOSE
+        or token.string in {"[", ":"}
+    ):
+        return True
+    else:
+        return False
 
 
 class Vocabulary:
@@ -181,22 +195,26 @@ class KeywordSyntax(Syntax):
 
     def get_next_queriable(self, snakefile) -> Syntax.Status:
         buffer = ""
-        newline, used_name = False, True
+        newline = False
         pythonable = False
+        prev_token: Optional[Token] = Token(tokenize.NAME)
         while True:
             token = next(snakefile)
             if token.type == tokenize.INDENT:
                 self.cur_indent += 1
+                prev_token = None
                 continue
             elif token.type == tokenize.DEDENT:
                 if self.cur_indent > 0:
                     self.cur_indent -= 1
+                prev_token = None
                 continue
             elif token.type == tokenize.ENDMARKER:
                 return self.Status(token, self.cur_indent, buffer, True, pythonable)
             elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
                 self.queriable, newline = True, True
                 buffer += "\n"
+                prev_token = None
                 continue
 
             if newline:  # Records relative tabbing, used for python code formatting
@@ -205,9 +223,12 @@ class KeywordSyntax(Syntax):
             if token.type == tokenize.NAME and self.queriable:
                 self.queriable = False
                 return self.Status(token, self.cur_indent, buffer, False, pythonable)
-            if used_name and is_spaceable(token) and not newline:
-                buffer += " "
-            used_name = token.type == tokenize.NAME
+
+            if prev_token is not None and prev_token.type in spacing_triggers:
+                if not operator_skip_spacing(prev_token, token):
+                    if token.type in spacing_triggers[prev_token.type]:
+                        buffer += " "
+            prev_token = token
             if newline:
                 newline = False
             if not pythonable and token.type != tokenize.COMMENT:

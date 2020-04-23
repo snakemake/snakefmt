@@ -1,10 +1,16 @@
 import tokenize
-from typing import Iterator
-from collections import namedtuple
+from typing import Iterator, NamedTuple, Tuple
 
 from snakefmt.exceptions import InvalidParameterSyntax
 
-Token = namedtuple
+
+class Token(NamedTuple):
+    type: int
+    string: str = ""
+    start: Tuple[int, int] = (-1, -1)
+    end: Tuple[int, int] = (-1, -1)
+
+
 TokenIterator = Iterator[Token]
 
 
