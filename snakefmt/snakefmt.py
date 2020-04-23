@@ -145,8 +145,7 @@ def get_snakefiles_in_dir(
         f"Don't write the files back, just return the status. Return code "
         f"{CheckExitCode.NO_CHANGE.value} means nothing would change. Return code "
         f"{CheckExitCode.WOULD_CHANGE.value} means some files would be reformatted. "
-        f"Return code {CheckExitCode.INTERNAL_ERROR.value} means there was an internal "
-        f"error."
+        f"Return code {CheckExitCode.ERROR.value} means there was an error."
     ),
 )
 @click.option(
@@ -334,7 +333,7 @@ def main(
     if check:
         if files_with_errors > 0:
             logging.info(f"{files_with_errors} file(s) contains errors 🤕")
-            ctx.exit(CheckExitCode.INTERNAL_ERROR.value)
+            ctx.exit(CheckExitCode.ERROR.value)
         elif files_changed > 0:
             logging.info(f"{files_changed} file(s) would be changed 😬")
             ctx.exit(CheckExitCode.WOULD_CHANGE.value)
