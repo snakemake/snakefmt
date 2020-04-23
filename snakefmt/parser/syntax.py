@@ -235,6 +235,7 @@ class ParameterSyntax(Syntax):
         self.incident_vocab = incident_vocab
         self._brackets = list()
         self.found_newline, self.in_lambda = False, False
+        self.latest_pushed_param = None
 
         self.parse_params(snakefile)
 
@@ -288,7 +289,11 @@ class ParameterSyntax(Syntax):
             if cur_param.has_value():
                 cur_param.add_elem(self.token)
         elif token_type == tokenize.COMMENT:
-            cur_param.comments.append(" " + self.token.string)
+            if str(cur_param) == "":
+                target = self.latest_pushed_param.comments
+            else:
+                target = cur_param.comments
+            target.append(" " + self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
@@ -320,8 +325,10 @@ class ParameterSyntax(Syntax):
 
         if parameter.has_a_key():  # noqa: W601
             self.keyword_params.append(parameter)
+            self.latest_pushed_param = self.keyword_params[-1]
         else:
             self.positional_params.append(parameter)
+            self.latest_pushed_param = self.positional_params[-1]
 
     def num_params(self):
         return len(self.keyword_params) + len(self.positional_params)
