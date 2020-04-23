@@ -1,4 +1,39 @@
-from snakefmt.diff import Diff
+import pytest
+
+from snakefmt.diff import Diff, CheckExitCode
+
+
+class TestCheckExitCode:
+    def test_equality_two_enums(self):
+        actual = CheckExitCode.WOULD_CHANGE
+        other = CheckExitCode.WOULD_CHANGE
+
+        assert actual == other
+
+    def test_equality_two_different_enums(self):
+        actual = CheckExitCode.WOULD_CHANGE
+        other = CheckExitCode.ERROR
+
+        assert actual != other
+
+    def test_equality_one_enum_one_int_same_value(self):
+        actual = CheckExitCode.NO_CHANGE
+        other = 0
+
+        assert actual == other
+
+    def test_equality_one_enum_one_int_different_value(self):
+        actual = CheckExitCode.ERROR
+        other = 0
+
+        assert actual != other
+
+    def test_equality_one_enum_one_float_raises_error(self):
+        actual = CheckExitCode.ERROR
+        other = 123.0
+
+        with pytest.raises(NotImplementedError):
+            actual == other
 
 
 class TestCompare:
