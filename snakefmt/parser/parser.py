@@ -48,6 +48,7 @@ class Parser(ABC):
         )
         self.context_stack = [self.grammar]
         self.snakefile = snakefile
+        from_python = False
 
         status = self.context.get_next_queriable(self.snakefile)
         self.buffer = status.buffer
@@ -70,6 +71,7 @@ class Parser(ABC):
                 self.flush_buffer(from_python)
                 status = self.process_keyword(status, from_python)
             else:
+                from_python = False
                 if not self.context.accepts_python_code and not keyword[0] == "#":
                     raise SyntaxError(
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
@@ -80,7 +82,7 @@ class Parser(ABC):
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
             self.context.cur_indent = status.indent
-        self.flush_buffer()
+        self.flush_buffer(from_python)
 
     @property
     def vocab(self) -> Vocabulary:
