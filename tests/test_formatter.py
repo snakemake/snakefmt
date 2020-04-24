@@ -259,8 +259,7 @@ class TestSimpleParamFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    @pytest.mark.xfail(reason="Don't know how to treat newlines in triple quoted yet")
-    def test_triple_quoted_string_not_over_indented(self):
+    def test_triple_quoted_shell_string_not_over_indented(self):
         snakecode = (
             "rule a:\n"
             f"{TAB * 1}shell:\n"
@@ -274,6 +273,26 @@ class TestSimpleParamFormatting:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+    def test_param_with_string_mixture(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}message:\n"
+            f'{TAB * 2}"Hello"\n'
+            f"{TAB * 2}'''    a string'''\n"
+            f'{TAB * 3}"World"\n'
+            f'{TAB * 3}"""		Yes"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}message:\n"
+            f'{TAB * 2}"Hello"\n'
+            f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
+            f'{TAB * 2}"World"\n'
+            f'{TAB * 2}"""		Yes"""\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
 
     def test_singleParamKeywordInRule_NewlineIndented(self):
         formatter = setup_formatter(
