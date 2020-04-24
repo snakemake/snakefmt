@@ -28,6 +28,8 @@ from snakefmt.types import TokenIterator
 PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
+triple_quote_matcher = re.compile(r"(\"{3}.*?\"{3})|('{3}.*?'{3})", re.DOTALL)
+
 
 class Formatter(Parser):
     def __init__(
@@ -110,7 +112,17 @@ class Formatter(Parser):
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
 
-        indented = textwrap.indent(fmted, TAB * target_indent)
+        # Only indent non-triple-quoted string portions
+        pos = 0
+        used_indent = TAB * target_indent
+        indented = ""
+        for match in re.finditer(triple_quote_matcher, fmted):
+            indented += textwrap.indent(fmted[pos : match.start()], used_indent)
+            match_slice = fmted[match.start() : match.end()]
+            indented += f"{used_indent}{match_slice}"
+            pos = match.end()
+        indented += textwrap.indent(fmted[pos:], used_indent)
+
         return indented
 
     def format_param(
@@ -154,7 +166,6 @@ class Formatter(Parser):
         target_indent = parameters.target_indent
         used_indent = TAB * (target_indent - 1)
         result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
-        used_indent += TAB
 
         p_class = parameters.__class__
         single_param = issubclass(p_class, SingleParam)
