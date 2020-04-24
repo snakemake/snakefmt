@@ -108,6 +108,10 @@ class TestSimplePythonFormatting:
 
 
 class TestComplexPythonFormatting:
+    """
+    Snakemake syntax can be nested inside python code
+    """
+
     def test_snakemake_code_inside_python_code(self):
         # The rules inside python code get formatted
         formatter = setup_formatter(
@@ -131,24 +135,70 @@ class TestComplexPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    def test_pythoncode_line_formatting_before_snakecode(self):
-        formatter = setup_formatter(
-            'if c["a"] == 2:\n'
+    def test_python_code_after_nested_snakecode_gets_formatted(self):
+        snakecode = "if condition:\n" f'{TAB * 1}include: "a"\n' "b=2\n"
+        with mock.patch(
+            "snakefmt.formatter.Formatter.run_black_format_str", spec=True
+        ) as mock_m:
+            formatter = setup_formatter(snakecode)
+            assert mock_m.call_count == 2
+            assert mock_m.call_args_list[0] == mock.call('"a"', 0)
+            assert mock_m.call_args_list[1] == mock.call("b = 2\n", 0)
+
+        formatter = setup_formatter(snakecode)
+        expected = (
+            "if condition:\n"
             f'{TAB * 1}include: "a"\n'
-            'elif c["b"] is "b":\n'
+            "\nb = 2\n"  # python code gets formatted here
+        )
+        assert formatter.get_formatted() == expected
+
+    @pytest.mark.xfail(
+        reason="python code prior to nested snakecode needs is not yet processed"
+    )
+    def test_python_code_before_nested_snakecode_gets_formatted(self):
+        snakecode = "b=2\n" "if condition:\n" f'{TAB * 1}include: "a"\n'
+        with mock.patch(
+            "snakefmt.formatter.Formatter.run_black_format_str", spec=True
+        ) as mock_m:
+            formatter = setup_formatter(snakecode)
+            assert mock_m.call_count == 2
+
+        formatter = setup_formatter(snakecode)
+        expected = "b = 2\n" "if condition:\n" f'{TAB * 1}include: "a"\n'
+        assert formatter.get_formatted() == expected
+
+    def test_pythoncode_parser_based_formatting_before_snakecode(self):
+        snakecode = (
+            'if c["a"]is None:\n'
+            f'{TAB * 1}include: "a"\n'
+            'elif c["b"] == "b":\n'
             f'{TAB * 1}include: "b"\n'
             'elif c["c"]=="c":\n'
             f'{TAB * 1}include: "c"\n'
         )
+
+        formatter = setup_formatter(snakecode)
         expected = (
-            'if c["a"] == 2:\n'
+            'if c["a"] is None:\n'
             f'{TAB * 1}include: "a"\n'
-            'elif c["b"] is "b":\n'
+            'elif c["b"] == "b":\n'
             f'{TAB * 1}include: "b"\n'
             'elif c["c"] == "c":\n'  # adds spaces here
             f'{TAB * 1}include: "c"\n'
         )
         assert formatter.get_formatted() == expected
+
+    @pytest.mark.xfail(reason="black cannot format lone 'else'")
+    def test_nested_snakecode_python_else_does_not_fail(self):
+        snakecode = (
+            'if c["a"] is None:\n'
+            f'{TAB * 1}include: "a"\n'
+            "else:\n"  # All python from here
+            f'{TAB * 1}var = "b"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
 
     def test_multiple_rules_inside_python_code(self):
         formatter = setup_formatter(
