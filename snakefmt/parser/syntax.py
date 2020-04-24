@@ -59,7 +59,7 @@ spacing_triggers = {
 }
 
 
-def operator_skip_spacing(prev_token: Token, token: Token):
+def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
     if prev_token.type != tokenize.OP and token.type != tokenize.OP:
         return False
     elif (
@@ -193,7 +193,7 @@ class KeywordSyntax(Syntax):
     def effective_indent(self) -> int:
         return max(0, self.cur_indent - self.target_indent)
 
-    def get_next_queriable(self, snakefile) -> Syntax.Status:
+    def get_next_queriable(self, snakefile: TokenIterator) -> Syntax.Status:
         buffer = ""
         newline = False
         pythonable = False
@@ -344,7 +344,7 @@ class ParameterSyntax(Syntax):
         if not parameter.has_value() and skip_empty:
             return
 
-        if parameter.has_a_key():  # noqa: W601
+        if parameter.has_a_key():
             self.keyword_params.append(parameter)
             self.latest_pushed_param = self.keyword_params[-1]
         else:
