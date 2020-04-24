@@ -6,74 +6,10 @@ errors arise, as tested in test_parser.py.
 from io import StringIO
 from unittest import mock
 
-import black
 import pytest
 
-from snakefmt.exceptions import InvalidBlackConfiguration, MalformattedToml
 from snakefmt.formatter import TAB
 from tests import setup_formatter, Snakefile, Formatter
-
-
-class TestReadBlackConfig:
-    def test_config_doesnt_exist_raises_error(self, tmp_path):
-        formatter = setup_formatter("")
-        path = tmp_path / "config.toml"
-        with pytest.raises(FileNotFoundError):
-            formatter.read_black_config(path)
-
-    def test_config_exists_but_no_black_settings(self, tmp_path):
-        formatter = setup_formatter("")
-        path = tmp_path / "config.toml"
-        path.write_text("[tool.snakefmt]\nline_length = 99")
-
-        actual = formatter.read_black_config(path)
-        expected = black.FileMode(line_length=formatter.line_length)
-
-        assert actual == expected
-
-    def test_config_exists_with_black_settings(self, tmp_path):
-        formatter = setup_formatter("")
-        path = tmp_path / "config.toml"
-        black_line_length = 9
-        path.write_text(f"[tool.black]\nline_length = {black_line_length}")
-
-        actual = formatter.read_black_config(path)
-        expected = black.FileMode(line_length=black_line_length)
-
-        assert actual == expected
-
-    def test_config_exists_with_no_line_length_uses_snakefmt_line_length(
-        self, tmp_path
-    ):
-        line_length = 9
-        formatter = setup_formatter("", line_length=line_length)
-        path = tmp_path / "config.toml"
-        path.write_text("[tool.black]\nstring_normalization = false")
-
-        actual = formatter.read_black_config(path)
-        expected = black.FileMode(line_length=line_length, string_normalization=False)
-
-        assert actual == expected
-
-    def test_config_exists_with_invalid_black_options_raises_error(self, tmp_path):
-        formatter = setup_formatter("")
-        path = tmp_path / "config.toml"
-        path.write_text("[tool.black]\nfoo = false")
-
-        with pytest.raises(InvalidBlackConfiguration) as error:
-            formatter.read_black_config(path)
-
-        assert error.match("unexpected keyword argument")
-
-    def test_malformatted_toml_raises_error(self, tmp_path):
-        formatter = setup_formatter("")
-        path = tmp_path / "config.toml"
-        path.write_text("[tool.black]\n{key}: I am not json:\n or yaml = false")
-
-        with pytest.raises(MalformattedToml) as error:
-            formatter.read_black_config(path)
-
-        assert error.match("invalid character")
 
 
 def test_emptyInput_emptyOutput():
@@ -85,11 +21,9 @@ def test_emptyInput_emptyOutput():
     assert actual == expected
 
 
-class TestPythonFormatting:
+class TestSimplePythonFormatting:
     @mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
-    def test_commented_snakemake_syntax_we_dont_format_but_black_does(
-        self, mock_method
-    ):
+    def test_commented_snakemake_syntax_formatted_as_python_code(self, mock_method):
         """
         Tests this line triggers call to black formatting
         """
@@ -132,6 +66,48 @@ class TestPythonFormatting:
         formatter = setup_formatter(snake_code)
         assert formatter.get_formatted() == snake_code
 
+    def test_line_wrapped_python_code_outside_rule(self):
+        content = (
+            "list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n"
+            "include: snakefile"
+        )
+        line_length = 30
+        formatter = setup_formatter(content, line_length=line_length)
+
+        actual = formatter.get_formatted()
+        expected = (
+            "list_of_lots_of_things = [\n"
+            f"{TAB}1,\n{TAB}2,\n{TAB}3,\n{TAB}4,\n{TAB}5,\n{TAB}6,\n{TAB}7,\n"
+            f"{TAB}8,\n{TAB}9,\n{TAB}10,\n"
+            "]\n"
+            "include: snakefile\n"
+        )
+
+        assert actual == expected
+
+    def test_line_wrapped_python_code_inside_rule(self):
+        content = (
+            f"rule a:\n"
+            f"{TAB}input:\n"
+            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        )
+        line_length = 30
+        formatter = setup_formatter(content, line_length=line_length)
+
+        actual = formatter.get_formatted()
+        expected = (
+            "rule a:\n"
+            f"{TAB*1}input:\n"
+            f"{TAB*2}list_of_lots_of_things=[\n"
+            f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
+            f"{TAB*3}6,\n{TAB*3}7,\n{TAB*3}8,\n{TAB*3}9,\n{TAB*3}10,\n"
+            f"{TAB*2}],\n"
+        )
+
+        assert actual == expected
+
+
+class TestComplexPythonFormatting:
     def test_snakemake_code_inside_python_code(self):
         # The rules inside python code get formatted
         formatter = setup_formatter(
@@ -203,46 +179,6 @@ class TestPythonFormatting:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
-
-    def test_line_wrapped_python_code_outside_rule(self):
-        content = (
-            "list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n"
-            "include: snakefile"
-        )
-        line_length = 30
-        formatter = setup_formatter(content, line_length=line_length)
-
-        actual = formatter.get_formatted()
-        expected = (
-            "list_of_lots_of_things = [\n"
-            f"{TAB}1,\n{TAB}2,\n{TAB}3,\n{TAB}4,\n{TAB}5,\n{TAB}6,\n{TAB}7,\n"
-            f"{TAB}8,\n{TAB}9,\n{TAB}10,\n"
-            "]\n"
-            "include: snakefile\n"
-        )
-
-        assert actual == expected
-
-    def test_line_wrapped_python_code_inside_rule(self):
-        content = (
-            f"rule a:\n"
-            f"{TAB}input:\n"
-            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
-        )
-        line_length = 30
-        formatter = setup_formatter(content, line_length=line_length)
-
-        actual = formatter.get_formatted()
-        expected = (
-            "rule a:\n"
-            f"{TAB*1}input:\n"
-            f"{TAB*2}list_of_lots_of_things=[\n"
-            f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
-            f"{TAB*3}6,\n{TAB*3}7,\n{TAB*3}8,\n{TAB*3}9,\n{TAB*3}10,\n"
-            f"{TAB*2}],\n"
-        )
-
-        assert actual == expected
 
 
 class TestSimpleParamFormatting:
