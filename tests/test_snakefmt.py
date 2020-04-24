@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from click.testing import CliRunner
 
 from snakefmt.formatter import TAB
 from snakefmt.diff import CheckExitCode
@@ -14,11 +13,6 @@ from snakefmt.snakefmt import (
     main,
     get_snakefiles_in_dir,
 )
-
-
-@pytest.fixture
-def cli_runner() -> CliRunner:
-    return CliRunner()
 
 
 class TestCLIBasic:
@@ -107,75 +101,6 @@ class TestCLIBasic:
         actual_stat = file.stat()
 
         assert actual_stat == expected_stat
-
-
-class TestCLIRegex:
-    def test_invalidIncludeRegex_nonZeroExit(self, cli_runner):
-        params = ["--include", "?", str(Path().resolve())]
-        actual = cli_runner.invoke(main, params)
-        assert actual.exit_code != 0
-        assert "Invalid regular expression" in str(actual.exception)
-
-    def test_invalidExcludeRegex_nonZeroExit(self, cli_runner):
-        params = ["--exclude", "?", str(Path().resolve())]
-        actual = cli_runner.invoke(main, params)
-        assert actual.exit_code != 0
-        assert "Invalid regular expression" in str(actual.exception)
-
-    def test_config_adherence_for_python_outside_rules(self, cli_runner, tmp_path):
-        stdin = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
-        line_length = 30
-        config = tmp_path / "pyproject.toml"
-        config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
-        params = ["--config", str(config), "-"]
-
-        actual = cli_runner.invoke(main, params, input=stdin)
-
-        assert actual.exit_code == 0
-
-        expected_output = """include: \"a\"
-
-list_of_lots_of_things = [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-]
-"""
-
-        assert actual.output == expected_output
-
-    def test_config_adherence_for_code_inside_rules(self, cli_runner, tmp_path):
-        stdin = (
-            f"rule a:\n"
-            f"{TAB}input:\n"
-            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
-        )
-        line_length = 30
-        config = tmp_path / "pyproject.toml"
-        config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
-        params = ["--config", str(config), "-"]
-
-        actual = cli_runner.invoke(main, params, input=stdin)
-
-        assert actual.exit_code == 0
-
-        expected_output = (
-            "rule a:\n"
-            f"{TAB*1}input:\n"
-            f"{TAB*2}list_of_lots_of_things=[\n"
-            f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
-            f"{TAB*3}6,\n{TAB*3}7,\n{TAB*3}8,\n{TAB*3}9,\n{TAB*3}10,\n"
-            f"{TAB*2}],\n"
-        )
-
-        assert actual.output == expected_output
 
 
 class TestCLICheck:
@@ -389,7 +314,21 @@ class TestConstructRegex:
             construct_regex(regex)
 
 
-class TestGetSnakefilesInDir:
+class TestCLIInvalidRegex:
+    def test_invalidIncludeRegex_nonZeroExit(self, cli_runner):
+        params = ["--include", "?", str(Path().resolve())]
+        actual = cli_runner.invoke(main, params)
+        assert actual.exit_code != 0
+        assert "Invalid regular expression" in str(actual.exception)
+
+    def test_invalidExcludeRegex_nonZeroExit(self, cli_runner):
+        params = ["--exclude", "?", str(Path().resolve())]
+        actual = cli_runner.invoke(main, params)
+        assert actual.exit_code != 0
+        assert "Invalid regular expression" in str(actual.exception)
+
+
+class TestCLIValidRegex:
     filesystem = [
         "Snakefile",
         "Snakefile-dev",
