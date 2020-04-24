@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from unittest import mock
 
@@ -12,8 +11,7 @@ from snakefmt.exceptions import InvalidBlackConfiguration, MalformattedToml
 
 
 class TestReadSnakefmtDefaultsFromPyprojectToml:
-    def test_no_value_passed_and_no_pyproject_changes_nothing(self, tmpdir):
-        os.chdir(tmpdir)
+    def test_no_value_passed_and_no_pyproject_changes_nothing(self, testdir):
         default_map = dict()
         ctx = click.Context(click.Command("snakefmt"), default_map=default_map)
         param = mock.MagicMock()
@@ -29,9 +27,8 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert actual_default_map == expected_default_map
 
     def test_pyproject_present_but_empty_changes_nothing_returns_pyproject_path(
-        self, tmpdir
+        self, testdir
     ):
-        os.chdir(tmpdir)
         pyproject = Path("pyproject.toml")
         pyproject.touch()
         default_map = dict()
@@ -48,9 +45,8 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert ctx.default_map == dict()
 
     def test_no_value_passed_and_pyproject_present_changes_default_line_length(
-        self, tmpdir
+        self, testdir
     ):
-        os.chdir(tmpdir)
         pyproject = Path("pyproject.toml")
         pyproject.write_text("[tool.snakefmt]\nline_length = 4")
         default_map = dict(line_length=88)
@@ -71,9 +67,8 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert actual_default_map == expected_default_map
 
     def test_no_value_passed_and_pyproject_present_unknown_param_adds_to_default_map(
-        self, tmpdir
+        self, testdir
     ):
-        os.chdir(tmpdir)
         pyproject = Path("pyproject.toml")
         pyproject.write_text("[tool.snakefmt]\nfoo = true")
         default_map = dict()
@@ -93,8 +88,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
         assert actual_default_map == expected_default_map
 
-    def test_value_passed_reads_from_path(self, tmpdir):
-        os.chdir(tmpdir)
+    def test_value_passed_reads_from_path(self, testdir):
         pyproject = Path("snakefmt.toml")
         pyproject.write_text("[tool.snakefmt]\nfoo = true")
         default_map = dict()
@@ -113,8 +107,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
         assert actual_default_map == expected_default_map
 
-    def test_value_passed_but_default_map_is_None_still_updates_defaults(self, tmpdir):
-        os.chdir(tmpdir)
+    def test_value_passed_but_default_map_is_None_still_updates_defaults(self, testdir):
         pyproject = Path("snakefmt.toml")
         pyproject.write_text("[tool.snakefmt]\nfoo = true")
         default_map = None
@@ -134,8 +127,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
         assert actual_default_map == expected_default_map
 
-    def test_value_passed_in_overrides_pyproject(self, tmpdir):
-        os.chdir(tmpdir)
+    def test_value_passed_in_overrides_pyproject(self, testdir):
         snakefmt_config = Path("snakefmt.toml")
         snakefmt_config.write_text("[tool.snakefmt]\nfoo = true")
         pyproject = Path("pyproject.toml")
@@ -157,8 +149,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
         assert actual_default_map == expected_default_map
 
-    def test_malformatted_toml_raises_error(self, tmpdir):
-        os.chdir(tmpdir)
+    def test_malformatted_toml_raises_error(self, testdir):
         pyproject = Path("pyproject.toml")
         pyproject.write_text("foo:bar,baz\n{dict}&&&&")
         default_map = dict()
