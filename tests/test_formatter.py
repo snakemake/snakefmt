@@ -274,14 +274,34 @@ class TestSimpleParamFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_param_with_string_mixture(self):
+    def test_param_with_triple_quoted_string_retabbed(self):
+        snakecode = f'''
+rule a:
+{TAB * 1}shell:
+{TAB * 2}"""
+\t\t\t\tHello
+{TAB * 2}World
+{TAB * 2}"""
+'''
+        formatter = setup_formatter(snakecode)
+        expected = f'''
+rule a:
+{TAB * 1}shell:
+{TAB * 2}"""
+{TAB * 4}Hello
+{TAB * 2}World
+{TAB * 2}"""
+'''
+        assert formatter.get_formatted() == expected
+
+    def test_param_with_string_mixture_reindented_and_string_normalised(self):
         snakecode = (
             "rule a:\n"
             f"{TAB * 1}message:\n"
             f'{TAB * 2}"Hello"\n'
             f"{TAB * 2}'''    a string'''\n"
             f'{TAB * 3}"World"\n'
-            f'{TAB * 3}"""		Yes"""\n'
+            f'{TAB * 3}"""    Yes"""\n'
         )
         expected = (
             "rule a:\n"
@@ -289,7 +309,7 @@ class TestSimpleParamFormatting:
             f'{TAB * 2}"Hello"\n'
             f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
             f'{TAB * 2}"World"\n'
-            f'{TAB * 2}"""		Yes"""\n'
+            f'{TAB * 2}"""    Yes"""\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
