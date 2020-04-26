@@ -118,7 +118,7 @@ class Formatter(Parser):
         indented = ""
         for match in re.finditer(triple_quote_matcher, fmted):
             indented += textwrap.indent(fmted[pos : match.start()], used_indent)
-            match_slice = fmted[match.start() : match.end()]
+            match_slice = fmted[match.start() : match.end()].replace("\t", TAB)
             indented += f"{used_indent}{match_slice}"
             pos = match.end()
         indented += textwrap.indent(fmted[pos:], used_indent)
