@@ -83,7 +83,12 @@ class Formatter(Parser):
 
         if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.target_indent)
-            self.from_comment = True if formatted.splitlines()[-1][0] == "#" else False
+            self.from_comment = False
+            try:
+                if formatted.splitlines()[-1][0] == "#":
+                    self.from_comment = True
+            except Exception:
+                pass
             self.add_newlines(self.target_indent, keyword_name="")
         else:
             formatted = self.buffer.rstrip(TAB)
@@ -111,14 +116,18 @@ class Formatter(Parser):
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
+        used_indent = TAB * target_indent
+        indented = textwrap.indent(fmted, used_indent)
+        return indented
 
+    def format_string(self, string: str, target_indent: int) -> str:
         # Only indent non-triple-quoted string portions
         pos = 0
         used_indent = TAB * target_indent
         indented = ""
-        for match in re.finditer(triple_quote_matcher, fmted):
-            indented += textwrap.indent(fmted[pos : match.start()], used_indent)
-            match_slice = fmted[match.start() : match.end()].replace("\t", TAB)
+        for match in re.finditer(triple_quote_matcher, string):
+            indented += textwrap.indent(string[pos : match.start()], used_indent)
+            match_slice = string[match.start() : match.end()].replace("\t", TAB)
             if match_slice.count("\n") > 0:
                 # Note, cannot use 'eval' function as it
                 # unescapes escaped special chars like '\n'
@@ -128,7 +137,7 @@ class Formatter(Parser):
             else:
                 indented += f"{used_indent}{match_slice}"
             pos = match.end()
-        indented += textwrap.indent(fmted[pos:], used_indent)
+        indented += textwrap.indent(string[pos:], used_indent)
 
         return indented
 
@@ -152,7 +161,8 @@ class Formatter(Parser):
         if inline_formatting:
             val = val.replace("\n", "")
         try:
-            val = self.run_black_format_str(val, target_indent)
+            val = self.run_black_format_str(val, 0)
+            val = self.format_string(val, target_indent)
             if parameter.has_a_key():  # Remove space either side of '='
                 match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
                 val = f"{match_equal.group(1)}={match_equal.group(2)}"

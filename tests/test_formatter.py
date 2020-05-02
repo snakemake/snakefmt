@@ -22,7 +22,9 @@ def test_emptyInput_emptyOutput():
 
 
 class TestSimplePythonFormatting:
-    @mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
+    @mock.patch(
+        "snakefmt.formatter.Formatter.run_black_format_str", spec=True, return_value=""
+    )
     def test_commented_snakemake_syntax_formatted_as_python_code(self, mock_method):
         """
         Tests this line triggers call to black formatting
@@ -36,7 +38,9 @@ class TestSimplePythonFormatting:
         python_code = "if p:\n" f"{TAB * 1}for elem in p:\n" f"{TAB * 2}dothing(elem)\n"
         # test black gets called
         with mock.patch(
-            "snakefmt.formatter.Formatter.run_black_format_str", spec=True
+            "snakefmt.formatter.Formatter.run_black_format_str",
+            spec=True,
+            return_value="",
         ) as mock_m:
             formatter = setup_formatter(python_code)
             mock_m.assert_called_once()
@@ -60,8 +64,8 @@ class TestSimplePythonFormatting:
             "rule a:\n"
             f"{TAB * 1}run:\n"
             f"{TAB * 2}def s(a):\n"
-            f"{TAB * 2}    if a:\n"
-            f'{TAB * 3}    return "Hello World"\n'
+            f"{TAB * 3}if a:\n"
+            f'{TAB * 4}return "Hello World"\n'
         )
         formatter = setup_formatter(snake_code)
         assert formatter.get_formatted() == snake_code
@@ -140,6 +144,7 @@ class TestComplexPythonFormatting:
         with mock.patch(
             "snakefmt.formatter.Formatter.run_black_format_str", spec=True
         ) as mock_m:
+            mock_m.return_value = ""
             formatter = setup_formatter(snakecode)
             assert mock_m.call_count == 2
             assert mock_m.call_args_list[0] == mock.call('"a"', 0)
