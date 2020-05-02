@@ -231,46 +231,36 @@ class TestComplexPythonFormatting:
         assert formatter.get_formatted() == snakecode
 
 
-class TestSimpleParamFormatting:
-    def test_singleParamKeyword_staysOnSameLine(self):
-        """
-        Keywords that expect a single parameter do not have newline + indent
-        """
-        formatter = setup_formatter("configfile: \n" f'{TAB * 1}"foo.yaml"')
-
-        actual = formatter.get_formatted()
-        expected = 'configfile: "foo.yaml"\n'
-
-        assert actual == expected
-
-    def test_shell_keyword_get_newlineIndented(self):
-        formatter = setup_formatter(
+class TestStringFormatting:
+    def test_param_with_string_mixture_reindented_and_string_normalised(self):
+        snakecode = (
             "rule a:\n"
-            f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"'
+            f"{TAB * 1}message:\n"
+            f'{TAB * 2}"Hello"\n'
+            f"{TAB * 2}'''    a string'''\n"
+            f'{TAB * 3}"World"\n'
+            f'{TAB * 3}"""    Yes"""\n'
         )
         expected = (
             "rule a:\n"
-            f"{TAB * 1}shell:\n"
-            f'{TAB * 2}"for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"\n'
+            f"{TAB * 1}message:\n"
+            f'{TAB * 2}"Hello"\n'
+            f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
+            f'{TAB * 2}"World"\n'
+            f'{TAB * 2}"""    Yes"""\n'
         )
+        formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
-    def test_triple_quoted_shell_string_not_over_indented(self):
-        snakecode = (
-            "rule a:\n"
-            f"{TAB * 1}shell:\n"
-            f"{TAB * 2}"
-            '"""for i in $(seq 1 5)\\'
-            "\n"
-            f"{TAB * 2}"
-            "do echo $i\\"
-            "\n"
-            f'{TAB * 2}done"""\n'
-        )
+    def test_triple_quoted_shell_string_does_not_get_over_indented(self):
+        snakecode = f'''
+rule a:
+{TAB * 1}shell:
+{TAB * 2}"""
+{TAB * 2}for i in $(seq 1 5)
+{TAB * 2}do echo $i
+{TAB * 2}done"""
+'''
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
@@ -294,25 +284,43 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
-    def test_param_with_string_mixture_reindented_and_string_normalised(self):
-        snakecode = (
-            "rule a:\n"
-            f"{TAB * 1}message:\n"
-            f'{TAB * 2}"Hello"\n'
-            f"{TAB * 2}'''    a string'''\n"
-            f'{TAB * 3}"World"\n'
-            f'{TAB * 3}"""    Yes"""\n'
-        )
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}message:\n"
-            f'{TAB * 2}"Hello"\n'
-            f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
-            f'{TAB * 2}"World"\n'
-            f'{TAB * 2}"""    Yes"""\n'
-        )
-        formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == expected
+    class TestSimpleParamFormatting:
+        def test_simple_rule_one_input(self):
+            stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
+            smk = Snakefile(stream)
+            formatter = Formatter(smk)
+
+            actual = formatter.get_formatted()
+            expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
+
+            assert actual == expected
+
+        def test_singleParamKeyword_staysOnSameLine(self):
+            """
+            Keywords that expect a single parameter do not have newline + indent
+            """
+            formatter = setup_formatter("configfile: \n" f'{TAB * 1}"foo.yaml"')
+
+            actual = formatter.get_formatted()
+            expected = 'configfile: "foo.yaml"\n'
+
+            assert actual == expected
+
+        def test_shell_param_newlineIndented(self):
+            formatter = setup_formatter(
+                "rule a:\n"
+                f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
+                f'{TAB * 2}"do echo $i;"\n'
+                f'{TAB * 2}"done"'
+            )
+            expected = (
+                "rule a:\n"
+                f"{TAB * 1}shell:\n"
+                f'{TAB * 2}"for i in $(seq 1 5);"\n'
+                f'{TAB * 2}"do echo $i;"\n'
+                f'{TAB * 2}"done"\n'
+            )
+            assert formatter.get_formatted() == expected
 
     def test_singleParamKeywordInRule_NewlineIndented(self):
         formatter = setup_formatter(
@@ -350,35 +358,8 @@ rule a:
 
         assert actual == expected
 
-    def test_simple_rule_one_input(self):
-        # Differences brought about: single quote to double quote (black),
-        # input parameter indentation
-        stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
 
-        actual = formatter.get_formatted()
-        expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
-
-        assert actual == expected
-
-    def test_lambda_function_as_parameter(self):
-        stream = StringIO(
-            """rule a:
-                input: lambda wildcards: foo(wildcards)"""
-        )
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
-
-        actual = formatter.get_formatted()
-        expected = """rule a:
-    input:
-        lambda wildcards: foo(wildcards),\n"""
-
-        assert actual == expected
-
-
-class TestCommaParamFormatting:
+class TestComplexParamFormatting:
     """
     Parameters are delimited with ','
     When ',' is present in other contexts, must be ignored
@@ -409,7 +390,7 @@ class TestCommaParamFormatting:
 
         assert actual == expected
 
-    def test_lambda_function_with_multiple_input_params(self):
+    def test_lambda_function_with_multiple_args(self):
         stream = StringIO(
             f"rule a:\n"
             f'{TAB * 1}input: "foo.txt" \n'
@@ -455,7 +436,7 @@ class TestCommaParamFormatting:
 class TestReformatting_SMK_BREAK:
     """
     Cases where snakemake v5.13.0 raises errors, but snakefmt reformats
-    such that snakemake can then run fine
+    such that snakemake then runs fine
     """
 
     def test_key_value_parameter_repositioning(self):
@@ -502,43 +483,39 @@ class TestNewlineSpacing:
         assert actual == expected
 
     def test_non_rule_has_no_keyword_spacing_below(self):
-        snakestring = 'configfile: "config.yaml"\nreport: "report.rst"\n'
-        formatter = setup_formatter(snakestring)
+        snakecode = 'configfile: "config.yaml"\nreport: "report.rst"\n'
+        formatter = setup_formatter(snakecode)
 
-        formatter.get_formatted() == snakestring
+        formatter.get_formatted() == snakecode
 
-    def test_rule_needs_double_spacing_above(self):
+    def test_double_spacing_for_rules(self):
         formatter = setup_formatter(
-            f'foo = "bar"\n' f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a"\n'
+            f"""above_rule = "2spaces"
+rule a:
+{TAB * 1}threads: 1
+
+
+
+rule b:
+{TAB * 1}threads: 2
+below_rule = "2spaces"
+"""
         )
-        expected = (
-            f'foo = "bar"\n\n\n' f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a",\n'
-        )
+
+        expected = f"""above_rule = "2spaces"
+
+
+rule a:
+{TAB * 1}threads: 1
+
+
+rule b:
+{TAB * 1}threads: 2
+
+
+below_rule = "2spaces"
+"""
         actual = formatter.get_formatted()
-
-        assert actual == expected
-
-    def test_rule_with_three_newlines_above_only_has_two_after_formatting(self):
-        formatter = setup_formatter(
-            f'foo = "bar"\n\n\n\n' f"rule all:\n" f'{TAB * 1}input:{TAB * 2}"a"\n'
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
-            f'foo = "bar"\n\n\n' f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a",\n'
-        )
-
-        assert actual == expected
-
-    def test_rule_needs_double_spacing_below(self):
-        formatter = setup_formatter(
-            f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a"\n' f'foo = "bar"\n'
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
-            f"rule all:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"a",\n\n\n' f'foo = "bar"\n'
-        )
 
         assert actual == expected
 
@@ -562,33 +539,25 @@ class TestNewlineSpacing:
 
         assert actual == expected
 
-    def test_comment_exempt_from_keyword_spacing(self):
-        formatter = setup_formatter(
-            f"# load config\n" f"rule all:\n" f"{TAB * 1}input:files\n"
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
+    def test_comment_above_does_not_trigger_spacing(self):
+        snakecode = (
             f"# load config\n" f"rule all:\n" f"{TAB * 1}input:\n" f"{TAB * 2}files,\n"
         )
 
-        assert actual == expected
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
 
-    def test_comment_below_rule_is_not_ignored_from_spacing(self):
+    def test_comment_below_rule_gets_spaced(self):
         formatter = setup_formatter(
-            """# ======================================================
-# Rules
-# ======================================================
+            """# Rules
 rule all:
     input: output_files
-
-# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls"""
+# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls
+"""
         )
 
         actual = formatter.get_formatted()
-        expected = """# ======================================================
-# Rules
-# ======================================================
+        expected = """# Rules
 rule all:
     input:
         output_files,
