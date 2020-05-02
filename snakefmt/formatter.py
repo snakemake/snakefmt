@@ -119,7 +119,14 @@ class Formatter(Parser):
         for match in re.finditer(triple_quote_matcher, fmted):
             indented += textwrap.indent(fmted[pos : match.start()], used_indent)
             match_slice = fmted[match.start() : match.end()].replace("\t", TAB)
-            indented += f"{used_indent}{match_slice}"
+            if match_slice.count("\n") > 0:
+                # Note, cannot use 'eval' function as it
+                # unescapes escaped special chars like '\n'
+                dedented = match_slice.replace('"""', "")
+                dedented = f'"""{textwrap.dedent(dedented)}"""'
+                indented += textwrap.indent(dedented, used_indent)
+            else:
+                indented += f"{used_indent}{match_slice}"
             pos = match.end()
         indented += textwrap.indent(fmted[pos:], used_indent)
 
