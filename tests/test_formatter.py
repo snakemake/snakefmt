@@ -313,6 +313,40 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
+    def test_docstrings_get_reindented(self):
+        snakecode = f'''def f():
+  """Does not do
+  much
+    """
+  pass
+
+
+rule a:
+  """
+{' ' * 2}The rule
+{' ' * 8}a
+"""
+  message:
+    "a"
+'''
+        formatter = setup_formatter(snakecode)
+        expected = f'''def f():
+{TAB * 1}"""Does not do
+  much
+{TAB * 1}"""
+{TAB * 1}pass
+
+
+rule a:
+{TAB * 1}"""
+{TAB * 1}The rule
+{TAB * 1}{' ' * 6}a
+{TAB * 1}"""
+{TAB * 1}message:
+{TAB * 2}"a"
+'''
+        assert formatter.get_formatted() == expected
+
 
 class TestSimpleParamFormatting:
     def test_simple_rule_one_input(self):

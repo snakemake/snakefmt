@@ -116,9 +116,8 @@ class Formatter(Parser):
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
-        used_indent = TAB * target_indent
-        indented = textwrap.indent(fmted, used_indent)
-        return indented
+        fmted = self.format_string(fmted, target_indent)
+        return fmted
 
     def format_string(self, string: str, target_indent: int) -> str:
         # Only indent non-triple-quoted string portions
@@ -128,7 +127,7 @@ class Formatter(Parser):
         for match in re.finditer(triple_quote_matcher, string):
             indented += textwrap.indent(string[pos : match.start()], used_indent)
             match_slice = string[match.start() : match.end()].replace("\t", TAB)
-            if match_slice.count("\n") > 0:
+            if match_slice.count("\n") > 0 and target_indent > 0:
                 # Note, cannot use 'eval' function as it
                 # unescapes escaped special chars like '\n'
                 dedented = match_slice.replace('"""', "")
