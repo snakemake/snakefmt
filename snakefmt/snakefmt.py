@@ -281,7 +281,7 @@ def main(
             logging.warning(f"ignoring invalid path: {path}")
 
     differ = Diff(compact=compact_diff)
-    files_changed = 0
+    files_changed, files_unchanged = 0, 0
     files_with_errors = 0
     for path in files_to_format:
         path_is_stdin = path.name == "-"
@@ -307,8 +307,10 @@ def main(
                 if is_changed:
                     logging.debug("Formatted content is different from original")
                     files_changed += 1
+                else:
+                    files_unchanged += 1
             except Exception as error:
-                logging.error(str(error))
+                logging.error(f"'{error.__class__.__name__}: {error}' in file {path}")
                 files_with_errors += 1
             continue
 
@@ -331,15 +333,23 @@ def main(
                         out_handle.write(formatted_content)
 
     if check:
-        if files_with_errors > 0:
-            logging.info(f"{files_with_errors} file(s) contains errors 🤕")
-            ctx.exit(CheckExitCode.ERROR.value)
-        elif files_changed > 0:
-            logging.info(f"{files_changed} file(s) would be changed 😬")
-            ctx.exit(CheckExitCode.WOULD_CHANGE.value)
-        else:
-            logging.info(f"{len(files_to_format)} file(s) would be left unchanged 🎉")
+        if files_unchanged == len(files_to_format):
+            logging.info(
+                f"All {len(files_to_format)} file(s) would be left unchanged 🎉"
+            )
             ctx.exit(CheckExitCode.NO_CHANGE.value)
+        elif files_with_errors > 0:
+            exit_value = CheckExitCode.ERROR.value
+        elif files_changed > 0:
+            exit_value = CheckExitCode.WOULD_CHANGE.value
+
+        if files_with_errors > 0:
+            logging.info(f"{files_with_errors} file(s) raised parsing errors 🤕")
+        if files_changed > 0:
+            logging.info(f"{files_changed} file(s) would be changed 😬")
+        if files_unchanged > 0:
+            logging.info(f"{files_unchanged} file(s) would be left unchanged 🎉")
+        ctx.exit(exit_value)
 
     logging.info("All done 🎉")
 

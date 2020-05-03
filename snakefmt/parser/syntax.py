@@ -310,7 +310,7 @@ class ParameterSyntax(Syntax):
             if cur_param.has_value():
                 cur_param.add_elem(self.token)
         elif token_type == tokenize.COMMENT:
-            if str(cur_param) == "":
+            if str(cur_param) == "" and self.latest_pushed_param is not None:
                 target = self.latest_pushed_param.comments
             else:
                 target = cur_param.comments
