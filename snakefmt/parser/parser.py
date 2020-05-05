@@ -9,7 +9,6 @@ from snakefmt.parser.syntax import (
     Syntax,
     KeywordSyntax,
     ParameterSyntax,
-    possibly_duplicated_keywords,
 )
 
 
@@ -138,8 +137,9 @@ class Parser(ABC):
                 keyword, self.context.cur_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context)
-            if keyword not in possibly_duplicated_keywords and not from_python:
-                self.context.add_processed_keyword(status.token, status.token.string)
+            self.context.add_processed_keyword(
+                status.token, status.token.string, check_dup=False
+            )
             return Syntax.Status(
                 param_context.token,
                 param_context.cur_indent,

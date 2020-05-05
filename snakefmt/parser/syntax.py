@@ -13,7 +13,6 @@ from snakefmt.exceptions import (
 )
 
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
-possibly_duplicated_keywords = {"include", "ruleorder", "localrules", "configfile"}
 
 """
 Token parsing
@@ -176,8 +175,8 @@ class KeywordSyntax(Syntax):
             if not from_python:
                 incident_context.add_processed_keyword(self.token, self.keyword_name)
 
-    def add_processed_keyword(self, token: Token, keyword: str):
-        if keyword in self.processed_keywords:
+    def add_processed_keyword(self, token: Token, keyword: str, check_dup: bool = True):
+        if check_dup and keyword in self.processed_keywords:
             raise DuplicateKeyWordError(
                 f"L{token.start[0]}: '{keyword}' specified twice."
             )
@@ -250,7 +249,6 @@ class ParameterSyntax(Syntax):
         snakefile: TokenIterator,
     ):
         super().__init__(keyword_name, target_indent, snakefile)
-        self.processed_keywords = set()
         self.positional_params, self.keyword_params = list(), list()
         self.eof = False
         self.incident_vocab = incident_vocab

@@ -62,12 +62,6 @@ class TestKeywordSyntax:
             snakefile = Snakefile(stream)
             Formatter(snakefile)
 
-    def test_duplicate_parameter_fails_SMK_NOBREAK(self):
-        with pytest.raises(DuplicateKeyWordError, match="threads"):
-            stream = StringIO("rule a:" "\n\tthreads: 3" "\n\tthreads: 5")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
-
     def test_duplicate_rule_fails_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="rule a"):
             stream = StringIO("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
