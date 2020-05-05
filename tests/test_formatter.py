@@ -84,7 +84,7 @@ class TestSimplePythonFormatting:
             f"{TAB}1,\n{TAB}2,\n{TAB}3,\n{TAB}4,\n{TAB}5,\n{TAB}6,\n{TAB}7,\n"
             f"{TAB}8,\n{TAB}9,\n{TAB}10,\n"
             "]\n"
-            "include: snakefile\n"
+            "\n\ninclude: snakefile\n"
         )
 
         assert actual == expected
@@ -145,16 +145,16 @@ class TestComplexPythonFormatting:
             "snakefmt.formatter.Formatter.run_black_format_str", spec=True
         ) as mock_m:
             mock_m.return_value = ""
-            formatter = setup_formatter(snakecode)
+            setup_formatter(snakecode)
             assert mock_m.call_count == 2
-            assert mock_m.call_args_list[0] == mock.call('"a"', 0)
-            assert mock_m.call_args_list[1] == mock.call("b = 2\n", 0)
+            assert mock_m.call_args_list[0] == mock.call('"a"')
+            assert mock_m.call_args_list[1] == mock.call("b = 2\n")
 
         formatter = setup_formatter(snakecode)
         expected = (
             "if condition:\n"
             f'{TAB * 1}include: "a"\n'
-            "\nb = 2\n"  # python code gets formatted here
+            "\n\nb = 2\n"  # python code gets formatted here
         )
         assert formatter.get_formatted() == expected
 
@@ -230,7 +230,7 @@ class TestComplexPythonFormatting:
             f'{TAB * 1}include: "a"\n'
             f"else:\n"
             f'{TAB * 1}include: "b"\n'
-            f'include: "c"\n'
+            f'\n\ninclude: "c"\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -313,7 +313,8 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
-    def test_docstrings_get_reindented(self):
+    def test_docstrings_get_retabbed(self):
+        """But not reindented"""
         snakecode = f'''def f():
   """Does not do
   much
@@ -339,8 +340,8 @@ rule a:
 
 rule a:
 {TAB * 1}"""
-{TAB * 1}The rule
-{TAB * 1}{' ' * 6}a
+{TAB * 1}{' ' * 2}The rule
+{TAB * 1}{' ' * 8}a
 {TAB * 1}"""
 {TAB * 1}message:
 {TAB * 2}"a"
@@ -521,10 +522,11 @@ class TestReformatting_SMK_BREAK:
 
 
 class TestCommentTreatment:
-    def test_comment_after_parameter_keyword_not_absorbed(self):
-        snakecode = f'include: "a"\n\n# A comment\n'
+    def test_comment_after_parameter_keyword_twonewlines(self):
+        snakecode = f'include: "a"\n# A comment\n'
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
+        expected = f'include: "a"\n\n\n# A comment\n'
+        assert formatter.get_formatted() == expected
 
     def test_comments_after_parameters_kept(self):
         snakecode = (
@@ -538,19 +540,20 @@ class TestCommentTreatment:
 
 
 class TestNewlineSpacing:
-    def test_non_rule_has_no_keyword_spacing_above(self):
-        formatter = setup_formatter("# load config\n" 'configfile: "config.yaml"')
+    def test_parameter_keyword_spacing_above(self):
+        formatter = setup_formatter("b = 2\n" 'configfile: "config.yaml"')
 
         actual = formatter.get_formatted()
-        expected = '# load config\nconfigfile: "config.yaml"\n'
+        expected = 'b = 2\n\n\nconfigfile: "config.yaml"\n'
 
         assert actual == expected
 
-    def test_non_rule_has_no_keyword_spacing_below(self):
+    def test_parameter_keyword_spacing_below(self):
         snakecode = 'configfile: "config.yaml"\nreport: "report.rst"\n'
         formatter = setup_formatter(snakecode)
+        expected = 'configfile: "config.yaml"\n\n\nreport: "report.rst"\n'
 
-        formatter.get_formatted() == snakecode
+        assert formatter.get_formatted() == expected
 
     def test_double_spacing_for_rules(self):
         formatter = setup_formatter(
@@ -583,25 +586,35 @@ below_rule = "2spaces"
 
         assert actual == expected
 
-    def test_rule_with_three_newlines_below_only_has_two_after_formatting(self):
-        formatter = setup_formatter(
-            f"rule all:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"a",\n'
-            f"\n\n\n"
-            f'foo = "bar"'
-        )
+    def test_keyword_three_newlines_below_two_after_formatting(self):
+        formatter = setup_formatter(f'include: "a"\n\n\n\nconfigfile: "b"\n')
+        expected = f'include: "a"\n\n\nconfigfile: "b"\n'
 
-        actual = formatter.get_formatted()
+        assert formatter.get_formatted() == expected
+
+    def test_python_code_mixed_with_keywords_proper_spacing(self):
+        snakecode = (
+            "def p():\n"
+            f"{TAB * 1}pass\n"
+            f"include: a\n"
+            f"def p2():\n"
+            f"{TAB * 1}pass\n"
+            f"def p3():\n"
+            f"{TAB * 1}pass\n"
+        )
+        formatter = setup_formatter(snakecode)
+
         expected = (
-            f"rule all:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"a",\n'
-            f"\n\n"
-            f'foo = "bar"\n'
+            "def p():\n"
+            f"{TAB * 1}pass\n\n\n"
+            f"include: a\n\n\n"
+            f"def p2():\n"
+            f"{TAB * 1}pass\n\n\n"
+            f"def p3():\n"
+            f"{TAB * 1}pass\n"
         )
 
-        assert actual == expected
+        assert formatter.get_formatted() == expected
 
     def test_comment_above_does_not_trigger_spacing(self):
         snakecode = (
@@ -611,12 +624,12 @@ below_rule = "2spaces"
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_comment_below_rule_gets_spaced(self):
+    def test_comment_below_keyword_gets_spaced(self):
         formatter = setup_formatter(
             f"""# Rules
 rule all:
 {TAB * 1}input: output_files
-# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls
+# Comment
 """
         )
 
@@ -627,7 +640,6 @@ rule all:
 {TAB * 2}output_files,
 
 
-# https://github.com/nanoporetech/taiyaki/blob/master/docs/walkthrough.rst#bam-of-mapped-basecalls
+# Comment
 """
-
         assert actual == expected

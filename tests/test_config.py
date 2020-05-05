@@ -24,6 +24,7 @@ class TestConfigAdherence:
 
         expected_output = """include: \"a\"
 
+
 list_of_lots_of_things = [
     1,
     2,

@@ -40,7 +40,7 @@ class Formatter(Parser):
     ):
         self._line_length = line_length
         self.result = ""
-        self.from_rule, self.from_comment = False, False
+        self.from_comment = False
         self.first = True
 
         if black_config is None:
@@ -77,19 +77,22 @@ class Formatter(Parser):
 
     def flush_buffer(self, from_python: bool = False):
         if len(self.buffer) == 0 or self.buffer.isspace():
+            self.from_comment = False
             self.result += self.buffer
             self.buffer = ""
             return
 
         if not from_python:
-            formatted = self.run_black_format_str(self.buffer, self.target_indent)
+            formatted = self.run_black_format_str(self.buffer)
+            if self.target_indent > 0:
+                formatted = textwrap.indent(formatted, TAB * self.target_indent)
+
+            self.add_newlines(self.target_indent)
             self.from_comment = False
-            try:
-                if formatted.splitlines()[-1][0] == "#":
+            all_lines = formatted.splitlines()
+            if len(all_lines) > 0 and len(all_lines[-1]) > 0:
+                if all_lines[-1][0] == "#":
                     self.from_comment = True
-            except Exception:
-                pass
-            self.add_newlines(self.target_indent, keyword_name="")
         else:
             formatted = self.buffer.rstrip(TAB)
         self.result += formatted
@@ -97,7 +100,7 @@ class Formatter(Parser):
 
     def process_keyword_context(self):
         cur_indent = self.context.cur_indent
-        self.add_newlines(cur_indent, self.context.keyword_name)
+        self.add_newlines(cur_indent)
         formatted = (
             f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}"
             + "\n"
@@ -105,21 +108,20 @@ class Formatter(Parser):
         self.result += formatted
 
     def process_keyword_param(self, param_context):
-        self.add_newlines(param_context.target_indent - 1, param_context.keyword_name)
+        self.add_newlines(param_context.target_indent - 1)
         in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
         self.result += self.format_params(param_context, in_rule)
 
-    def run_black_format_str(self, string: str, target_indent: int) -> str:
+    def run_black_format_str(self, string: str) -> str:
         try:
             fmted = black.format_str(string, mode=self.black_mode)
         except black.InvalidInput as e:
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
-        fmted = self.format_string(fmted, target_indent)
         return fmted
 
-    def format_string(self, string: str, target_indent: int) -> str:
+    def string_format(self, string: str, target_indent: int) -> str:
         # Only indent non-triple-quoted string portions
         pos = 0
         used_indent = TAB * target_indent
@@ -143,7 +145,7 @@ class Formatter(Parser):
     def format_param(
         self,
         parameter: Parameter,
-        target_indent: str,
+        target_indent: int,
         inline_formatting: bool,
         single_param: bool = False,
     ) -> str:
@@ -158,10 +160,10 @@ class Formatter(Parser):
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
 
         if inline_formatting:
-            val = val.replace("\n", "")
+            val = val.replace("\n", "")  # collapse strings on multiple lines
         try:
-            val = self.run_black_format_str(val, 0)
-            val = self.format_string(val, target_indent)
+            val = self.run_black_format_str(val)
+            val = self.string_format(val, target_indent)
             if parameter.has_a_key():  # Remove space either side of '='
                 match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
                 val = f"{match_equal.group(1)}={match_equal.group(2)}"
@@ -201,16 +203,10 @@ class Formatter(Parser):
             )
         return result
 
-    def add_newlines(self, cur_indent: int, keyword_name: str = ""):
+    def add_newlines(self, cur_indent: int):
         if cur_indent == 0:
-            if self.from_rule:
+            if not self.first and not self.from_comment:
                 self.result += "\n\n"
-            elif not self.first:
-                if self.rule_like(keyword_name) and not self.from_comment:
-                    self.result += "\n\n"
-                elif keyword_name == "":
-                    self.result += "\n"  # Add newline for python code
-            self.from_rule = True if self.rule_like(keyword_name) else False
         if self.first:
             self.first = False
 
