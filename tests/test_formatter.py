@@ -631,13 +631,44 @@ below_rule = "2spaces"
 
         assert formatter.get_formatted() == expected
 
-    def test_comment_above_does_not_trigger_spacing(self):
+    def test_initial_comment_does_not_trigger_spacing(self):
         snakecode = (
             f"# load config\n" f"rule all:\n" f"{TAB * 1}input:\n" f"{TAB * 2}files,\n"
         )
 
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+    def test_rule_tagged_comment_stays_rule_tagged(self):
+        snakecode = (
+            "def p():\n"
+            f"{TAB * 1}pass\n"
+            f"#My rule a\n"
+            f"rule a:\n"
+            f"{TAB * 1}threads: 1\n"
+        )
+        formatter = setup_formatter(snakecode)
+        expected = (
+            "def p():\n"
+            f"{TAB * 1}pass\n\n\n"
+            f"# My rule a\n"
+            f"rule a:\n"
+            f"{TAB * 1}threads: 1\n"
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_keyword_disjoint_comment_stays_keyword_disjoint(self):
+        snakecode = (
+            "def p():\n" f"{TAB * 1}pass\n" f"#A lone comment\n\n" f'include: "a"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        expected = (
+            "def p():\n"
+            f"{TAB * 1}pass\n\n\n"  # Newlined by black
+            f"# A lone comment\n\n\n"  # Remains lone comment
+            f'include: "a"\n'
+        )
+        assert formatter.get_formatted() == expected
 
     def test_comment_below_keyword_gets_spaced(self):
         formatter = setup_formatter(

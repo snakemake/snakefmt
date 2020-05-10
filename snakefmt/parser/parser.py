@@ -81,7 +81,7 @@ class Parser(ABC):
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
             self.context.cur_indent = status.indent
-        self.flush_buffer(from_python)
+        self.flush_buffer(from_python, final_flush=True)
 
     @property
     def vocab(self) -> Vocabulary:
@@ -96,7 +96,9 @@ class Parser(ABC):
         return self.context.target_indent
 
     @abstractmethod
-    def flush_buffer(self, from_python: bool = False) -> None:
+    def flush_buffer(
+        self, from_python: bool = False, final_flush: bool = False
+    ) -> None:
         pass
 
     @abstractmethod

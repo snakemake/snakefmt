@@ -40,7 +40,7 @@ class Formatter(Parser):
     ):
         self._line_length = line_length
         self.result = ""
-        self.from_comment = False
+        self.lagging_comments = ""
         self.first = True
 
         if black_config is None:
@@ -75,27 +75,28 @@ class Formatter(Parser):
     def get_formatted(self):
         return self.result
 
-    def flush_buffer(self, from_python: bool = False) -> None:
+    def flush_buffer(
+        self, from_python: bool = False, final_flush: bool = False
+    ) -> None:
         if len(self.buffer) == 0 or self.buffer.isspace():
-            self.from_comment = False
             self.result += self.buffer
             self.buffer = ""
             return
 
         if not from_python:
+            trailing_newline = False
+            if self.buffer.endswith("\n\n"):
+                trailing_newline = True
             formatted = self.run_black_format_str(self.buffer)
             if self.target_indent > 0:
                 formatted = textwrap.indent(formatted, TAB * self.target_indent)
 
-            self.add_newlines(self.target_indent)
-            self.from_comment = False
-            all_lines = formatted.splitlines()
-            if len(all_lines) > 0 and len(all_lines[-1]) > 0:
-                if all_lines[-1][0] == "#":
-                    self.from_comment = True
+            if trailing_newline:
+                formatted += "\n"
+            self.add_newlines(self.target_indent, formatted, final_flush)
         else:
             formatted = self.buffer.rstrip(TAB)
-        self.result += formatted
+            self.result += formatted
         self.buffer = ""
 
     def process_keyword_context(self):
@@ -202,9 +203,35 @@ class Formatter(Parser):
             )
         return result
 
-    def add_newlines(self, cur_indent: int):
+    def add_newlines(
+        self, cur_indent: int, formatted_string: str = "", final_flush: bool = False
+    ):
+        comment_break = 1
         if cur_indent == 0:
-            if not self.first and not self.from_comment:
+            if not self.first:
                 self.result += "\n\n"
+
+            if self.lagging_comments != "":
+                self.result += self.lagging_comments
+                self.lagging_comments = ""
+
+            all_lines = formatted_string.splitlines()
+            if len(all_lines) > 0:
+                comment_matches = 0
+                for line in reversed(all_lines):
+                    if len(line) == 0 or line[0] != "#":
+                        break
+                    comment_matches += 1
+                comment_break = len(all_lines) - comment_matches
+                if comment_break > 0:
+                    self.result += "\n".join(all_lines[:comment_break]).rstrip() + "\n"
+                if comment_matches > 0:
+                    self.lagging_comments = "\n".join(all_lines[comment_break:]) + "\n"
+                    if final_flush:
+                        self.result += self.lagging_comments
+        else:
+            self.result += formatted_string
+
         if self.first:
-            self.first = False
+            if comment_break != 0:
+                self.first = False
