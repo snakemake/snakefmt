@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from snakefmt.formatter import TAB
-from snakefmt.diff import CheckExitCode
+from snakefmt.diff import ExitCode
 from snakefmt.snakefmt import (
     construct_regex,
     main,
@@ -104,32 +104,29 @@ class TestCLIBasic:
 
 
 class TestCLICheck:
-    def test_check_file_needs_no_changes_exit_code_0(self, cli_runner):
+    def test_check_file_needs_no_changes_correct_exit_code(self, cli_runner):
         stdin = 'include: "a"\n'
         params = ["--check", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-        expected = CheckExitCode.NO_CHANGE
 
-        assert actual.exit_code == expected
+        assert ExitCode(actual.exit_code) is ExitCode.NO_CHANGE
 
-    def test_check_file_needs_changes_exit_code_1(self, cli_runner):
+    def test_check_file_needs_changes_correct_exit_code(self, cli_runner):
         stdin = 'include:  "a"\n'
         params = ["--check", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-        expected = CheckExitCode.WOULD_CHANGE
 
-        assert actual.exit_code == expected
+        assert ExitCode(actual.exit_code) is ExitCode.WOULD_CHANGE
 
-    def test_check_file_syntax_invalid_exit_code_123(self, cli_runner):
+    def test_check_file_syntax_correct_exit_code(self, cli_runner):
         stdin = "foo:  \n"
         params = ["--check", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-        expected = CheckExitCode.ERROR
 
-        assert actual.exit_code == expected
+        assert ExitCode(actual.exit_code) is ExitCode.ERROR
 
     def test_check_does_not_format_file(self, cli_runner, tmp_path):
         content = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8]"
@@ -139,8 +136,7 @@ class TestCLICheck:
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.WOULD_CHANGE
-        assert result.exit_code == expected_exit_code
+        assert ExitCode(result.exit_code) is ExitCode.WOULD_CHANGE
 
         expected_contents = content
         actual_contents = snakefile.read_text()
@@ -156,8 +152,7 @@ class TestCLICheck:
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.NO_CHANGE
-        assert result.exit_code == expected_exit_code
+        assert ExitCode(result.exit_code) is ExitCode.NO_CHANGE
 
     def test_check_two_files_one_will_change(self, cli_runner, tmp_path):
         content = 'include: "a"\n'
@@ -170,8 +165,7 @@ class TestCLICheck:
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.WOULD_CHANGE
-        assert result.exit_code == expected_exit_code
+        assert ExitCode(result.exit_code) is ExitCode.WOULD_CHANGE
 
     def test_check_two_files_one_has_errors(self, cli_runner, tmp_path):
         content = 'include: "a"\n'
@@ -184,8 +178,7 @@ class TestCLICheck:
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.ERROR
-        assert result.exit_code == expected_exit_code
+        assert ExitCode(result.exit_code) is ExitCode.ERROR
 
     def test_check_and_diff_only_runs_check(self, cli_runner, tmp_path):
         content = 'include: "a"\n'
@@ -198,8 +191,7 @@ class TestCLICheck:
 
         result = cli_runner.invoke(main, params)
 
-        expected_exit_code = CheckExitCode.WOULD_CHANGE.value
-        assert result.exit_code == expected_exit_code
+        assert ExitCode(result.exit_code) is ExitCode.WOULD_CHANGE
         assert result.output == ""
 
 
@@ -307,7 +299,7 @@ class TestConstructRegex:
 
         assert actual == expected
 
-    def test_invalidRegex_raisesError(self):
+    def test_invalid_regex_raises_error(self):
         regex = r"?"
 
         with pytest.raises(re.error):

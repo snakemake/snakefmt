@@ -1,61 +1,16 @@
-import pytest
-
-from snakefmt.diff import Diff, CheckExitCode
-
-
-class TestCheckExitCode:
-    def test_equality_two_enums(self):
-        actual = CheckExitCode.WOULD_CHANGE
-        other = CheckExitCode.WOULD_CHANGE
-
-        assert actual == other
-
-    def test_equality_two_different_enums(self):
-        actual = CheckExitCode.WOULD_CHANGE
-        other = CheckExitCode.ERROR
-
-        assert actual != other
-
-    def test_equality_one_enum_one_int_same_value(self):
-        actual = CheckExitCode.NO_CHANGE
-        other = 0
-
-        assert actual == other
-
-    def test_equality_one_enum_one_int_different_value(self):
-        actual = CheckExitCode.ERROR
-        other = 0
-
-        assert actual != other
-
-    def test_equality_one_enum_one_float_raises_error(self):
-        actual = CheckExitCode.ERROR
-        other = 123.0
-
-        with pytest.raises(NotImplementedError):
-            actual == other
+from snakefmt.diff import Diff
 
 
 class TestCompare:
     def test_empty_strings_returns_empty(self):
-        original = ""
-        new = ""
         diff = Diff()
-
-        actual = diff.compare(original, new)
-        expected = ""
-
-        assert actual == expected
+        assert diff.compare("", "") == ""
 
     def test_same_strings_returns_empty(self):
         original = "foo\n    bar"
-        new = "foo\n    bar"
         diff = Diff()
 
-        actual = diff.compare(original, new)
-        expected = ""
-
-        assert actual == expected
+        assert diff.compare(original, original) == ""
 
     def test_strings_differ_by_one_char_compact(self):
         original = "foo\n    bar"
@@ -121,7 +76,7 @@ class TestIsChanged:
         new = "foo\n    bar\n\n"
         diff = Diff(compact=True)
 
-        assert not diff.is_changed(original, new)
+        assert diff.is_changed(original, new) is False
 
     def test_same_strings_non_compact_returns_false(self):
         original = "foo\n    bar"

@@ -11,7 +11,7 @@ from black import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import __version__, DEFAULT_LINE_LENGTH
-from snakefmt.diff import Diff, CheckExitCode
+from snakefmt.diff import Diff, ExitCode
 from snakefmt.formatter import Formatter
 from snakefmt.parser.parser import Snakefile
 
@@ -143,9 +143,9 @@ def get_snakefiles_in_dir(
     is_flag=True,
     help=(
         f"Don't write the files back, just return the status. Return code "
-        f"{CheckExitCode.NO_CHANGE.value} means nothing would change. Return code "
-        f"{CheckExitCode.WOULD_CHANGE.value} means some files would be reformatted. "
-        f"Return code {CheckExitCode.ERROR.value} means there was an error."
+        f"{ExitCode.NO_CHANGE.value} means nothing would change. Return code "
+        f"{ExitCode.WOULD_CHANGE.value} means some files would be reformatted. "
+        f"Return code {ExitCode.ERROR.value} means there was an error."
     ),
 )
 @click.option(
@@ -337,11 +337,11 @@ def main(
             logging.info(
                 f"All {len(files_to_format)} file(s) would be left unchanged 🎉"
             )
-            ctx.exit(CheckExitCode.NO_CHANGE.value)
+            ctx.exit(ExitCode.NO_CHANGE.value)
         elif files_with_errors > 0:
-            exit_value = CheckExitCode.ERROR.value
+            exit_value = ExitCode.ERROR.value
         elif files_changed > 0:
-            exit_value = CheckExitCode.WOULD_CHANGE.value
+            exit_value = ExitCode.WOULD_CHANGE.value
 
         if files_with_errors > 0:
             logging.info(f"{files_with_errors} file(s) raised parsing errors 🤕")

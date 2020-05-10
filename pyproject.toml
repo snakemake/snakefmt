@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/snakemake/snakefmt"
 repository = "https://github.com/snakemake/snakefmt"
 #documentation = ""  # todo
-keywords = ["snakemake", "formatter", "code", "codeformatter", "workflow-management"]
+keywords = ["python", "snakemake", "code", "formatter", "parser", "workflow", "management", "systems", "black"]
 
 [tool.poetry.scripts]
 snakefmt = 'snakefmt.snakefmt:main'
