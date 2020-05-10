@@ -30,15 +30,6 @@ class Snakefile:
     def __next__(self):
         return next(self.tokens)
 
-    def __iter__(self):
-        return self
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.stream.close()
-
 
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
