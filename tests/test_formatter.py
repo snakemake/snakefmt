@@ -258,10 +258,12 @@ class TestSimplePythonFormatting:
 class TestComplexPythonFormatting:
     """
     Snakemake syntax can be nested inside python code
+
+    As for black non-top level functions, 1 line spacing is used between
+    code and keywords, and two between keyword and code.
     """
 
     def test_snakemake_code_inside_python_code(self):
-        # The rules inside python code get formatted
         formatter = setup_formatter(
             "if condition:\n"
             f"{TAB * 1}rule a:\n"
@@ -271,12 +273,12 @@ class TestComplexPythonFormatting:
             f'{TAB * 2}script: "c.py"'
         )
         expected = (
-            "if condition:\n"
+            "if condition:\n\n"
             f"{TAB * 1}rule a:\n"
             f"{TAB * 2}input:\n"
             f'{TAB * 3}"a",\n'
-            f'{TAB * 3}"b",\n'
-            "else:\n"
+            f'{TAB * 3}"b",\n\n\n'
+            "else:\n\n"
             f"{TAB * 1}rule b:\n"
             f"{TAB * 2}script:\n"
             f'{TAB * 3}"c.py"\n'
@@ -296,7 +298,7 @@ class TestComplexPythonFormatting:
 
         formatter = setup_formatter(snakecode)
         expected = (
-            "if condition:\n"
+            "if condition:\n\n"
             f'{TAB * 1}include: "a"\n'
             "\n\nb = 2\n"  # python code gets formatted here
         )
@@ -319,21 +321,21 @@ class TestComplexPythonFormatting:
 
     def test_pythoncode_parser_based_formatting_before_snakecode(self):
         snakecode = (
-            'if c["a"]is None:\n'  # space needed before '['
-            f'{TAB * 1}include: "a"\n'
-            'elif myobj.attr == "b":\n'
-            f'{TAB * 1}include: "b"\n'
-            'elif len(c["c"])==3:\n'  # spaces needed either side of '=='
+            'if c["a"]is None:\n\n'  # space needed before '['
+            f'{TAB * 1}include: "a"\n\n\n'
+            'elif myobj.attr == "b":\n\n'
+            f'{TAB * 1}include: "b"\n\n\n'
+            'elif len(c["c"])==3:\n\n'  # spaces needed either side of '=='
             f'{TAB * 1}include: "c"\n'
         )
 
         formatter = setup_formatter(snakecode)
         expected = (
-            'if c["a"] is None:\n'
-            f'{TAB * 1}include: "a"\n'
-            'elif myobj.attr == "b":\n'
-            f'{TAB * 1}include: "b"\n'
-            'elif len(c["c"]) == 3:\n'
+            'if c["a"] is None:\n\n'
+            f'{TAB * 1}include: "a"\n\n\n'
+            'elif myobj.attr == "b":\n\n'
+            f'{TAB * 1}include: "b"\n\n\n'
+            'elif len(c["c"]) == 3:\n\n'
             f'{TAB * 1}include: "c"\n'
         )
         assert formatter.get_formatted() == expected
@@ -358,10 +360,10 @@ class TestComplexPythonFormatting:
             f'{TAB * 2}script: "b"'
         )
         expected = (
-            "if condition:\n"
+            "if condition:\n\n"
             f"{TAB * 1}rule a:\n"
             f"{TAB * 2}wrapper:\n"
-            f'{TAB * 3}"a"\n'
+            f'{TAB * 3}"a"\n\n'
             f"{TAB * 1}rule b:\n"
             f"{TAB * 2}script:\n"
             f'{TAB * 3}"b"\n'
@@ -370,9 +372,9 @@ class TestComplexPythonFormatting:
 
     def test_parameter_keywords_inside_python_code(self):
         snakecode = (
-            "if condition:\n"
-            f'{TAB * 1}include: "a"\n'
-            f"else:\n"
+            "if condition:\n\n"
+            f'{TAB * 1}include: "a"\n\n\n'
+            f"else:\n\n"
             f'{TAB * 1}include: "b"\n'
             f'\n\ninclude: "c"\n'
         )

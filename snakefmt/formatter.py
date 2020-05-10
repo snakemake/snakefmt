@@ -76,7 +76,10 @@ class Formatter(Parser):
         return self.result
 
     def flush_buffer(
-        self, from_python: bool = False, final_flush: bool = False
+        self,
+        from_python: bool = False,
+        final_flush: bool = False,
+        in_global_context: bool = False,
     ) -> None:
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.result += self.buffer
@@ -84,31 +87,32 @@ class Formatter(Parser):
             return
 
         if not from_python:
-            trailing_newline = False
-            if self.buffer.endswith("\n\n"):
-                trailing_newline = True
             formatted = self.run_black_format_str(self.buffer)
             if self.target_indent > 0:
                 formatted = textwrap.indent(formatted, TAB * self.target_indent)
-
-            if trailing_newline:
-                formatted += "\n"
-            self.add_newlines(self.target_indent, formatted, final_flush)
         else:
-            formatted = self.buffer.rstrip(TAB)
-            self.result += formatted
+            formatted = self.buffer.rstrip()
+
+        # Re-add newline removed by black for proper parsing of comments
+        if self.buffer.endswith("\n\n"):
+            formatted += "\n"
+        self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
 
-    def process_keyword_context(self):
+    def process_keyword_context(self, in_global_context: bool):
         cur_indent = self.context.cur_indent
-        self.add_newlines(cur_indent)
+        self.add_newlines(cur_indent, in_global_context=in_global_context)
         formatted = (
             f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}\n"
         )
         self.result += formatted
 
-    def process_keyword_param(self, param_context):
-        self.add_newlines(param_context.target_indent - 1)
+    def process_keyword_param(
+        self, param_context: ParameterSyntax, in_global_context: bool
+    ):
+        self.add_newlines(
+            param_context.target_indent - 1, in_global_context=in_global_context
+        )
         in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
         self.result += self.format_params(param_context, in_rule)
 
@@ -204,13 +208,20 @@ class Formatter(Parser):
         return result
 
     def add_newlines(
-        self, cur_indent: int, formatted_string: str = "", final_flush: bool = False
+        self,
+        cur_indent: int,
+        formatted_string: str = "",
+        final_flush: bool = False,
+        in_global_context: bool = False,
     ):
+        if not self.first and in_global_context:
+            if cur_indent == 0:
+                self.result += "\n\n"
+            else:
+                self.result += "\n"
+
         comment_break = 1
         if cur_indent == 0:
-            if not self.first:
-                self.result += "\n\n"
-
             if self.lagging_comments != "":
                 self.result += self.lagging_comments
                 self.lagging_comments = ""

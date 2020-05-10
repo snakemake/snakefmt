@@ -117,7 +117,7 @@ class TestParamSyntax:
 
     def test_parameter_list_keyword_disallows_kwarg(self):
         with pytest.raises(InvalidParameterSyntax):
-            snake_code = f"envvars:\n" f'{TAB * 1}"VAR1"' f'{TAB * 1}var2 = "VAR2"'
+            snake_code = f"envvars:\n" f'{TAB * 1}"VAR1",' f'{TAB * 1}var2 = "VAR2"'
             setup_formatter(snake_code)
 
     def test_dictionary_unpacking_passes(self):
