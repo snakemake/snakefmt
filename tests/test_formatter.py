@@ -21,6 +21,155 @@ def test_emptyInput_emptyOutput():
     assert actual == expected
 
 
+class TestSimpleParamFormatting:
+    def test_simple_rule_one_input(self):
+        stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
+        smk = Snakefile(stream)
+        formatter = Formatter(smk)
+
+        actual = formatter.get_formatted()
+        expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
+
+        assert actual == expected
+
+    def test_single_param_keyword_stays_on_same_line(self):
+        """
+        Keywords that expect a single parameter do not have newline + indent
+        """
+        formatter = setup_formatter("configfile: \n" f'{TAB * 1}"foo.yaml"')
+
+        actual = formatter.get_formatted()
+        expected = 'configfile: "foo.yaml"\n'
+
+        assert actual == expected
+
+    def test_shell_param_newline_indented(self):
+        formatter = setup_formatter(
+            "rule a:\n"
+            f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
+            f'{TAB * 2}"do echo $i;"\n'
+            f'{TAB * 2}"done"'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"for i in $(seq 1 5);"\n'
+            f'{TAB * 2}"do echo $i;"\n'
+            f'{TAB * 2}"done"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_single_param_keyword_in_rule_gets_newline_indented(self):
+        formatter = setup_formatter(
+            f"rule a: \n"
+            f'{TAB * 1}input: "a", "b",\n'
+            f'{TAB * 4}"c"\n'
+            f'{TAB * 1}wrapper: "mywrapper"'
+        )
+
+        actual = formatter.get_formatted()
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"a",\n'
+            f'{TAB * 2}"b",\n'
+            f'{TAB * 2}"c",\n'
+            f"{TAB * 1}wrapper:\n"
+            f'{TAB * 2}"mywrapper"\n'
+        )
+
+        assert actual == expected
+
+    def test_single_numeric_param_keyword_in_rule_stays_on_same_line(self):
+        formatter = setup_formatter(
+            "rule a: \n" f'{TAB * 1}input: "c"\n' f"{TAB * 1}threads:\n" f"{TAB * 2}20"
+        )
+
+        actual = formatter.get_formatted()
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"c",\n'
+            f"{TAB * 1}threads: 20\n"
+        )
+
+        assert actual == expected
+
+
+class TestComplexParamFormatting:
+    """
+    Parameters are delimited with ','
+    When ',' is present in other contexts, must be ignored
+    """
+
+    def test_expand_as_param(self):
+        stream = StringIO(
+            "rule a:\n"
+            f"{TAB * 1}input: \n"
+            f"{TAB * 2}"
+            'expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
+            f'{TAB * 1}output:"foo.txt","bar.txt"\n'
+        )
+
+        smk = Snakefile(stream)
+        formatter = Formatter(smk)
+        actual = formatter.get_formatted()
+
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}"
+            'expand("{f}/{p}", f=[1, 2], p=["1", "2"]),\n'
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f'{TAB * 2}"bar.txt",\n'
+        )
+
+        assert actual == expected
+
+    def test_lambda_function_with_multiple_args(self):
+        stream = StringIO(
+            f"rule a:\n"
+            f'{TAB * 1}input: "foo.txt" \n'
+            f"{TAB * 1}resources:"
+            f"{TAB * 2}mem_mb = lambda wildcards, attempt: attempt * 1000"
+        )
+        smk = Snakefile(stream)
+        formatter = Formatter(smk)
+
+        actual = formatter.get_formatted()
+        expected = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f"{TAB * 1}resources:\n"
+            f"{TAB * 2}mem_mb=lambda wildcards, attempt: attempt * 1000,\n"
+        )
+
+        assert actual == expected
+
+    def test_lambda_function_with_input_keyword_and_nested_parentheses(self):
+        """
+        We need to ignore 'input:' as a recognised keyword and ',' inside brackets
+        Ie, the lambda needs to be parsed as a parameter.
+        """
+        snakefile = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f"{TAB * 1}params:\n"
+            f"{TAB * 2}"
+            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get(w), input.obs)],\n'  # noqa: E501  due to readability of test
+            f"{TAB * 2}p2=2,\n"
+        )
+        formatter = setup_formatter(snakefile)
+
+        actual = formatter.get_formatted()
+        expected = snakefile
+
+        assert actual == expected
+
+
 class TestSimplePythonFormatting:
     @mock.patch(
         "snakefmt.formatter.Formatter.run_black_format_str", spec=True, return_value=""
@@ -71,18 +220,14 @@ class TestSimplePythonFormatting:
         assert formatter.get_formatted() == snake_code
 
     def test_line_wrapped_python_code_outside_rule(self):
-        content = (
-            "list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n"
-            "include: snakefile"
-        )
+        content = "list_of_lots_of_things = [1, 2, 3, 4, 5, 6]\n" "include: snakefile"
         line_length = 30
         formatter = setup_formatter(content, line_length=line_length)
 
         actual = formatter.get_formatted()
         expected = (
             "list_of_lots_of_things = [\n"
-            f"{TAB}1,\n{TAB}2,\n{TAB}3,\n{TAB}4,\n{TAB}5,\n{TAB}6,\n{TAB}7,\n"
-            f"{TAB}8,\n{TAB}9,\n{TAB}10,\n"
+            f"{TAB}1,\n{TAB}2,\n{TAB}3,\n{TAB}4,\n{TAB}5,\n{TAB}6,\n"
             "]\n"
             "\n\ninclude: snakefile\n"
         )
@@ -93,7 +238,7 @@ class TestSimplePythonFormatting:
         content = (
             f"rule a:\n"
             f"{TAB}input:\n"
-            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5]"
         )
         line_length = 30
         formatter = setup_formatter(content, line_length=line_length)
@@ -104,7 +249,6 @@ class TestSimplePythonFormatting:
             f"{TAB*1}input:\n"
             f"{TAB*2}list_of_lots_of_things=[\n"
             f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
-            f"{TAB*3}6,\n{TAB*3}7,\n{TAB*3}8,\n{TAB*3}9,\n{TAB*3}10,\n"
             f"{TAB*2}],\n"
         )
 
@@ -349,155 +493,6 @@ rule a:
         assert formatter.get_formatted() == expected
 
 
-class TestSimpleParamFormatting:
-    def test_simple_rule_one_input(self):
-        stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
-
-        actual = formatter.get_formatted()
-        expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
-
-        assert actual == expected
-
-    def test_singleParamKeyword_staysOnSameLine(self):
-        """
-        Keywords that expect a single parameter do not have newline + indent
-        """
-        formatter = setup_formatter("configfile: \n" f'{TAB * 1}"foo.yaml"')
-
-        actual = formatter.get_formatted()
-        expected = 'configfile: "foo.yaml"\n'
-
-        assert actual == expected
-
-    def test_shell_param_newlineIndented(self):
-        formatter = setup_formatter(
-            "rule a:\n"
-            f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"'
-        )
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}shell:\n"
-            f'{TAB * 2}"for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"\n'
-        )
-        assert formatter.get_formatted() == expected
-
-    def test_singleParamKeywordInRule_NewlineIndented(self):
-        formatter = setup_formatter(
-            f"rule a: \n"
-            f'{TAB * 1}input: "a", "b",\n'
-            f'{TAB * 4}"c"\n'
-            f'{TAB * 1}wrapper: "mywrapper"'
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"a",\n'
-            f'{TAB * 2}"b",\n'
-            f'{TAB * 2}"c",\n'
-            f"{TAB * 1}wrapper:\n"
-            f'{TAB * 2}"mywrapper"\n'
-        )
-
-        assert actual == expected
-
-    def test_singleNumericParamKeywordInRule_staysOnSameLine(self):
-        formatter = setup_formatter(
-            "rule a: \n" f'{TAB * 1}input: "c"\n' f"{TAB * 1}threads:\n" f"{TAB * 2}20"
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"c",\n'
-            f"{TAB * 1}threads: 20\n"
-        )
-
-        assert actual == expected
-
-
-class TestComplexParamFormatting:
-    """
-    Parameters are delimited with ','
-    When ',' is present in other contexts, must be ignored
-    """
-
-    def test_expand_as_param(self):
-        stream = StringIO(
-            "rule a:\n"
-            f"{TAB * 1}input: \n"
-            f"{TAB * 2}"
-            'expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
-            f'{TAB * 1}output:"foo.txt","bar.txt"\n'
-        )
-
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
-        actual = formatter.get_formatted()
-
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}input:\n"
-            f"{TAB * 2}"
-            'expand("{f}/{p}", f=[1, 2], p=["1", "2"]),\n'
-            f"{TAB * 1}output:\n"
-            f'{TAB * 2}"foo.txt",\n'
-            f'{TAB * 2}"bar.txt",\n'
-        )
-
-        assert actual == expected
-
-    def test_lambda_function_with_multiple_args(self):
-        stream = StringIO(
-            f"rule a:\n"
-            f'{TAB * 1}input: "foo.txt" \n'
-            f"{TAB * 1}resources:"
-            f"{TAB * 2}mem_mb = lambda wildcards, attempt: attempt * 1000"
-        )
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
-
-        actual = formatter.get_formatted()
-        expected = (
-            f"rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"foo.txt",\n'
-            f"{TAB * 1}resources:\n"
-            f"{TAB * 2}mem_mb=lambda wildcards, attempt: attempt * 1000,\n"
-        )
-
-        assert actual == expected
-
-    def test_lambda_function_with_input_keyword_and_nested_parentheses(self):
-        """
-        We need to ignore 'input:' as a recognised keyword and ',' inside brackets
-        Ie, the lambda needs to be parsed as a parameter.
-        """
-        snakefile = (
-            f"rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"foo.txt",\n'
-            f"{TAB * 1}params:\n"
-            f"{TAB * 2}"
-            'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get(w), input.obs)],\n'  # noqa: E501  due to readability of test
-            f"{TAB * 2}p2=2,\n"
-        )
-        formatter = setup_formatter(snakefile)
-
-        actual = formatter.get_formatted()
-        expected = snakefile
-
-        assert actual == expected
-
-
 class TestReformatting_SMK_BREAK:
     """
     Cases where snakemake v5.13.0 raises errors, but snakefmt reformats
@@ -537,6 +532,26 @@ class TestCommentTreatment:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+    def test_comments_inside_param_function_kept_and_formatted(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}list_of_things=[\n"
+            f"{TAB * 3}elem1, #elem1,\n"
+            f"{TAB * 3}elem2,#elem2,\n"
+            f"{TAB * 2}],\n"
+        )
+        formatter = setup_formatter(snakecode)
+        expected = (
+            "rule all:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}list_of_things=[\n"
+            f"{TAB * 3}elem1,  # elem1,\n"
+            f"{TAB * 3}elem2,  # elem2,\n"
+            f"{TAB * 2}],\n"
+        )
+        assert formatter.get_formatted() == expected
 
 
 class TestNewlineSpacing:
