@@ -214,26 +214,29 @@ class Formatter(Parser):
         final_flush: bool = False,
         in_global_context: bool = False,
     ):
-        if not self.first and in_global_context:
-            if cur_indent == 0:
-                self.result += "\n\n"
-            else:
-                self.result += "\n"
-
+        comment_matches = 0
         comment_break = 1
-        if cur_indent == 0:
+        all_lines = formatted_string.splitlines()
+        if len(all_lines) > 0:
+            for line in reversed(all_lines):
+                if len(line) == 0 or line[0] != "#":
+                    break
+                comment_matches += 1
+            comment_break = len(all_lines) - comment_matches
+
+        if comment_break > 0 or final_flush:
+            # Only add leading lines if we do not only have comments
+            if not self.first:
+                if cur_indent == 0:
+                    self.result += "\n\n"
+                elif in_global_context:
+                    self.result += "\n"
+        if in_global_context:
             if self.lagging_comments != "":
-                self.result += self.lagging_comments
+                self.result += textwrap.indent(self.lagging_comments, TAB * cur_indent)
                 self.lagging_comments = ""
 
-            all_lines = formatted_string.splitlines()
             if len(all_lines) > 0:
-                comment_matches = 0
-                for line in reversed(all_lines):
-                    if len(line) == 0 or line[0] != "#":
-                        break
-                    comment_matches += 1
-                comment_break = len(all_lines) - comment_matches
                 if comment_break > 0:
                     self.result += "\n".join(all_lines[:comment_break]).rstrip() + "\n"
                 if comment_matches > 0:
@@ -244,5 +247,5 @@ class Formatter(Parser):
             self.result += formatted_string
 
         if self.first:
-            if comment_break != 0:
+            if comment_break > 0:
                 self.first = False

@@ -641,7 +641,7 @@ below_rule = "2spaces"
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_rule_tagged_comment_stays_rule_tagged(self):
+    def test_comment_sticks_to_rule(self):
         snakecode = (
             "def p():\n"
             f"{TAB * 1}pass\n"
@@ -671,6 +671,16 @@ below_rule = "2spaces"
             f'include: "a"\n'
         )
         assert formatter.get_formatted() == expected
+
+    def test_buffer_with_lone_comment(self):
+        snakecode = f'include: "a"\n# A comment\ninclude: "b"\n'
+        expected = f'include: "a"\n\n\n# A comment\ninclude: "b"\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_comment_inside_python_code_sticks_to_rule(self):
+        snakecode = f"if p:\n" f"{TAB * 1}# A comment\n" f'{TAB * 1}include: "a"\n'
+        expected = f"if p:\n\n" f"{TAB * 1}# A comment\n" f'{TAB * 1}include: "a"\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_below_keyword_gets_spaced(self):
         formatter = setup_formatter(
