@@ -75,7 +75,7 @@ class Formatter(Parser):
     def get_formatted(self):
         return self.result
 
-    def flush_buffer(self, from_python: bool = False):
+    def flush_buffer(self, from_python: bool = False) -> None:
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.from_comment = False
             self.result += self.buffer
@@ -102,8 +102,7 @@ class Formatter(Parser):
         cur_indent = self.context.cur_indent
         self.add_newlines(cur_indent)
         formatted = (
-            f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}"
-            + "\n"
+            f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}\n"
         )
         self.result += formatted
 
@@ -209,6 +208,3 @@ class Formatter(Parser):
                 self.result += "\n\n"
         if self.first:
             self.first = False
-
-    def rule_like(self, kwrd):
-        return kwrd != "" and kwrd.split()[0] in rule_like_formatted

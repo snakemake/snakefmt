@@ -175,11 +175,11 @@ class TestComplexPythonFormatting:
 
     def test_pythoncode_parser_based_formatting_before_snakecode(self):
         snakecode = (
-            'if c["a"]is None:\n'
+            'if c["a"]is None:\n'  # space needed before '['
             f'{TAB * 1}include: "a"\n'
-            'elif c["b"] == "b":\n'
+            'elif myobj.attr == "b":\n'
             f'{TAB * 1}include: "b"\n'
-            'elif c["c"]=="c":\n'
+            'elif len(c["c"])==3:\n'  # spaces needed either side of '=='
             f'{TAB * 1}include: "c"\n'
         )
 
@@ -187,9 +187,9 @@ class TestComplexPythonFormatting:
         expected = (
             'if c["a"] is None:\n'
             f'{TAB * 1}include: "a"\n'
-            'elif c["b"] == "b":\n'
+            'elif myobj.attr == "b":\n'
             f'{TAB * 1}include: "b"\n'
-            'elif c["c"] == "c":\n'  # adds spaces here
+            'elif len(c["c"]) == 3:\n'
             f'{TAB * 1}include: "c"\n'
         )
         assert formatter.get_formatted() == expected

@@ -20,7 +20,7 @@ Token parsing
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
-TAB = "    "
+TAB = "    "  # PEP8, 4 spaces
 
 
 def is_colon(token: Token):
@@ -61,10 +61,11 @@ spacing_triggers = {
 def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
     if prev_token.type != tokenize.OP and token.type != tokenize.OP:
         return False
-    elif (
+    if (
         prev_token.string in BRACKETS_OPEN
+        or prev_token.string == "."
         or token.string in BRACKETS_CLOSE
-        or token.string in {"[", ":"}
+        or token.string in {"[", ":", "."}
     ):
         return True
     else:
