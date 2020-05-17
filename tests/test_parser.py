@@ -176,6 +176,13 @@ class TestPythonCode:
         with pytest.raises(InvalidPython):
             setup_formatter(python_code)
 
+    def test_invalid_python_code_preceding_nested_rule_fails(self):
+        snakecode = (
+            f"if invalid code here:\n" f"{TAB * 1}rule a:\n" f"{TAB * 2}threads: 1"
+        )
+        with pytest.raises(InvalidPython):
+            setup_formatter(snakecode)
+
     def test_rules_inside_python_code_passes(self):
         snake = (
             f"if condition1:\n"
@@ -190,7 +197,7 @@ class TestPythonCode:
             f"if condition1:\n"
             f"{TAB * 1}rule all:\n"
             f'{TAB * 2}wrapper:"a"\n'
-            f"else if condition2:\n"
+            f"elif condition2:\n"
             f"{TAB * 1}rule all:\n"
             f'{TAB * 2}wrapper:"b"\n'
             f"else:\n"

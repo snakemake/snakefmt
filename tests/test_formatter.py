@@ -290,11 +290,11 @@ class TestComplexPythonFormatting:
         with mock.patch(
             "snakefmt.formatter.Formatter.run_black_format_str", spec=True
         ) as mock_m:
-            mock_m.return_value = ""
+            mock_m.return_value = "if condition:\n"
             setup_formatter(snakecode)
-            assert mock_m.call_count == 2
-            assert mock_m.call_args_list[0] == mock.call('"a"')
-            assert mock_m.call_args_list[1] == mock.call("b = 2\n")
+            assert mock_m.call_count == 3
+            assert mock_m.call_args_list[1] == mock.call('"a"')
+            assert mock_m.call_args_list[2] == mock.call("b = 2\n")
 
         formatter = setup_formatter(snakecode)
         expected = (
@@ -304,19 +304,17 @@ class TestComplexPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    @pytest.mark.xfail(
-        reason="python code prior to nested snakecode needs is not yet processed"
-    )
     def test_python_code_before_nested_snakecode_gets_formatted(self):
         snakecode = "b=2\n" "if condition:\n" f'{TAB * 1}include: "a"\n'
         with mock.patch(
             "snakefmt.formatter.Formatter.run_black_format_str", spec=True
         ) as mock_m:
+            mock_m.return_value = "b=2\nif condition:\n"
             formatter = setup_formatter(snakecode)
             assert mock_m.call_count == 2
 
         formatter = setup_formatter(snakecode)
-        expected = "b = 2\n" "if condition:\n" f'{TAB * 1}include: "a"\n'
+        expected = "b = 2\n" "if condition:\n\n" f'{TAB * 1}include: "a"\n'
         assert formatter.get_formatted() == expected
 
     def test_pythoncode_parser_based_formatting_before_snakecode(self):

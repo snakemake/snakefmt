@@ -29,6 +29,7 @@ PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
 triple_quote_matcher = re.compile(r"(\"{3}.*?\"{3})|('{3}.*?'{3})", re.DOTALL)
+condition_matcher = re.compile(r"(.*)^(if|elif|else)(.*)(:.*)", re.S | re.M)
 
 
 class Formatter(Parser):
@@ -91,7 +92,32 @@ class Formatter(Parser):
             if self.target_indent > 0:
                 formatted = textwrap.indent(formatted, TAB * self.target_indent)
         else:
-            formatted = self.buffer.rstrip()
+            # Invalid statements, eg lone 'else:' can occur
+            # Below constructs valid code statements and formats them
+            re_match = condition_matcher.match(self.buffer)
+            if re_match is not None:
+                callback_keyword = re_match.group(2)
+                condition = re_match.group(3)
+                if condition != "":
+                    test_substitute = f"if{condition}"
+                else:
+                    test_substitute = "if a"
+                to_format = (
+                    f"{re_match.group(1)}{test_substitute}"
+                    f"{re_match.group(4)}"
+                    f"{TAB * self.context.cur_indent}pass"
+                )
+                formatted = self.run_black_format_str(to_format)
+                re_rematch = condition_matcher.match(formatted)
+                if condition != "":
+                    callback_keyword += re_rematch.group(3)
+                formatted = (
+                    f"{re_rematch.group(1)}{callback_keyword}" f"{re_rematch.group(4)}"
+                )
+                formatted_lines = formatted.splitlines(keepends=True)
+                formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
+            else:
+                formatted = self.run_black_format_str(self.buffer)
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
@@ -125,8 +151,10 @@ class Formatter(Parser):
             ) from None
         return fmted
 
-    def string_format(self, string: str, target_indent: int) -> str:
-        # Only indent non-triple-quoted string portions
+    def format_strings(self, string: str, target_indent: int) -> str:
+        """
+        Takes an ensemble of strings and indents/reindents it
+        """
         pos = 0
         used_indent = TAB * target_indent
         indented = ""
@@ -134,8 +162,6 @@ class Formatter(Parser):
             indented += textwrap.indent(string[pos : match.start()], used_indent)
             match_slice = string[match.start() : match.end()].replace("\t", TAB)
             if match_slice.count("\n") > 0 and target_indent > 0:
-                # Note, cannot use 'eval' function as it
-                # unescapes escaped special chars like '\n'
                 dedented = match_slice.replace('"""', "")
                 dedented = f'"""{textwrap.dedent(dedented)}"""'
                 indented += textwrap.indent(dedented, used_indent)
@@ -159,6 +185,7 @@ class Formatter(Parser):
         val = str(parameter)
 
         try:
+            # A snakemake parameter is syntactically like a function parameter
             ast_parse(f"param({val})")
         except SyntaxError:
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
@@ -167,15 +194,14 @@ class Formatter(Parser):
             val = val.replace("\n", "")  # collapse strings on multiple lines
         try:
             val = self.run_black_format_str(val)
-            val = self.string_format(val, target_indent)
-            if parameter.has_a_key():  # Remove space either side of '='
-                match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
-                val = f"{match_equal.group(1)}={match_equal.group(2)}"
-
         except InvalidPython:
             if "**" in val:
                 val = val.replace("** ", "**")
-            pass
+
+        val = self.format_strings(val, target_indent)
+        if parameter.has_a_key():  # Remove space either side of '='
+            match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
+            val = f"{match_equal.group(1)}={match_equal.group(2)}"
 
         val = val.strip("\n")
         if single_param:
@@ -224,7 +250,7 @@ class Formatter(Parser):
         all_lines = formatted_string.splitlines()
         if len(all_lines) > 0:
             for line in reversed(all_lines):
-                if len(line) == 0 or line[0] != "#":
+                if len(line) == 0 or line.lstrip()[0] != "#":
                     break
                 comment_matches += 1
             comment_break = len(all_lines) - comment_matches
@@ -238,7 +264,7 @@ class Formatter(Parser):
                     self.result += "\n"
         if in_global_context:
             if self.lagging_comments != "":
-                self.result += textwrap.indent(self.lagging_comments, TAB * cur_indent)
+                self.result += self.lagging_comments
                 self.lagging_comments = ""
 
             if len(all_lines) > 0:
