@@ -180,8 +180,11 @@ class TestPythonCode:
         snakecode = (
             f"if invalid code here:\n" f"{TAB * 1}rule a:\n" f"{TAB * 2}threads: 1"
         )
+        snakecode2 = f"def p:\n" f"{TAB * 1}rule a:\n" f"{TAB * 2}threads: 1"
         with pytest.raises(InvalidPython):
             setup_formatter(snakecode)
+        with pytest.raises(InvalidPython):
+            setup_formatter(snakecode2)
 
     def test_rules_inside_python_code_passes(self):
         snake = (

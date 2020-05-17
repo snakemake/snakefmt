@@ -29,7 +29,9 @@ PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
 triple_quote_matcher = re.compile(r"(\"{3}.*?\"{3})|('{3}.*?'{3})", re.DOTALL)
-condition_matcher = re.compile(r"(.*)^(if|elif|else)(.*)(:.*)", re.S | re.M)
+contextual_matcher = re.compile(
+    r"(.*)^(if|elif|else|with|for|while)(.*)(:.*)", re.S | re.M
+)
 
 
 class Formatter(Parser):
@@ -94,21 +96,24 @@ class Formatter(Parser):
         else:
             # Invalid statements, eg lone 'else:' can occur
             # Below constructs valid code statements and formats them
-            re_match = condition_matcher.match(self.buffer)
+            re_match = contextual_matcher.match(self.buffer)
             if re_match is not None:
                 callback_keyword = re_match.group(2)
+                used_keyword = (
+                    "if" if callback_keyword in {"elif", "else"} else callback_keyword
+                )
                 condition = re_match.group(3)
                 if condition != "":
-                    test_substitute = f"if{condition}"
+                    test_substitute = f"{used_keyword}{condition}"
                 else:
-                    test_substitute = "if a"
+                    test_substitute = f"{used_keyword} a"
                 to_format = (
                     f"{re_match.group(1)}{test_substitute}"
                     f"{re_match.group(4)}"
                     f"{TAB * self.context.cur_indent}pass"
                 )
                 formatted = self.run_black_format_str(to_format)
-                re_rematch = condition_matcher.match(formatted)
+                re_rematch = contextual_matcher.match(formatted)
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
                 formatted = (
@@ -151,7 +156,7 @@ class Formatter(Parser):
             ) from None
         return fmted
 
-    def format_strings(self, string: str, target_indent: int) -> str:
+    def align_strings(self, string: str, target_indent: int) -> str:
         """
         Takes an ensemble of strings and indents/reindents it
         """
@@ -198,7 +203,7 @@ class Formatter(Parser):
             if "**" in val:
                 val = val.replace("** ", "**")
 
-        val = self.format_strings(val, target_indent)
+        val = self.align_strings(val, target_indent)
         if parameter.has_a_key():  # Remove space either side of '='
             match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
             val = f"{match_equal.group(1)}={match_equal.group(2)}"

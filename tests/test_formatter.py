@@ -338,7 +338,7 @@ class TestComplexPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    @pytest.mark.xfail(reason="black cannot format lone 'else'")
+    @pytest.mark.xfail(reason="'else:' block not recognised as being from_python")
     def test_nested_snakecode_python_else_does_not_fail(self):
         snakecode = (
             'if c["a"] is None:\n'
