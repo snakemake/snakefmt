@@ -38,10 +38,10 @@ class Formatter(Parser):
         line_length: int = DEFAULT_LINE_LENGTH,
         black_config: Optional[PathLike] = None,
     ):
-        self._line_length = line_length
-        self.result = ""
-        self.lagging_comments = ""
-        self.first = True
+        self._line_length: int = line_length
+        self.result: str = ""
+        self.lagging_comments: str = ""
+        self.first: bool = True  # Whether formatting has occurred
 
         if black_config is None:
             self.black_mode = black.FileMode(line_length=self.line_length)
@@ -72,7 +72,7 @@ class Formatter(Parser):
     def line_length(self) -> int:
         return self._line_length
 
-    def get_formatted(self):
+    def get_formatted(self) -> str:
         return self.result
 
     def flush_buffer(
@@ -214,6 +214,11 @@ class Formatter(Parser):
         final_flush: bool = False,
         in_global_context: bool = False,
     ):
+        """
+        Top-level (indent of 0) rules and python code get two newlines separation
+        Indented rules/pycode get one newline separation
+        Comments immediately preceding rules/pycode get newlined with them
+        """
         comment_matches = 0
         comment_break = 1
         all_lines = formatted_string.splitlines()

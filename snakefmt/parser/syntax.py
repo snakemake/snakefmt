@@ -358,14 +358,8 @@ class ParameterSyntax(Syntax):
 
 
 class SingleParam(ParameterSyntax):
-    def __init__(
-        self,
-        keyword_name: str,
-        target_indent: int,
-        incident_vocab: Vocabulary,
-        snakefile: TokenIterator = None,
-    ):
-        super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         if self.num_params() > 1:
             raise TooManyParameters(
@@ -387,25 +381,13 @@ ParamList = ParameterSyntax
 
 
 class RuleInlineSingleParam(SingleParam):
-    def __init__(
-        self,
-        keyword_name: str,
-        target_indent: int,
-        incident_vocab: Vocabulary,
-        snakefile: TokenIterator = None,
-    ):
-        super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class NoKeywordParamList(ParameterSyntax):
-    def __init__(
-        self,
-        keyword_name: str,
-        target_indent: int,
-        incident_vocab: Vocabulary,
-        snakefile: TokenIterator = None,
-    ):
-        super().__init__(keyword_name, target_indent, incident_vocab, snakefile)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         if len(self.keyword_params) > 0:
             raise InvalidParameterSyntax(
