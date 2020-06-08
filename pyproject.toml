@@ -17,14 +17,14 @@ snakefmt = 'snakefmt.snakefmt:main'
 python = "^3.6"
 click = "^7.1.1"
 black = {version = "^19.10b0", allow-prereleases = true}
-snakemake = "^5.14.0"
 toml = "^0.10.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
-pre-commit = "^2.1.1"
 pytest-cov = "^2.8.1"
+pre-commit = "^2.1.1"
 flake8 = "^3.7.9"
+snakemake = "^5.14.0"
 
 [tool.poetry.urls]
 "Snakemake Documentation" = "https://snakemake.readthedocs.io/"

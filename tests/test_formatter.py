@@ -437,7 +437,7 @@ rule a:
 
     def test_improperly_spaced_tpq_gets_respaced(self):
         """The "\\n" is produced when a "\n" is used in the snakefile."""
-        snakecode = f'''
+        snakecode = '''
 rule a:
   shell:
     """
@@ -518,9 +518,9 @@ class TestReformatting_SMK_BREAK:
 
 class TestCommentTreatment:
     def test_comment_after_parameter_keyword_twonewlines(self):
-        snakecode = f'include: "a"\n# A comment\n'
+        snakecode = 'include: "a"\n# A comment\n'
         formatter = setup_formatter(snakecode)
-        expected = f'include: "a"\n\n\n# A comment\n'
+        expected = 'include: "a"\n\n\n# A comment\n'
         assert formatter.get_formatted() == expected
 
     def test_comments_after_parameters_kept(self):
@@ -602,8 +602,8 @@ below_rule = "2spaces"
         assert actual == expected
 
     def test_keyword_three_newlines_below_two_after_formatting(self):
-        formatter = setup_formatter(f'include: "a"\n\n\n\nconfigfile: "b"\n')
-        expected = f'include: "a"\n\n\nconfigfile: "b"\n'
+        formatter = setup_formatter('include: "a"\n\n\n\nconfigfile: "b"\n')
+        expected = 'include: "a"\n\n\nconfigfile: "b"\n'
 
         assert formatter.get_formatted() == expected
 
@@ -671,8 +671,8 @@ below_rule = "2spaces"
         assert formatter.get_formatted() == expected
 
     def test_buffer_with_lone_comment(self):
-        snakecode = f'include: "a"\n# A comment\ninclude: "b"\n'
-        expected = f'include: "a"\n\n\n# A comment\ninclude: "b"\n'
+        snakecode = 'include: "a"\n# A comment\ninclude: "b"\n'
+        expected = 'include: "a"\n\n\n# A comment\ninclude: "b"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_inside_python_code_sticks_to_rule(self):
