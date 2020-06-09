@@ -293,6 +293,10 @@ If you can't get enough of badges, then feel free to show others you're using `s
     :target: https://github.com/snakemake/snakefmt
 ```
 
+## Changes
+
+See [`CHANGELOG.md`][changes].
+
 ## Contributing
 
 Please refer to [CONTRIBUTING.md][contributing].
@@ -304,4 +308,5 @@ Please refer to [CONTRIBUTING.md][contributing].
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
-
+[changes]: CHANGELOG.md
+[black-config]: https://github.com/psf/black#pyprojecttoml
