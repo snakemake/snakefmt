@@ -27,6 +27,7 @@ design and specifications of [Black][black].
   - [Formatting](#formatting)
 - [Example File](#example-file)
 - [Editor Integration](#editor-integration)
+- [Plug Us](#plug-us)
 - [Contributing](#contributing)
 
 
@@ -272,6 +273,25 @@ rule gets_separated_by_two_newlines:
 
 For instructions on how to integrate `snakefmt` into your editor of choice, refer to
 [`docs/editor_integration.md`](docs/editor_integration.md)
+
+## Plug Us
+
+If you can't get enough of badges, then feel free to show others you're using `snakefmt` in your project.
+
+[![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
+
+#### Markdown
+
+```md
+[![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
+```
+
+#### ReStructuredText
+
+```rst
+.. image:: https://img.shields.io/badge/code%20style-snakefmt-000000.svg
+    :target: https://github.com/snakemake/snakefmt
+```
 
 ## Contributing
 
