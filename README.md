@@ -198,6 +198,29 @@ $ echo 'rule foo:\n\tinput: "foo.txt"' | snakefmt --diff -
 If multiple files are specified, a diff for each file is written to stdout, separated by
 `=====> Diff for <filepath> <=====`.
 
+## Configuration
+
+`snakefmt` is able to read project-specific default values for its command line options from a `pyproject.toml` file. In addition, it will also load any [`black` configurations][black-config] you have in the same file.
+
+By default, `snakefmt` will search in your current directory for a file named `pyproject.toml`. If your configuration file is located somewhere else or called something different, then specify the location with `--config`.
+
+Any options you pass on the command line will take precedence over default values in the configuration file.
+
+#### Example
+
+`pyproject.toml`
+```toml
+[tool.snakefmt]
+line-length = 90
+include = '\.smk$|^Snakefile|\.py$'
+
+# snakefmt passes these options on to black
+[tool.black]
+target-version = ["py37"]
+```
+
+In this example we increase the `--line-length` value and also include python (`*.py`) files for formatting - this effectively runs `black` on them. `snakefmt` will also pass on the `[tool.black]` settings, internally, to `black`.
+
 ## Design
 
 ### Syntax
