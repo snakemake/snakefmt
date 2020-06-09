@@ -19,15 +19,17 @@ design and specifications of [Black][black].
 
 # Table of Contents
 - [Install](#install)
+- [Example File](#example-file)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
+- [Configuration](#configuration)
 - [Design](#design)
   - [Syntax](#syntax)
   - [Formatting](#formatting)
-- [Example File](#example-file)
 - [Editor Integration](#editor-integration)
 - [Plug Us](#plug-us)
+- [Changes](#changes)
 - [Contributing](#contributing)
 
 
@@ -39,6 +41,88 @@ python3 -m pip install poetry
 cd snakefmt && poetry install
 poetry shell
 ```
+
+## Example File
+
+Input
+
+```python
+from snakemake.utils import min_version
+min_version("5.14.0")
+configfile: "config.yaml" # snakemake keywords are treated like classes
+SAMPLES = ['s1', 's2'] # strings are normalised
+CONDITIONS = ["a", "b", "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglong"] # long lines are wrapped
+include: "rules/foo.smk" # snakemake keywords are treated like classes
+
+rule all:
+    input: "data/results.txt" # newlines after keywords enforced and trailing comma
+
+rule gets_separated_by_two_newlines:
+    input:
+        files = expand("long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",sample=SAMPLES, condition=CONDITIONS)
+if True:
+    rule can_be_inside_python_code:
+        input: "parameters", "get_indented"
+        threads: 4 # Numeric params stay unindented
+        params: key_val = "PEP8_formatted"
+        run:
+
+                print("weirdly_spaced_string_gets_respaced")
+
+```
+
+
+Output
+
+```python
+from snakemake.utils import min_version
+
+min_version("5.14.0")
+
+
+configfile: "config.yaml" # snakemake keywords are treated like classes
+
+
+SAMPLES = ["s1", "s2"] # strings are normalised
+CONDITIONS = [
+    "a",
+    "b",
+    "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglong",
+]  # long lines are wrapped
+
+
+include: "rules/foo.smk" # snakemake keywords are treated like classes
+
+
+rule all:
+    input:
+        "data/results.txt", # newlines after keywords enforced and trailing comma
+
+
+rule gets_separated_by_two_newlines:
+    input:
+        files=expand(
+            "long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",
+            sample=SAMPLES,
+            condition=CONDITIONS,
+        ),
+
+
+if True:
+
+    rule can_be_inside_python_code:
+        input:
+            "parameters",
+            "get_indented",
+        threads: 4 # Numeric params stay unindented
+        params:
+            key_val="PEP8_formatted",
+        run:
+            print("weirdly_spaced_string_gets_respaced")
+
+```
+
+
 
 ## Usage
 
@@ -239,58 +323,6 @@ But `snakefmt` not complaining does not guarantee your file is entirely error-fr
 Python code is `black`ed.
 
 Snakemake-specific syntax is formatted following the same principles: see [PEP8][PEP8].
-
-Example File
-------------
-
-Input
-
-```python
-SAMPLES = ["s1", "s2"]
-CONDITIONS = ["a", "b"]
-
-if True:
-	rule can_be_inside_python_code:
-		input: "parameters", "get_indented"
-		threads: 4 # Numeric params stay unindented
-		params: key_val = "PEP8_formatted"
-		run:
-
-					print("weirdly_spaced_string_gets_respaced")
-
-rule gets_separated_by_two_newlines:
-	input:
-		files=expand("long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",sample=SAMPLES, condition=CONDITIONS)
-```
-
-
-Output
-
-```python
-SAMPLES=["s1","s2"]
-CONDITIONS=["a","b"]
-
-if True:
-	rule can_be_inside_python_code:
-		input:
-			"parameters",
-			"get_indented",
-		threads: 4 # Numeric params stay unindented
-		params:
-			key_val="PEP8_formatted",
-		run:
-			print("weirdly_spaced_string_gets_respaced")
-
-
-rule gets_separated_by_two_newlines:
-	input:
-		files=expand(
-		"long/string/to/data/files/gets_broken_by_black/{sample}.{condition}",
-		sample=SAMPLES,
-		condition=CONDITIONS,
-		),
-```
-
 
 ## Editor Integration
 
