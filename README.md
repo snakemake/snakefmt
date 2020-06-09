@@ -6,11 +6,16 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 ![Python versions](https://img.shields.io/badge/Python%20versions->=3.6-blue)
 
-This repository provides formatting for [Snakemake][snakemake] files. It follows the design and specifications of [Black][black].
+This repository provides formatting for [Snakemake][snakemake] files. It follows the
+design and specifications of [Black][black].
 
-> **⚠️WARNING⚠️**: As this project is still in the very early stages of development, and thus not stable, we strongly recommend ensuring your files are under version control before doing any formatting. Alternatively, you can pipe the file in from stdin, which will print it to the screen, or use the `--diff` option. See [Usage](#usage) for more details.
+> **⚠️WARNING⚠️**: As this project is still in the very early stages of development, and
+> thus not stable, we strongly recommend ensuring your files are under version control
+> before doing any formatting. Alternatively, you can pipe the file in from stdin, which
+> will print it to the screen, or use the `--diff` option. See [Usage](#usage) for more
+> details.
 
-[TOC]:#
+[TOC]: #
 
 # Table of Contents
 - [Install](#install)
@@ -21,8 +26,8 @@ This repository provides formatting for [Snakemake][snakemake] files. It follows
   - [Syntax](#syntax)
   - [Formatting](#formatting)
 - [Example File](#example-file)
+- [Editor Integration](#editor-integration)
 - [Contributing](#contributing)
-
 
 
 ## Install
@@ -108,11 +113,14 @@ Options:
 ```
 
 #### Check
+
 ##### `--check`
 
-Does not write any formatted code back to file. It will instead check whether any changes *would* be made. It returns one of three possible exit codes:
+Does not write any formatted code back to file. It will instead check whether any
+changes *would* be made. It returns one of three possible exit codes:
 
 **0** - indicates **no changes** would be made
+
 ```
 $ echo 'include: "foo.txt"' | snakefmt --check -                                        
 [INFO] 1 file(s) would be left unchanged 🎉
@@ -121,6 +129,7 @@ Exit code: 0
 ```
 
 **1** - indicates **changes** would be made
+
 ```
 $ echo 'include:"foo.txt"' | snakefmt --check - 
 [INFO] 1 file(s) would be changed 😬
@@ -129,6 +138,7 @@ Exit code: 1
 ```
 
 **123** - indicates there was an **error** such as invalid syntax
+
 ```
 $ echo 'include:' | snakefmt --check -            
 [ERROR] L2: In include definition.
@@ -138,9 +148,12 @@ Exit code: 123
 ```
 
 #### Compact diff
+
 ##### `--compact-diff`
 
-Does not write any formatted code back to file. It will instead print a compact diff of how the code looks before and after formatting. The diff is compact as it only prints the lines that will change, with a few lines of surrounding context.
+Does not write any formatted code back to file. It will instead print a compact diff of
+how the code looks before and after formatting. The diff is compact as it only prints
+the lines that will change, with a few lines of surrounding context.
 
 ```
 $ echo 'x = 1\ny = 3\n\n\nrule foo:\n\tinput: "foo.txt"' | snakefmt --compact-diff -
@@ -159,12 +172,15 @@ $ echo 'x = 1\ny = 3\n\n\nrule foo:\n\tinput: "foo.txt"' | snakefmt --compact-di
 [INFO] All done 🎉
 ```
 
-The above example shows that the variable assignments at the beginning of the file are not included in the compact diff (but would be included in a full diff).
+The above example shows that the variable assignments at the beginning of the file are
+not included in the compact diff (but would be included in a full diff).
 
 #### Diff
+
 ##### `--diff`
 
-Does not write any formatted code back to file. It will instead print a diff of how the code looks before and after formatting.
+Does not write any formatted code back to file. It will instead print a diff of how the
+code looks before and after formatting.
 
 ```
 $ echo 'rule foo:\n\tinput: "foo.txt"' | snakefmt --diff -
@@ -178,7 +194,8 @@ $ echo 'rule foo:\n\tinput: "foo.txt"' | snakefmt --diff -
 [INFO] All done 🎉
 ```
 
-If multiple files are specified, a diff for each file is written to stdout, separated by `=====> Diff for <filepath> <=====`.
+If multiple files are specified, a diff for each file is written to stdout, separated by
+`=====> Diff for <filepath> <=====`.
 
 ## Design
 
@@ -195,12 +212,12 @@ But `snakefmt` not complaining does not guarantee your file is entirely error-fr
 
 ### Formatting
 
-Python code is `black`ed. 
+Python code is `black`ed.
 
 Snakemake-specific syntax is formatted following the same principles: see [PEP8][PEP8].
 
 Example File
--------------
+------------
 
 Input
 
@@ -249,7 +266,12 @@ rule gets_separated_by_two_newlines:
 		condition=CONDITIONS,
 		),
 ```
-    
+
+
+## Editor Integration
+
+For instructions on how to integrate `snakefmt` into your editor of choice, refer to
+[`docs/editor_integration.md`](docs/editor_integration.md)
 
 ## Contributing
 
@@ -262,3 +284,4 @@ Please refer to [CONTRIBUTING.md][contributing].
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
+
