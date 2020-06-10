@@ -9,11 +9,11 @@
 This repository provides formatting for [Snakemake][snakemake] files. It follows the
 design and specifications of [Black][black].
 
-> **⚠️WARNING⚠️**: As this project is still in the very early stages of development, and
-> thus not stable, we strongly recommend ensuring your files are under version control
-> before doing any formatting. Alternatively, you can pipe the file in from stdin, which
-> will print it to the screen, or use the `--diff` option. See [Usage](#usage) for more
-> details.
+> **⚠️WARNING⚠️**: `snakefmt` modifies files in-place by default, thus we strongly
+> recommend ensuring your files are under version control before doing any formatting.
+> This is also to protect you from bugs as the project is still new. Alternatively, you
+> can pipe the file in from stdin, which will print it to the screen, or use the
+> `--diff` option. See [Usage](#usage) for more details.
 
 [TOC]: #
 
@@ -49,10 +49,10 @@ Input
 ```python
 from snakemake.utils import min_version
 min_version("5.14.0")
-configfile: "config.yaml" # snakemake keywords are treated like classes
+configfile: "config.yaml" # snakemake keywords are treated like classes i.e. 2 newlines
 SAMPLES = ['s1', 's2'] # strings are normalised
 CONDITIONS = ["a", "b", "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglong"] # long lines are wrapped
-include: "rules/foo.smk" # snakemake keywords are treated like classes
+include: "rules/foo.smk" # 2 newlines
 
 rule all:
     input: "data/results.txt" # newlines after keywords enforced and trailing comma
@@ -80,7 +80,7 @@ from snakemake.utils import min_version
 min_version("5.14.0")
 
 
-configfile: "config.yaml" # snakemake keywords are treated like classes
+configfile: "config.yaml" # snakemake keywords are treated like classes i.e. 2 newlines
 
 
 SAMPLES = ["s1", "s2"] # strings are normalised
@@ -91,7 +91,7 @@ CONDITIONS = [
 ]  # long lines are wrapped
 
 
-include: "rules/foo.smk" # snakemake keywords are treated like classes
+include: "rules/foo.smk" # 2 newlines
 
 
 rule all:
@@ -121,7 +121,6 @@ if True:
             print("weirdly_spaced_string_gets_respaced")
 
 ```
-
 
 
 ## Usage
@@ -284,15 +283,21 @@ If multiple files are specified, a diff for each file is written to stdout, sepa
 
 ## Configuration
 
-`snakefmt` is able to read project-specific default values for its command line options from a `pyproject.toml` file. In addition, it will also load any [`black` configurations][black-config] you have in the same file.
+`snakefmt` is able to read project-specific default values for its command line options
+from a `pyproject.toml` file. In addition, it will also load any [`black`
+configurations][black-config] you have in the same file.
 
-By default, `snakefmt` will search in your current directory for a file named `pyproject.toml`. If your configuration file is located somewhere else or called something different, then specify the location with `--config`.
+By default, `snakefmt` will search in your current directory for a file named
+`pyproject.toml`. If your configuration file is located somewhere else or called
+something different, then specify the location with `--config`.
 
-Any options you pass on the command line will take precedence over default values in the configuration file.
+Any options you pass on the command line will take precedence over default values in the
+configuration file.
 
 #### Example
 
 `pyproject.toml`
+
 ```toml
 [tool.snakefmt]
 line-length = 90
@@ -303,7 +308,9 @@ include = '\.smk$|^Snakefile|\.py$'
 target-version = ["py37"]
 ```
 
-In this example we increase the `--line-length` value and also include python (`*.py`) files for formatting - this effectively runs `black` on them. `snakefmt` will also pass on the `[tool.black]` settings, internally, to `black`.
+In this example we increase the `--line-length` value and also include python (`*.py`)
+files for formatting - this effectively runs `black` on them. `snakefmt` will also pass
+on the `[tool.black]` settings, internally, to `black`.
 
 ## Design
 
@@ -331,7 +338,8 @@ For instructions on how to integrate `snakefmt` into your editor of choice, refe
 
 ## Plug Us
 
-If you can't get enough of badges, then feel free to show others you're using `snakefmt` in your project.
+If you can't get enough of badges, then feel free to show others you're using `snakefmt`
+in your project.
 
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 
@@ -365,3 +373,4 @@ Please refer to [CONTRIBUTING.md][contributing].
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md
 [black-config]: https://github.com/psf/black#pyprojecttoml
+
