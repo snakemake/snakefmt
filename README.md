@@ -11,9 +11,9 @@ design and specifications of [Black][black].
 
 > **⚠️WARNING⚠️**: `snakefmt` modifies files in-place by default, thus we strongly
 > recommend ensuring your files are under version control before doing any formatting.
-> This is also to protect you from bugs as the project is still new. Alternatively, you
-> can pipe the file in from stdin, which will print it to the screen, or use the
-> `--diff` option. See [Usage](#usage) for more details.
+> This is also to protect you from bugs as the project is still new. You
+> can also pipe the file in from stdin, which will print it to the screen, or use the
+> `--diff` or `--check` options. See [Usage](#usage) for more details.
 
 [TOC]: #
 
@@ -156,6 +156,9 @@ Usage: snakefmt [OPTIONS] [SRC]...
   SRC specifies directories and files to format. Directories will be
   searched for file names that conform to the include/exclude patterns
   provided.
+
+  Files are modified in-place by default; use diff, check, or  `snakefmt - <
+  Snakefile` to avoid this.
 
 Options:
   -l, --line-length INT  Lines longer than INT will be wrapped.  [default: 88]
