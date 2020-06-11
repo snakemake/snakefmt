@@ -71,20 +71,13 @@ def read_snakefmt_defaults_from_pyproject_toml(
 
 
 def get_snakefiles_in_dir(
-    path: Path,
-    root: Path,
-    include: Pattern[str],
-    exclude: Pattern[str],
-    gitignore: PathSpec,
+    path: Path, include: Pattern[str], exclude: Pattern[str], gitignore: PathSpec,
 ) -> Iterator[Path]:
     """Generate all files under `path` whose paths are not excluded by the
     `exclude` regex, but are included by the `include` regex.
-    Symbolic links pointing outside of the `root` directory are ignored.
     Adapted from
     https://github.com/psf/black/blob/ce14fa8b497bae2b50ec48b3bd7022573a59cdb1/black.py#L3519-L3573
     """
-    root = root.resolve()
-
     for child in path.iterdir():
         # First ignore files matching .gitignore
         if gitignore.match_file(child.as_posix()):
@@ -92,27 +85,14 @@ def get_snakefiles_in_dir(
             continue
 
         # Then ignore with `exclude` option.
-        try:
-            normalized_path = str(child.resolve())
-        except OSError as err:
-            logging.debug(f"Ignoring: {child} cannot be read because {err}.")
-            continue
-        except ValueError as err:
-            if child.is_symlink():
-                logging.debug(
-                    f"Ignoring: {child} is a symbolic link that points outside {root}"
-                )
-                continue
-            logging.error(f"{child} caused error")
-            raise ValueError(err)
-
+        normalized_path = str(child.resolve().as_posix())
         exclude_match = exclude.search(normalized_path)
         if exclude_match and exclude_match.group(0):
             logging.debug(f"Excluded: {child} matched the --exclude regular expression")
             continue
 
         if child.is_dir():
-            yield from get_snakefiles_in_dir(child, root, include, exclude, gitignore)
+            yield from get_snakefiles_in_dir(child, include, exclude, gitignore)
 
         elif child.is_file():
             include_match = include.search(child.name)
@@ -269,7 +249,6 @@ def main(
         )
 
     files_to_format: Set[PathLike] = set()
-    root = Path()
     gitignore = get_gitignore(Path())
     for path in src:
         path = Path(path)
@@ -278,9 +257,7 @@ def main(
             files_to_format.add(path)
         elif path.is_dir():
             files_to_format.update(
-                get_snakefiles_in_dir(
-                    path, root, include_regex, exclude_regex, gitignore
-                )
+                get_snakefiles_in_dir(path, include_regex, exclude_regex, gitignore)
             )
         else:
             logging.warning(f"ignoring invalid path: {path}")
