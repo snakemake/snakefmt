@@ -351,7 +351,6 @@ class TestCLIValidRegex:
             self.create_temp_filesystem_in(abs_tmpdir)
             snakefiles = get_snakefiles_in_dir(
                 path=Path(tmpdir),
-                root=abs_tmpdir,
                 include=include,
                 exclude=exclude,
                 gitignore=mock_gitignore,
@@ -373,7 +372,6 @@ class TestCLIValidRegex:
             self.create_temp_filesystem_in(abs_tmpdir)
             snakefiles = get_snakefiles_in_dir(
                 path=Path(tmpdir),
-                root=abs_tmpdir,
                 include=include,
                 exclude=exclude,
                 gitignore=mock_gitignore,
@@ -397,7 +395,6 @@ class TestCLIValidRegex:
             self.create_temp_filesystem_in(abs_tmpdir)
             snakefiles = get_snakefiles_in_dir(
                 path=Path(tmpdir),
-                root=abs_tmpdir,
                 include=include,
                 exclude=exclude,
                 gitignore=mock_gitignore,
