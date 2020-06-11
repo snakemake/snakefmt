@@ -80,7 +80,6 @@ def get_snakefiles_in_dir(
     """Generate all files under `path` whose paths are not excluded by the
     `exclude` regex, but are included by the `include` regex.
     Symbolic links pointing outside of the `root` directory are ignored.
-    `report` is where output about exclusions goes.
     Adapted from
     https://github.com/psf/black/blob/ce14fa8b497bae2b50ec48b3bd7022573a59cdb1/black.py#L3519-L3573
     """
@@ -229,12 +228,18 @@ def main(
     """The uncompromising Snakemake code formatter.
 
     SRC specifies directories and files to format. Directories will be searched for
-    file names that conform to the include/exclude patterns provided."""
+    file names that conform to the include/exclude patterns provided.
+
+    Files are modified in-place by default; use diff, check, or
+     `snakefmt - < Snakefile` to avoid this.
+    """
     log_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=log_level)
 
     if not src:
-        click.echo("No path provided. Nothing to do 😴", err=True)
+        click.echo(
+            "No path provided. Nothing to do 😴. Call with -h for help.", err=True
+        )
         ctx.exit(0)
 
     if "-" in src and len(src) > 1:
