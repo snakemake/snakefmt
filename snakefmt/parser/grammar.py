@@ -13,7 +13,7 @@ from snakefmt.parser.syntax import (
 
 class Grammar(NamedTuple):
     """
-    Ties together a vocabulary and a syntax reader
+    Ties together a vocabulary and a context (=syntax reader)
     When a keyword from `vocab` is recognised, a new grammar is induced
     """
 
