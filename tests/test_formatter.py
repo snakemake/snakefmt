@@ -523,6 +523,11 @@ class TestCommentTreatment:
         expected = 'include: "a"\n\n\n# A comment\n'
         assert formatter.get_formatted() == expected
 
+    def test_comment_after_keyword_kept(self):
+        snakecode = "rule a: # A comment \n" f"{TAB * 1}threads: 4\n"
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_comments_after_parameters_kept(self):
         snakecode = (
             f"rule a:\n"
