@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-n-publish:
-    name: Build and publish to PyPI
+    name:    Build and publish to PyPI
     runs-on: ubuntu-18.04
 
     steps:
@@ -26,5 +26,20 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@master
         with:
-          user: __token__
+          user:     __token__
           password: ${{ secrets.pypi_password }}
+
+  push_to_registry:
+    name:    Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v1
+        with:
+          username:     ${{ secrets.DOCKER_USERNAME }}
+          password:     ${{ secrets.DOCKER_PASSWORD }}
+          repository:   snakemake/snakefmt
+          tags:         latest
+          tag_with_ref: true
