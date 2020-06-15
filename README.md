@@ -20,6 +20,10 @@ design and specifications of [Black][black].
 
 # Table of Contents
 - [Install](#install)
+  - [PyPi](#pypi)
+  - [Conda](#conda)
+  - [Containers](#containers)
+  - [Local](#local)
 - [Example File](#example-file)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
@@ -36,10 +40,61 @@ design and specifications of [Black][black].
 
 ## Install
 
-```shell
-git clone https://github.com/snakemake/snakefmt
-python3 -m pip install poetry
-cd snakefmt && poetry install
+### PyPi
+
+```sh
+pip install snakefmt
+```
+
+### Conda
+
+[![Conda (channel only)](https://img.shields.io/conda/vn/bioconda/snakefmt)](https://anaconda.org/bioconda/snakefmt)
+[![bioconda version](https://anaconda.org/bioconda/snakefmt/badges/platforms.svg)](https://anaconda.org/bioconda/snakefmt)
+
+```sh
+conda install -c bioconda snakefmt
+```
+
+### Containers
+
+#### Docker
+
+[![Docker Image Version (latest semver)](https://img.shields.io/docker/v/snakemake/snakefmt)](https://hub.docker.com/r/snakemake/snakefmt/tags)
+
+```sh
+docker pull snakemake/snakefmt
+docker run -it snakemake/snakefmt snakefmt --help
+```
+
+You can find all the available tags on the [Docker Hub repository][dockerhub].
+
+[dockerhub]: https://hub.docker.com/r/snakemake/snakefmt
+
+#### Singularity
+
+```sh
+URI="docker://snakemake/snakefmt"
+singularity exec "$URI" snakefmt --help
+```
+
+The above will use the latest version. If you want to specify a version then use a [tag][dockerhub] like so.
+
+```sh
+VERSION="0.1.0"
+URI="docker://snakemake/snakefmt:${VERSION}"
+```
+
+### Local
+
+These instructions include [installing `poetry`](https://python-poetry.org/docs/#installation).
+```sh
+# install poetry
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3
+
+git clone https://github.com/snakemake/snakefmt && cd snakefmt
+# install snakefmt in a new environment
+poetry install
+# activate the environment so snakefmt is available on your PATH
 poetry shell
 ```
 
