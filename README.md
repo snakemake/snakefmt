@@ -2,9 +2,10 @@
 
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/snakemake/snakefmt/python_poetry_package)](https://github.com/snakemake/snakefmt/actions)
 [![codecov](https://codecov.io/gh/snakemake/snakefmt/branch/master/graph/badge.svg)](https://codecov.io/gh/snakemake/snakefmt)
+[![PyPI](https://img.shields.io/pypi/v/snakefmt)](https://pypi.org/project/snakefmt/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snakefmt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![Python versions](https://img.shields.io/badge/Python%20versions->=3.6-blue)
 
 This repository provides formatting for [Snakemake][snakemake] files. It follows the
 design and specifications of [Black][black].
