@@ -14,13 +14,11 @@ from snakefmt.exceptions import (
 
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 
-"""
-Token parsing
-"""
+# ___Token parsing___#
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
-TAB = "    "  # PEP8, 4 spaces
+TAB = "    "  # PEP8, a tab is 4 spaces
 
 
 def is_colon(token: Token):
@@ -47,9 +45,7 @@ def not_empty(token: Token):
     return len(token.string) > 0 and not token.string.isspace()
 
 
-"""
-Token spacing: for when cannot run black
-"""
+# ___Token spacing: for when cannot run black___#
 spacing_triggers = {
     tokenize.NAME: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
     tokenize.STRING: {tokenize.NAME, tokenize.OP},
@@ -76,7 +72,7 @@ def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
 
 class Vocabulary:
     """
-    Responsible for recognising keywords
+    Responsible for recognising snakemake keywords
     """
 
     spec = dict()
@@ -95,6 +91,8 @@ class Syntax:
     """
 
     class Status(NamedTuple):
+        """Communicates the result of parsing a chunk of code"""
+
         token: Token
         indent: int
         buffer: str
@@ -146,9 +144,7 @@ class Syntax:
         return f"L{self.token.start[0]}: "
 
 
-"""
-Keyword parsing
-"""
+# ___Keyword parsing___#
 
 
 class KeywordSyntax(Syntax):
@@ -196,6 +192,9 @@ class KeywordSyntax(Syntax):
         return max(0, self.cur_indent - self.target_indent)
 
     def get_next_queriable(self, snakefile: TokenIterator) -> Syntax.Status:
+        """Produces the next word that could be a snakemake keyword,
+        and additional information in a :Syntax.Status:
+        """
         buffer = ""
         newline = False
         pythonable = False
@@ -357,6 +356,7 @@ class ParameterSyntax(Syntax):
         return len(self.keyword_params) + len(self.positional_params)
 
 
+# ___Parameter Syntax Validators___#
 class SingleParam(ParameterSyntax):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

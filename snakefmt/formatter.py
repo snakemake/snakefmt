@@ -44,7 +44,7 @@ class Formatter(Parser):
         self._line_length: int = line_length
         self.result: str = ""
         self.lagging_comments: str = ""
-        self.first: bool = True  # Whether formatting has occurred
+        self.no_formatting_yet: bool = True
 
         if black_config is None:
             self.black_mode = black.FileMode(line_length=self.line_length)
@@ -94,8 +94,8 @@ class Formatter(Parser):
             if self.target_indent > 0:
                 formatted = self.align_strings(formatted, self.target_indent)
         else:
-            # Invalid statements, eg lone 'else:' can occur
-            # Below constructs valid code statements and formats them
+            # Invalid python syntax, eg lone 'else:' between two rules, can occur.
+            # Below constructs valid code statements and formats them.
             re_match = contextual_matcher.match(self.buffer)
             if re_match is not None:
                 callback_keyword = re_match.group(2)
@@ -266,7 +266,7 @@ class Formatter(Parser):
 
         if comment_break > 0 or final_flush:
             # Only add leading lines if we do not only have comments
-            if not self.first:
+            if not self.no_formatting_yet:
                 if cur_indent == 0:
                     self.result += "\n\n"
                 elif in_global_context:
@@ -286,6 +286,6 @@ class Formatter(Parser):
         else:
             self.result += formatted_string
 
-        if self.first:
+        if self.no_formatting_yet:
             if comment_break > 0:
-                self.first = False
+                self.no_formatting_yet = False

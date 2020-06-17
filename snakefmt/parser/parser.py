@@ -50,9 +50,9 @@ class Parser(ABC):
             if status.eof:
                 break
 
+            self.from_python = False
             keyword = status.token.string
             if self.vocab.recognises(keyword):
-                self.from_python = False
                 if status.indent > self.target_indent:
                     if self.context.from_python or status.pythonable:
                         self.from_python = True
@@ -64,7 +64,6 @@ class Parser(ABC):
                 )
                 status = self.process_keyword(status, self.from_python)
             else:
-                self.from_python = False
                 if not self.context.accepts_python_code and not keyword[0] == "#":
                     raise SyntaxError(
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
@@ -104,21 +103,26 @@ class Parser(ABC):
         final_flush: bool = False,
         in_global_context: bool = False,
     ) -> None:
-        pass
+        """Processes the text in :self.buffer:"""
 
     @abstractmethod
     def process_keyword_context(self, in_global_context: bool):
-        pass
+        """Initialises an entry into a keyword context, eg a 'rule:'"""
 
     @abstractmethod
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
     ):
-        pass
+        """Initialises entry into a keyword parameter context, eg a 'input:'"""
 
     def process_keyword(
         self, status: Syntax.Status, from_python: bool = False
     ) -> Syntax.Status:
+        """Called when a snakemake keyword has been found.
+
+        The function dispatches to either a keyword context or a keyword parameter
+        processing class and functions
+        """
         keyword = status.token.string
         new_grammar = self.vocab.get(keyword)
         accepts_py = new_grammar.vocab is PythonCode
@@ -162,10 +166,11 @@ class Parser(ABC):
             raise UnsupportedSyntax()
 
     def context_exit(self, status: Syntax.Status) -> None:
+        """Parser leaves a keyword context, for eg from 'rule:' to python code"""
         while self.target_indent > status.indent:
             callback_grammar: Grammar = self.context_stack.pop()
             if callback_grammar.context.accepts_python_code:
-                self.flush_buffer()  # Flushes code inside 'run' directive
+                self.flush_buffer()  # Flushes any code inside 'run' directive
             else:
                 callback_grammar.context.check_empty()
             self.grammar = self.context_stack[-1]
