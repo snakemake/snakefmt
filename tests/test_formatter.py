@@ -191,7 +191,7 @@ class TestSimplePythonFormatting:
             spec=True,
             return_value="",
         ) as mock_m:
-            formatter = setup_formatter(python_code)
+            setup_formatter(python_code)
             mock_m.assert_called_once()
 
         # test black formatting output (here, is identical)
@@ -310,7 +310,7 @@ class TestComplexPythonFormatting:
             "snakefmt.formatter.Formatter.run_black_format_str", spec=True
         ) as mock_m:
             mock_m.return_value = "b=2\nif condition:\n"
-            formatter = setup_formatter(snakecode)
+            setup_formatter(snakecode)
             assert mock_m.call_count == 2
 
         formatter = setup_formatter(snakecode)
@@ -403,18 +403,6 @@ class TestStringFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
-    def test_shell_tpq_does_not_get_over_indented(self):
-        snakecode = f'''
-rule a:
-{TAB * 1}shell:
-{TAB * 2}"""
-{TAB * 2}for i in $(seq 1 5)
-{TAB * 2}do echo $i
-{TAB * 2}done"""
-'''
-        formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
-
     def test_tabbed_tpq_gets_retabbed(self):
         snakecode = f'''
 rule a:
@@ -435,13 +423,13 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
-    def test_improperly_spaced_tpq_gets_respaced(self):
+    def test_tpq_retabbing_and_keep_relative_indenting(self):
         """The "\\n" is produced when a "\n" is used in the snakefile."""
         snakecode = '''
 rule a:
   shell:
     """
-    Hello"\\n"
+    Hello
       World
     """
 '''
@@ -451,14 +439,13 @@ rule a:
 rule a:
 {TAB * 1}shell:
 {TAB * 2}"""
-{TAB * 2}Hello"\\n"
+{TAB * 2}Hello
 {TAB * 2}  World
 {TAB * 2}"""
 '''
         assert formatter.get_formatted() == expected
 
     def test_docstrings_get_retabbed(self):
-        """But not reindented"""
         snakecode = f'''def f():
   """Does not do
   much
@@ -484,8 +471,8 @@ rule a:
 
 rule a:
 {TAB * 1}"""
-{TAB * 1}{' ' * 2}The rule
-{TAB * 1}{' ' * 8}a
+{TAB * 1}The rule
+{TAB * 1}{' ' * 6}a
 {TAB * 1}"""
 {TAB * 1}message:
 {TAB * 2}"a"
@@ -500,6 +487,7 @@ class TestReformatting_SMK_BREAK:
     """
 
     def test_key_value_parameter_repositioning(self):
+        """Key/val params can occur before positional params"""
         formatter = setup_formatter(
             f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}a="b",\n' f'{TAB * 2}"c"\n'
         )
@@ -509,6 +497,7 @@ class TestReformatting_SMK_BREAK:
         assert formatter.get_formatted() == expected
 
     def test_rule_re_indenting(self):
+        """Indented rule gets dendented"""
         formatter = setup_formatter(
             f"{TAB * 1}rule a:\n" f"{TAB * 2}wrapper:\n" f'{TAB * 3}"a"\n'
         )

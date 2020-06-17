@@ -92,7 +92,7 @@ class Formatter(Parser):
         if not from_python:
             formatted = self.run_black_format_str(self.buffer)
             if self.target_indent > 0:
-                formatted = textwrap.indent(formatted, TAB * self.target_indent)
+                formatted = self.align_strings(formatted, self.target_indent)
         else:
             # Invalid statements, eg lone 'else:' can occur
             # Below constructs valid code statements and formats them
@@ -166,10 +166,14 @@ class Formatter(Parser):
         for match in re.finditer(triple_quote_matcher, string):
             indented += textwrap.indent(string[pos : match.start()], used_indent)
             match_slice = string[match.start() : match.end()].replace("\t", TAB)
-            if match_slice.count("\n") > 0 and target_indent > 0:
-                dedented = match_slice.replace('"""', "")
-                dedented = f'"""{textwrap.dedent(dedented)}"""'
-                indented += textwrap.indent(dedented, used_indent)
+            if match_slice.count("\n") > 1 and target_indent > 0:
+                all_lines = match_slice.splitlines(keepends=True)
+                first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
+                last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
+                middle = textwrap.indent(
+                    textwrap.dedent("".join(all_lines[1:-1])), used_indent
+                )
+                indented += f"{first}{middle}{last}"
             else:
                 indented += f"{used_indent}{match_slice}"
             pos = match.end()
