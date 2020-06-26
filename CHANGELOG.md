@@ -12,5 +12,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/olivierlacan/keep-a-changelog/releases/tag/v0.1.0
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/snakemake/snakefmt/releases/tag/0.1.0
