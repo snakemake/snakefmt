@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/snakemake/snakefmt"
 repository = "https://github.com/snakemake/snakefmt"
-#documentation = ""  # todo
+documentation = "https://github.com/snakemake/snakefmt/blob/master/README.md"
 keywords = ["python", "snakemake", "code", "formatter", "parser", "workflow", "management", "systems", "black"]
 
 [tool.poetry.scripts]
