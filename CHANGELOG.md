@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Added
-- First release - so everything you see!
+- First release - so everything you see is new!
 
 [unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/olivierlacan/keep-a-changelog/releases/tag/v0.1.0
