@@ -28,7 +28,7 @@ from snakefmt.types import TokenIterator
 PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
-triple_quote_matcher = re.compile(r"(\"{3}.*?\"{3})|('{3}.*?'{3})", re.DOTALL)
+triple_quote_matcher = re.compile(r"(^\s*\"{3}.*?\"{3})|(^\s'{3}.*?'{3})", re.DOTALL)
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)(.*)(:.*)", re.S | re.M
 )

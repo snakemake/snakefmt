@@ -383,7 +383,7 @@ class TestComplexPythonFormatting:
 class TestStringFormatting:
     """Naming: tpq = triple quoted string"""
 
-    def test_param_with_string_mixture_reindented_and_string_normalised(self):
+    def test_param_with_string_mixture_retabbed_and_string_normalised(self):
         snakecode = (
             "rule a:\n"
             f"{TAB * 1}message:\n"
@@ -403,34 +403,21 @@ class TestStringFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
-    def test_tabbed_tpq_gets_retabbed(self):
-        snakecode = f'''
-rule a:
-{TAB * 1}shell:
-{TAB * 2}"""
-\t\tHello
-\t\t\t\tWorld
-{TAB * 2}"""
-'''
+    def test_keyword_with_tpq_inside_expression_left_alone(self):
+        snakecode = (
+            "rule test:\n" f"{TAB * 1}run:\n" f'{TAB * 2}shell(f"""shell stuff""")\n'
+        )
         formatter = setup_formatter(snakecode)
-        expected = f'''
-rule a:
-{TAB * 1}shell:
-{TAB * 2}"""
-{TAB * 2}Hello
-{TAB * 4}World
-{TAB * 2}"""
-'''
-        assert formatter.get_formatted() == expected
+        assert formatter.get_formatted() == snakecode
 
-    def test_tpq_retabbing_and_keep_relative_indenting(self):
-        """The "\\n" is produced when a "\n" is used in the snakefile."""
+    def test_tpq_alignment_and_keep_relative_indenting(self):
         snakecode = '''
 rule a:
   shell:
-    """
-    Hello
-      World
+    """Starts here
+  Hello
+    World
+  \t\tTabbed
     """
 '''
         formatter = setup_formatter(snakecode)
@@ -438,18 +425,20 @@ rule a:
         expected = f'''
 rule a:
 {TAB * 1}shell:
-{TAB * 2}"""
+{TAB * 2}"""Starts here
 {TAB * 2}Hello
 {TAB * 2}  World
+{TAB * 4}Tabbed
 {TAB * 2}"""
 '''
         assert formatter.get_formatted() == expected
 
-    def test_docstrings_get_retabbed(self):
+    def test_docstrings_get_retabbed_for_snakecode_only(self):
+        """Black only retabs the first tpq in a docstring."""
         snakecode = f'''def f():
   """Does not do
   much
-    """
+"""
   pass
 
 
@@ -465,7 +454,7 @@ rule a:
         expected = f'''def f():
 {TAB * 1}"""Does not do
   much
-{TAB * 1}"""
+"""
 {TAB * 1}pass
 
 
