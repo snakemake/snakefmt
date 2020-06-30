@@ -387,7 +387,7 @@ class TestStringFormatting:
         snakecode = (
             "rule a:\n"
             f"{TAB * 1}message:\n"
-            f'{TAB * 2}"Hello"\n'
+            f'{TAB * 2}"""Hello"""\n'
             f"{TAB * 2}'''    a string'''\n"
             f'{TAB * 3}"World"\n'
             f'{TAB * 3}"""    Yes"""\n'
@@ -395,7 +395,7 @@ class TestStringFormatting:
         expected = (
             "rule a:\n"
             f"{TAB * 1}message:\n"
-            f'{TAB * 2}"Hello"\n'
+            f'{TAB * 2}"""Hello"""\n'
             f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
             f'{TAB * 2}"World"\n'
             f'{TAB * 2}"""    Yes"""\n'
@@ -435,7 +435,7 @@ rule a:
 
     def test_docstrings_get_retabbed_for_snakecode_only(self):
         """Black only retabs the first tpq in a docstring."""
-        snakecode = f'''def f():
+        snakecode = '''def f():
   """Does not do
   much
 """
