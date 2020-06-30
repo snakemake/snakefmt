@@ -443,9 +443,7 @@ rule a:
 
 
 rule a:
-  """
-{' ' * 2}The rule
-{' ' * 8}a
+  """The rule a
 """
   message:
     "a"
@@ -459,9 +457,7 @@ rule a:
 
 
 rule a:
-{TAB * 1}"""
-{TAB * 1}The rule
-{TAB * 1}{' ' * 6}a
+{TAB * 1}"""The rule a
 {TAB * 1}"""
 {TAB * 1}message:
 {TAB * 2}"a"
