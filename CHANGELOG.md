@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+This release will potentially produce different output to previous versions. Previously,
+when passing code to `black` for formatting, we were not allowing for the indentation
+level of the code. For example, if a line has an indentation level of two and the code
+is 40 character long, the line is 48 characters long. However, we were only passing the
+40 characters of code to `black` meaning, in the running example, if you had set
+`--line-length 45` the line would not have been formatted. This behaviour is now fixed.
+
+### Changed
+
+- When passing code to `black`, reduce the line length by the indentation level.
+
 ## [0.1.1]
 
 ### Fixed
