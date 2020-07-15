@@ -293,8 +293,8 @@ class TestComplexPythonFormatting:
             mock_m.return_value = "if condition:\n"
             setup_formatter(snakecode)
             assert mock_m.call_count == 3
-            assert mock_m.call_args_list[1] == mock.call('"a"')
-            assert mock_m.call_args_list[2] == mock.call("b = 2\n")
+            assert mock_m.call_args_list[1] == mock.call('"a"', 0)
+            assert mock_m.call_args_list[2] == mock.call("b = 2\n", 0)
 
         formatter = setup_formatter(snakecode)
         expected = (
@@ -677,4 +677,32 @@ rule all:
 
 # Comment
 """
+        assert actual == expected
+
+
+class TestLineWrapping:
+    def test_long_line_within_rule_indentation_taken_into_account(self):
+        snakecode = (
+            f"rule coverage_report:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}lineage=expand(\n"
+            f'{TAB * 3}str(report_dir / "lineage_assignment" / "{{sample}}.lineage.csv"), sample=samples\n'  # noqa: E501  due to readability of test
+            f"{TAB * 2}),\n"
+            f"{TAB * 2}subsample_logs=list(subsample_logfiles),"
+        )
+        line_length = 88
+        formatter = setup_formatter(snakecode, line_length)
+
+        actual = formatter.get_formatted()
+        print(actual)
+        expected = (
+            f"rule coverage_report:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}lineage=expand(\n"
+            f'{TAB * 3}str(report_dir / "lineage_assignment" / "{{sample}}.lineage.csv"),\n'  # noqa: E501  due to readability of test
+            f"{TAB * 3}sample=samples,\n"
+            f"{TAB * 2}),\n"
+            f"{TAB * 2}subsample_logs=list(subsample_logfiles),\n"
+        )
+
         assert actual == expected
