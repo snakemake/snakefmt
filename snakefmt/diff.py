@@ -1,6 +1,6 @@
-from typing import List
-from enum import Enum
 import difflib
+from enum import Enum
+from typing import List
 
 
 class ExitCode(Enum):

@@ -9,19 +9,19 @@ import toml
 
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import (
-    InvalidPython,
-    InvalidParameterSyntax,
     InvalidBlackConfiguration,
+    InvalidParameterSyntax,
+    InvalidPython,
     MalformattedToml,
 )
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import (
+    TAB,
     Parameter,
     ParameterSyntax,
-    SingleParam,
     RuleInlineSingleParam,
-    TAB,
+    SingleParam,
 )
 from snakefmt.types import TokenIterator
 

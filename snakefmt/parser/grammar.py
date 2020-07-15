@@ -1,13 +1,13 @@
-from typing import NamedTuple, Union, Type, Optional
+from typing import NamedTuple, Optional, Type, Union
 
 from snakefmt.parser.syntax import (
-    Vocabulary,
-    Syntax,
     KeywordSyntax,
-    ParamList,
     NoKeywordParamList,
-    SingleParam,
+    ParamList,
     RuleInlineSingleParam,
+    SingleParam,
+    Syntax,
+    Vocabulary,
 )
 
 

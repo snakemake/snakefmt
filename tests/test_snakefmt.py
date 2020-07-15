@@ -6,13 +6,9 @@ from unittest import mock
 
 import pytest
 
-from snakefmt.formatter import TAB
 from snakefmt.diff import ExitCode
-from snakefmt.snakefmt import (
-    construct_regex,
-    main,
-    get_snakefiles_in_dir,
-)
+from snakefmt.formatter import TAB
+from snakefmt.snakefmt import construct_regex, get_snakefiles_in_dir, main
 
 
 class TestCLIBasic:
