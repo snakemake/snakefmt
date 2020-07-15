@@ -4,7 +4,6 @@ OS := $(shell uname -s)
 VERSION := $(shell poetry version | grep -P '(?P<version>\d.\d.\d)' --only-matching)
 BOLD := $(shell tput bold)
 NORMAL := $(shell tput sgr0)
-PYFILES := $(wildcard *.py)
 # MAIN #########################################################################
 
 .PHONY: all
@@ -23,17 +22,17 @@ install-ci:
 
 # TIDY #################################################################
 .PHONY: fmt
-fmt: clean
-	poetry run isort --apply $(PYFILES)
+fmt:
+	poetry run isort .
 	poetry run black .
 
 .PHONY: lint
-lint: clean
+lint:
 	poetry run flake8 .
 
 .PHONY: check-fmt
 check-fmt:
-	poetry run isort --check-only $(PYFILES)
+	poetry run isort --check-only .
 	poetry run black --check .
 
 # TEST ########################################################################

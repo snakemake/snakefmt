@@ -23,8 +23,8 @@ toml = "^0.10.0"
 pytest = "^5.2"
 pytest-cov = "^2.8.1"
 flake8 = "^3.7.9"
-isort = "^4.3.21"
 snakemake = "^5.14.0"
+isort = "^5.1.0"
 
 [tool.poetry.urls]
 "Snakemake Documentation" = "https://snakemake.readthedocs.io/"
@@ -52,7 +52,7 @@ exclude = '''
 '''
 
 [tool.isort]
-line_length = 88
+profile = "black"
 
 [build-system]
 requires = ["poetry>=0.12"]

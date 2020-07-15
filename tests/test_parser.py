@@ -6,18 +6,18 @@ from io import StringIO
 
 import pytest
 
-from tests import setup_formatter, Snakefile, Formatter
 from snakefmt.exceptions import (
-    InvalidPython,
     DuplicateKeyWordError,
     EmptyContextError,
-    NoParametersError,
-    TooManyParameters,
     InvalidParameter,
     InvalidParameterSyntax,
+    InvalidPython,
     NamedKeywordError,
+    NoParametersError,
+    TooManyParameters,
 )
 from snakefmt.formatter import TAB
+from tests import Formatter, Snakefile, setup_formatter
 
 
 class TestKeywordSyntax:

@@ -1,15 +1,10 @@
 import tokenize
 from abc import ABC, abstractmethod
 
-from snakefmt.types import TokenIterator
-from snakefmt.parser.grammar import Grammar, SnakeGlobal, PythonCode
 from snakefmt.exceptions import UnsupportedSyntax
-from snakefmt.parser.syntax import (
-    Vocabulary,
-    Syntax,
-    KeywordSyntax,
-    ParameterSyntax,
-)
+from snakefmt.parser.grammar import Grammar, PythonCode, SnakeGlobal
+from snakefmt.parser.syntax import KeywordSyntax, ParameterSyntax, Syntax, Vocabulary
+from snakefmt.types import TokenIterator
 
 
 class Snakefile:
