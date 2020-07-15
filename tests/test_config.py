@@ -1,14 +1,14 @@
 from pathlib import Path
 from unittest import mock
 
-import click
 import black
+import click
 import pytest
 
-from tests import setup_formatter
-from snakefmt.formatter import TAB
 from snakefmt.exceptions import InvalidBlackConfiguration, MalformattedToml
+from snakefmt.formatter import TAB
 from snakefmt.snakefmt import main, read_snakefmt_defaults_from_pyproject_toml
+from tests import setup_formatter
 
 
 class TestConfigAdherence:

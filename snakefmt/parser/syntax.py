@@ -1,16 +1,16 @@
 import tokenize
 from typing import NamedTuple, Optional
 
-from snakefmt.types import Token, TokenIterator, Parameter
 from snakefmt.exceptions import (
     DuplicateKeyWordError,
     EmptyContextError,
-    NoParametersError,
-    InvalidParameterSyntax,
-    TooManyParameters,
     InvalidParameter,
+    InvalidParameterSyntax,
     NamedKeywordError,
+    NoParametersError,
+    TooManyParameters,
 )
+from snakefmt.types import Parameter, Token, TokenIterator
 
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 

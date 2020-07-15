@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from snakefmt.formatter import TAB
-from tests import setup_formatter, Snakefile, Formatter
+from tests import Formatter, Snakefile, setup_formatter
 
 
 def test_emptyInput_emptyOutput():

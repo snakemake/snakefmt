@@ -3,14 +3,14 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import List, Union, Set, Pattern, Iterator, Optional
+from typing import Iterator, List, Optional, Pattern, Set, Union
 
 import click
 import toml
 from black import get_gitignore
 from pathspec import PathSpec
 
-from snakefmt import __version__, DEFAULT_LINE_LENGTH
+from snakefmt import DEFAULT_LINE_LENGTH, __version__
 from snakefmt.diff import Diff, ExitCode
 from snakefmt.formatter import Formatter
 from snakefmt.parser.parser import Snakefile
