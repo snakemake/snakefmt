@@ -90,7 +90,7 @@ class Formatter(Parser):
             return
 
         if not from_python:
-            formatted = self.run_black_format_str(self.buffer)
+            formatted = self.run_black_format_str(self.buffer, self.target_indent)
             if self.target_indent > 0:
                 formatted = self.align_strings(formatted, self.target_indent)
         else:
@@ -112,7 +112,7 @@ class Formatter(Parser):
                     f"{re_match.group(4)}"
                     f"{TAB * self.context.cur_indent}pass"
                 )
-                formatted = self.run_black_format_str(to_format)
+                formatted = self.run_black_format_str(to_format, self.target_indent)
                 re_rematch = contextual_matcher.match(formatted)
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
@@ -122,7 +122,7 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                formatted = self.run_black_format_str(self.buffer)
+                formatted = self.run_black_format_str(self.buffer, self.target_indent)
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
@@ -147,13 +147,24 @@ class Formatter(Parser):
         in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
         self.result += self.format_params(param_context, in_rule)
 
-    def run_black_format_str(self, string: str) -> str:
+    def run_black_format_str(self, string: str, target_indent: int) -> str:
+        # need to let black know about indentation as it effects line length
+        indent_line_length = target_indent * 4
+        line_length = (
+            self.black_mode.line_length
+            if self.context.from_python
+            else self.line_length
+        )
+        contextual_line_length = max(0, line_length - indent_line_length)
+        old_black_line_length = self.black_mode.line_length
+        self.black_mode.line_length = contextual_line_length
         try:
             fmted = black.format_str(string, mode=self.black_mode)
         except black.InvalidInput as e:
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
+        self.black_mode.line_length = old_black_line_length
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:
@@ -203,7 +214,7 @@ class Formatter(Parser):
         if inline_formatting:
             val = val.replace("\n", "")  # collapse strings on multiple lines
         try:
-            val = self.run_black_format_str(val)
+            val = self.run_black_format_str(val, target_indent)
         except InvalidPython:
             if "**" in val:
                 val = val.replace("** ", "**")
