@@ -66,4 +66,4 @@ build:
 .PHONY: tag
 tag:
 	@echo "Run $(BOLD)git tag -a $(VERSION) -m <message>$(NORMAL) to tag the release"
-	@echo "Then run $(BOLD)git push origin $(VERSION)$(NORMAL) to push the tag"
+	@echo "Then run $(BOLD)git push upstream $(VERSION)$(NORMAL) to push the tag"
