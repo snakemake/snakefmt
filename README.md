@@ -80,7 +80,7 @@ singularity exec "$URI" snakefmt --help
 The above will use the latest version. If you want to specify a version then use a [tag][dockerhub] like so.
 
 ```sh
-VERSION="0.1.3"
+VERSION="x.x.x"
 URI="docker://snakemake/snakefmt:${VERSION}"
 ```
 
