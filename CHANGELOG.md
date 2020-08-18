@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### Fixed
+
+- Add parsing support for format and raw (f/r) triple-quoted strings.
+
 ## [0.1.3]
 
 ### Fixed
