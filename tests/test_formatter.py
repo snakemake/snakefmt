@@ -410,6 +410,17 @@ class TestStringFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_rf_string_tpq_supported(self):
+        for preceding in {"r", "f"}:
+            snakecode = (
+                "rule top:\n"
+                f"{TAB * 1}shell:\n"
+                f'{TAB * 2}{preceding}"""\n'
+                f"{TAB * 2}Multi_line\n"
+                f'{TAB * 2}"""\n'
+            )
+            assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_tpq_alignment_and_keep_relative_indenting(self):
         snakecode = '''
 rule a:
