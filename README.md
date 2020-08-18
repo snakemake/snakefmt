@@ -12,7 +12,7 @@ design and specifications of [Black][black].
 
 > **⚠️WARNING⚠️**: `snakefmt` modifies files in-place by default, thus we strongly
 > recommend ensuring your files are under version control before doing any formatting.
-> This is also to protect you from bugs as the project is still new. You
+> You
 > can also pipe the file in from stdin, which will print it to the screen, or use the
 > `--diff` or `--check` options. See [Usage](#usage) for more details.
 
@@ -29,9 +29,6 @@ design and specifications of [Black][black].
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
 - [Configuration](#configuration)
-- [Design](#design)
-  - [Syntax](#syntax)
-  - [Formatting](#formatting)
 - [Editor Integration](#editor-integration)
 - [Plug Us](#plug-us)
 - [Changes](#changes)
@@ -255,91 +252,6 @@ Options:
 
 ```
 
-#### Check
-
-##### `--check`
-
-Does not write any formatted code back to file. It will instead check whether any
-changes *would* be made. It returns one of three possible exit codes:
-
-**0** - indicates **no changes** would be made
-
-```
-$ echo 'include: "foo.txt"' | snakefmt --check -                                        
-[INFO] 1 file(s) would be left unchanged 🎉
-$ echo "Exit code: $?"
-Exit code: 0
-```
-
-**1** - indicates **changes** would be made
-
-```
-$ echo 'include:"foo.txt"' | snakefmt --check - 
-[INFO] 1 file(s) would be changed 😬
-$ echo "Exit code: $?"
-Exit code: 1
-```
-
-**123** - indicates there was an **error** such as invalid syntax
-
-```
-$ echo 'include:' | snakefmt --check -            
-[ERROR] L2: In include definition.
-[INFO] 1 file(s) contains errors 🤕
-$ echo "Exit code: $?"
-Exit code: 123
-```
-
-#### Compact diff
-
-##### `--compact-diff`
-
-Does not write any formatted code back to file. It will instead print a compact diff of
-how the code looks before and after formatting. The diff is compact as it only prints
-the lines that will change, with a few lines of surrounding context.
-
-```
-$ echo 'x = 1\ny = 3\n\n\nrule foo:\n\tinput: "foo.txt"' | snakefmt --compact-diff -
-=====> Diff for stdin <=====
-
---- original
-+++ new
-@@ -3,4 +3,5 @@
- 
- 
- rule foo:
--       input: "foo.txt"
-+    input:
-+        "foo.txt",
-
-[INFO] All done 🎉
-```
-
-The above example shows that the variable assignments at the beginning of the file are
-not included in the compact diff (but would be included in a full diff).
-
-#### Diff
-
-##### `--diff`
-
-Does not write any formatted code back to file. It will instead print a diff of how the
-code looks before and after formatting.
-
-```
-$ echo 'rule foo:\n\tinput: "foo.txt"' | snakefmt --diff -
-=====> Diff for stdin <=====
-
-  rule foo:
--       input: "foo.txt"
-+     input:
-+         "foo.txt",
-
-[INFO] All done 🎉
-```
-
-If multiple files are specified, a diff for each file is written to stdout, separated by
-`=====> Diff for <filepath> <=====`.
-
 ## Configuration
 
 `snakefmt` is able to read project-specific default values for its command line options
@@ -371,24 +283,6 @@ In this example we increase the `--line-length` value and also include python (`
 files for formatting - this effectively runs `black` on them. `snakefmt` will also pass
 on the `[tool.black]` settings, internally, to `black`.
 
-## Design
-
-### Syntax
-
-`snakefmt`'s parser will spot syntax errors in your snakefiles:
-
-* Unrecognised keywords
-* Duplicate keywords
-* Invalid parameters
-* Invalid python code
-
-But `snakefmt` not complaining does not guarantee your file is entirely error-free.
-
-### Formatting
-
-Python code is `black`ed.
-
-Snakemake-specific syntax is formatted following the same principles: see [PEP8][PEP8].
 
 ## Editor Integration
 
@@ -421,15 +315,14 @@ See [`CHANGELOG.md`][changes].
 
 ## Contributing
 
-Please refer to [CONTRIBUTING.md][contributing].
+See [CONTRIBUTING.md][contributing].
 
 
 [snakemake]: https://snakemake.readthedocs.io/
 [black]: https://black.readthedocs.io/en/stable/
-[PEP8]: https://www.python.org/dev/peps/pep-0008/
+[black-config]: https://github.com/psf/black#pyprojecttoml
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md
-[black-config]: https://github.com/psf/black#pyprojecttoml
 
