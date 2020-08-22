@@ -28,7 +28,9 @@ from snakefmt.types import TokenIterator
 PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
-triple_quote_matcher = re.compile(r"(^\s*\w?\"{3}.*?\"{3})|(^\s'{3}.*?'{3})", re.DOTALL)
+triple_quote_matcher = re.compile(
+    r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
+)
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)(.*)(:.*)", re.S | re.M
 )
@@ -175,8 +177,8 @@ class Formatter(Parser):
         used_indent = TAB * target_indent
         indented = ""
         for match in re.finditer(triple_quote_matcher, string):
-            indented += textwrap.indent(string[pos : match.start()], used_indent)
-            match_slice = string[match.start() : match.end()].replace("\t", TAB)
+            indented += textwrap.indent(string[pos : match.start(1)], used_indent)
+            match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
             indented += first

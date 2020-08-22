@@ -411,6 +411,8 @@ class TestStringFormatting:
         assert formatter.get_formatted() == snakecode
 
     def test_rf_string_tpq_supported(self):
+        """Deliberately tests for consecutive r/f strings and with
+        single or double quotes"""
         for preceding in {"r", "f"}:
             snakecode = (
                 "rule top:\n"
@@ -418,8 +420,13 @@ class TestStringFormatting:
                 f'{TAB * 2}{preceding}"""\n'
                 f"{TAB * 2}Multi_line\n"
                 f'{TAB * 2}"""\n'
+                f'{TAB * 2}{preceding}"""\n'
+                f"{TAB * 2}Other multi_line\n"
+                f'{TAB * 2}"""\n'
             )
             assert setup_formatter(snakecode).get_formatted() == snakecode
+            snakecode2 = snakecode.replace('"""', "'''")
+            assert setup_formatter(snakecode2).get_formatted() == snakecode
 
     def test_tpq_alignment_and_keep_relative_indenting(self):
         snakecode = '''
