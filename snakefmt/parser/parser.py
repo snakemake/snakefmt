@@ -102,21 +102,22 @@ class Parser(ABC):
 
     @abstractmethod
     def process_keyword_context(self, in_global_context: bool):
-        """Initialises an entry into a keyword context, eg a 'rule:'"""
+        """Initialises parsing a keyword context, eg a 'rule:'"""
 
     @abstractmethod
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
     ):
-        """Initialises entry into a keyword parameter context, eg a 'input:'"""
+        """Initialises parsing a keyword parameter, eg a 'input:'"""
 
     def process_keyword(
         self, status: Syntax.Status, from_python: bool = False
     ) -> Syntax.Status:
         """Called when a snakemake keyword has been found.
 
-        The function dispatches to either a keyword context or a keyword parameter
-        processing class and functions
+        The function dispatches to processing class for either:
+            - keyword context: can accept more keywords, eg 'rule'
+            - keyword parameter: accepts parameter value, eg 'input'
         """
         keyword = status.token.string
         new_grammar = self.vocab.get(keyword)
@@ -173,4 +174,4 @@ class Parser(ABC):
         self.context.from_python = callback_grammar.context.from_python
         self.context.cur_indent = status.indent
         if self.target_indent > 0:
-            self.target_indent = status.indent + 1
+            self.context.target_indent = status.indent + 1

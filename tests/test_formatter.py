@@ -530,6 +530,13 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_comment_outside_keyword_context(self):
+        snakecode = (
+            f"rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}f()\n\n\n" f"# A comment\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_comments_inside_param_function_kept_and_formatted(self):
         snakecode = (
             "rule all:\n"

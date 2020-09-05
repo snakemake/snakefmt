@@ -18,7 +18,7 @@ possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
-TAB = "    "  # PEP8, a tab is 4 spaces
+TAB = "    "  # PEP8, indentation will be coded as 4 spaces
 
 
 def is_colon(token: Token):
@@ -212,6 +212,10 @@ class KeywordSyntax(Syntax):
                 continue
             elif token.type == tokenize.ENDMARKER:
                 return self.Status(token, self.cur_indent, buffer, True, pythonable)
+            elif token.type == tokenize.COMMENT:
+                if token.start[1] == 0:
+                    returned_buffer = f"{buffer.rstrip()}\n"
+                    return self.Status(token, 0, returned_buffer, False, pythonable)
             elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
                 self.queriable, newline = True, True
                 buffer += "\n"
@@ -291,7 +295,7 @@ class ParameterSyntax(Syntax):
         if self.found_newline and not_empty(self.token):
             # Special condition for comments: they do not trigger indents/dedents.
             if self.token.type == tokenize.COMMENT:
-                if self.token.start[1] < self.target_indent:
+                if self.token.start[1] == 0:
                     res = True
             elif self.cur_indent < self.target_indent:
                 res = True
