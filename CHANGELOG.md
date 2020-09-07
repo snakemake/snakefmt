@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+- Bugfix: dedented comments were being tied to previous indented context in `run` directive [[#61][61]]
+
 ## [0.1.4]
 
 ### Fixed
@@ -52,3 +54,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 [55]: https://github.com/snakemake/snakefmt/issues/55
 [59]: https://github.com/snakemake/snakefmt/issues/59
+[61]: https://github.com/snakemake/snakefmt/issues/61
