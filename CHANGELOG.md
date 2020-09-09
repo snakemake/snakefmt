@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 
 - Bugfix: dedented comments were being tied to previous indented context in `run` directive [[#61][61]]
+- Bugfix: single version sourcing from pyproject.toml was failing on `pip install`ed distributions [[#65][65]]. Fixed by using importlib_metadata. 
 
 ## [0.1.4]
 
@@ -55,3 +56,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [55]: https://github.com/snakemake/snakefmt/issues/55
 [59]: https://github.com/snakemake/snakefmt/issues/59
 [61]: https://github.com/snakemake/snakefmt/issues/61
+[65]: https://github.com/snakemake/snakefmt/issues/65
