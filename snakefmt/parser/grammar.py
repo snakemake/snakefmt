@@ -68,6 +68,8 @@ class SnakeGlobal(Vocabulary):
         include=Grammar(None, SingleParam),
         workdir=Grammar(None, SingleParam),
         configfile=Grammar(None, SingleParam),
+        pepfile=Grammar(None, SingleParam),
+        pepschema=Grammar(None, SingleParam),
         report=Grammar(None, SingleParam),
         ruleorder=Grammar(None, SingleParam),
         rule=Grammar(SnakeRule, KeywordSyntax),
