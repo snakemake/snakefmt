@@ -1,8 +1,6 @@
-from pathlib import Path
+from importlib import metadata
 
-import toml
-
-project_fpath = Path(__file__).parent.parent / "pyproject.toml"
-__version__ = toml.load(project_fpath)["tool"]["poetry"]["version"]
+# Fetches version from distribution metadata files deriving from pyproject.toml
+__version__ = metadata.version("snakefmt")
 
 DEFAULT_LINE_LENGTH = 88
