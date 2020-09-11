@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- Bugfix: dedented comments were being tied to previous indented context in `run` directive [[#61][61]]
-- Bugfix: single version sourcing from pyproject.toml was failing on `pip install`ed distributions [[#65][65]]. Fixed by using importlib_metadata. 
+## [0.1.5]
+
+### Fixed
+
+- dedented comments were being tied to previous indented context in `run` directive
+  [[#61][61]]
+- single version sourcing from pyproject.toml was failing on `pip install`ed distributions [[#65][65]]. Fixed by using importlib_metadata.
 
 ## [0.1.4]
 
@@ -46,7 +51,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 ### Added
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.1.4...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.1.5...HEAD
+[0.1.5]: https://github.com/snakemake/snakefmt/releases/tag/0.1.5
 [0.1.4]: https://github.com/snakemake/snakefmt/releases/tag/0.1.4
 [0.1.3]: https://github.com/snakemake/snakefmt/releases/tag/0.1.3
 [0.1.2]: https://github.com/snakemake/snakefmt/releases/tag/0.1.2
