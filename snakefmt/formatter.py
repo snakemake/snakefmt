@@ -22,6 +22,7 @@ from snakefmt.parser.syntax import (
     ParameterSyntax,
     RuleInlineSingleParam,
     SingleParam,
+    Syntax,
 )
 from snakefmt.types import TokenIterator
 
@@ -47,6 +48,7 @@ class Formatter(Parser):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
+        self.last_recognised_keyword = ""
 
         if black_config is None:
             self.black_mode = black.FileMode(line_length=self.line_length)
@@ -139,15 +141,19 @@ class Formatter(Parser):
             f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}\n"
         )
         self.result += formatted
+        self.last_recognised_keyword = self.context.keyword_name
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
     ):
         self.add_newlines(
-            param_context.target_indent - 1, in_global_context=in_global_context
+            param_context.target_indent - 1,
+            in_global_context=in_global_context,
+            context=param_context,
         )
         in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
         self.result += self.format_params(param_context, in_rule)
+        self.last_recognised_keyword = param_context.keyword_name
 
     def run_black_format_str(self, string: str, target_indent: int) -> str:
         # need to let black know about indentation as it effects line length
@@ -262,6 +268,7 @@ class Formatter(Parser):
         formatted_string: str = "",
         final_flush: bool = False,
         in_global_context: bool = False,
+        context: Syntax = None,
     ):
         """
         Top-level (indent of 0) rules and python code get two newlines separation
@@ -278,20 +285,26 @@ class Formatter(Parser):
                 comment_matches += 1
             comment_break = len(all_lines) - comment_matches
 
-        if comment_break > 0 or final_flush:
-            # Only add leading lines if we do not only have comments
-            if not self.no_formatting_yet:
+        have_only_comment_lines = comment_break == 0
+        if not have_only_comment_lines or final_flush:
+            collate_same_singleparamkeyword = (
+                cur_indent == 0
+                and context is not None
+                and context.keyword_name == self.last_recognised_keyword
+                and issubclass(context.__class__, SingleParam)
+            )
+            if not self.no_formatting_yet and not collate_same_singleparamkeyword:
                 if cur_indent == 0:
                     self.result += "\n\n"
                 elif in_global_context:
                     self.result += "\n"
-        if in_global_context:
+        if in_global_context:  # Deal with comments
             if self.lagging_comments != "":
                 self.result += self.lagging_comments
                 self.lagging_comments = ""
 
             if len(all_lines) > 0:
-                if comment_break > 0:
+                if not have_only_comment_lines:
                     self.result += "\n".join(all_lines[:comment_break]).rstrip() + "\n"
                 if comment_matches > 0:
                     self.lagging_comments = "\n".join(all_lines[comment_break:]) + "\n"

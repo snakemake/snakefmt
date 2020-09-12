@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from snakefmt.formatter import TAB
+from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from tests import Formatter, Snakefile, setup_formatter
 
 
@@ -374,7 +375,7 @@ class TestComplexPythonFormatting:
             f'{TAB * 1}include: "a"\n\n\n'
             f"else:\n\n"
             f'{TAB * 1}include: "b"\n'
-            f'\n\ninclude: "c"\n'
+            f'include: "c"\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -574,6 +575,27 @@ class TestNewlineSpacing:
 
         assert formatter.get_formatted() == expected
 
+    def test_repeated_parameter_keyword_no_spacing(self):
+        """
+        For keywords that expect a single parameter in the global context,
+        (eg: 'configfile', 'include'), if they occur consecutively, do not
+        double-space them.
+        """
+        global_single_param_keywords = [
+            keyval[0]
+            for keyval in SnakeGlobal.spec.items()
+            if keyval[1].context is SingleParam
+        ]
+        snakecode = '{keyword_param}: "value1"\n{keyword_param}: "value2"\n'
+        for keyword in global_single_param_keywords:
+            replaced = snakecode.format(keyword_param=keyword)
+            formatter = setup_formatter(replaced)
+            assert formatter.get_formatted() == replaced
+
+    def test_repeated_parameter_keyword_with_comment_no_spacing(self):
+        snakecode = 'include: "a"\n# A comment\ninclude: "b"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_double_spacing_for_rules(self):
         formatter = setup_formatter(
             f"""above_rule = "2spaces"
@@ -675,8 +697,8 @@ below_rule = "2spaces"
         assert formatter.get_formatted() == expected
 
     def test_buffer_with_lone_comment(self):
-        snakecode = 'include: "a"\n# A comment\ninclude: "b"\n'
-        expected = 'include: "a"\n\n\n# A comment\ninclude: "b"\n'
+        snakecode = 'include: "a"\n# A comment\nreport: "b"\n'
+        expected = 'include: "a"\n\n\n# A comment\nreport: "b"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_inside_python_code_sticks_to_rule(self):
