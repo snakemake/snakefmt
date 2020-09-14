@@ -2,9 +2,11 @@ import re
 import tempfile
 from collections import Counter
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 
 import pytest
+from black import get_gitignore
 
 from snakefmt.diff import ExitCode
 from snakefmt.formatter import TAB
@@ -336,26 +338,31 @@ class TestCLIValidRegex:
             parent.mkdir(exist_ok=True, parents=True)
             path.touch()
 
+    def find_files_to_format(
+        self, include, exclude, gitignore, gitignored: Optional[str] = None
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            abs_tmpdir = Path(tmpdir).resolve()
+            self.create_temp_filesystem_in(abs_tmpdir)
+            if gitignored is not None:
+                with (abs_tmpdir / ".gitignore").open("w") as fout:
+                    fout.write(gitignored)
+                gitignore = get_gitignore(abs_tmpdir)
+            snakefiles = get_snakefiles_in_dir(
+                path=abs_tmpdir, include=include, exclude=exclude, gitignore=gitignore,
+            )
+            snakefiles = list(map(lambda p: str(p.relative_to(abs_tmpdir)), snakefiles))
+        return Counter(snakefiles)
+
     @mock.patch("pathspec.PathSpec")
     def test_excludeAllFiles_returnsEmpty(self, mock_gitignore: mock.MagicMock):
         mock_gitignore.match_file.return_value = False
         include = re.compile(r"\.meow$")
         exclude = re.compile(r".*")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            abs_tmpdir = Path(tmpdir).resolve()
-            self.create_temp_filesystem_in(abs_tmpdir)
-            snakefiles = get_snakefiles_in_dir(
-                path=Path(tmpdir),
-                include=include,
-                exclude=exclude,
-                gitignore=mock_gitignore,
-            )
-
-            actual = Counter(snakefiles)
-            expected = Counter()
-
-            assert actual == expected
+        actual = self.find_files_to_format(include, exclude, mock_gitignore)
+        expected = Counter()
+        assert actual == expected
 
     @mock.patch("pathspec.PathSpec")
     def test_includeAllFiles_returnAll(self, mock_gitignore: mock.MagicMock):
@@ -363,20 +370,9 @@ class TestCLIValidRegex:
         include = re.compile(r".*")
         exclude = re.compile(r"")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            abs_tmpdir = Path(tmpdir).resolve()
-            self.create_temp_filesystem_in(abs_tmpdir)
-            snakefiles = get_snakefiles_in_dir(
-                path=Path(tmpdir),
-                include=include,
-                exclude=exclude,
-                gitignore=mock_gitignore,
-            )
-
-            actual = Counter(snakefiles)
-            expected = Counter(Path(tmpdir) / p for p in self.filesystem)
-
-            assert actual == expected
+        actual = self.find_files_to_format(include, exclude, mock_gitignore)
+        expected = Counter(self.filesystem)
+        assert actual == expected
 
     @mock.patch("pathspec.PathSpec")
     def test_includeOnlySnakefiles_returnsOnlySnakefiles(
@@ -386,25 +382,21 @@ class TestCLIValidRegex:
         include = re.compile(r"(\.smk$|^Snakefile)")
         exclude = re.compile(r"")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            abs_tmpdir = Path(tmpdir).resolve()
-            self.create_temp_filesystem_in(abs_tmpdir)
-            snakefiles = get_snakefiles_in_dir(
-                path=Path(tmpdir),
-                include=include,
-                exclude=exclude,
-                gitignore=mock_gitignore,
-            )
+        actual = self.find_files_to_format(include, exclude, mock_gitignore)
+        expected = Counter(
+            ["Snakefile", "Snakefile-dev", "rules/map.smk", "rules/test/test.smk"]
+        )
 
-            actual = Counter(snakefiles)
-            expected = Counter(
-                Path(tmpdir) / p
-                for p in [
-                    "Snakefile",
-                    "Snakefile-dev",
-                    "rules/map.smk",
-                    "rules/test/test.smk",
-                ]
-            )
+        assert actual == expected
 
-            assert actual == expected
+    def test_gitignore_paths_excluded(self,):
+        include = re.compile(r"(\.smk$|^Snakefile)")
+        exclude = re.compile(r"")
+
+        ignored_gitignore = get_gitignore(Path())
+        actual_gitignored = "Snakefile*"
+        actual = self.find_files_to_format(
+            include, exclude, ignored_gitignore, gitignored=actual_gitignored
+        )
+        expected = Counter(["rules/map.smk", "rules/test/test.smk"])
+        assert actual == expected
