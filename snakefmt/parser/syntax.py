@@ -214,8 +214,7 @@ class KeywordSyntax(Syntax):
                 return self.Status(token, self.cur_indent, buffer, True, pythonable)
             elif token.type == tokenize.COMMENT:
                 if token.start[1] == 0:
-                    returned_buffer = f"{buffer.rstrip()}\n"
-                    return self.Status(token, 0, returned_buffer, False, pythonable)
+                    return self.Status(token, 0, buffer, False, pythonable)
             elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
                 self.queriable, newline = True, True
                 buffer += "\n"
