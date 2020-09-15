@@ -37,6 +37,10 @@ contextual_matcher = re.compile(
 )
 
 
+def comment_start(string: str):
+    return string[0] == "#" if string else False
+
+
 class Formatter(Parser):
     def __init__(
         self,
@@ -130,7 +134,13 @@ class Formatter(Parser):
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
-            formatted += "\n"
+            if comment_start(self.buffer.rstrip().splitlines()[-1]):
+                formatted += "\n"
+        # Only stick together separated single-parm keywords when separated by comments
+        if not all(
+            map(lambda line: comment_start(line), self.buffer.strip().splitlines())
+        ):
+            self.last_recognised_keyword = ""
         self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
 

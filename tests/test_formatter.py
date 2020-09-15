@@ -592,8 +592,12 @@ class TestNewlineSpacing:
             formatter = setup_formatter(replaced)
             assert formatter.get_formatted() == replaced
 
-    def test_repeated_parameter_keyword_with_comment_no_spacing(self):
+    def test_repeated_parameter_keyword_comment_in_between_no_spacing(self):
         snakecode = 'include: "a"\n# A comment\ninclude: "b"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_repeated_parameter_keyword_code_in_between_spacing(self):
+        snakecode = 'include: "a"\n\n\nfoo = 2\n\n\ninclude: "b"\n'
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_double_spacing_for_rules(self):
