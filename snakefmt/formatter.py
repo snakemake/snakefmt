@@ -37,8 +37,8 @@ contextual_matcher = re.compile(
 )
 
 
-def comment_start(string: str):
-    return string[0] == "#" if string else False
+def comment_start(string: str) -> bool:
+    return string.lstrip().startswith("#")
 
 
 class Formatter(Parser):
@@ -137,9 +137,7 @@ class Formatter(Parser):
             if comment_start(self.buffer.rstrip().splitlines()[-1]):
                 formatted += "\n"
         # Only stick together separated single-parm keywords when separated by comments
-        if not all(
-            map(lambda line: comment_start(line), self.buffer.strip().splitlines())
-        ):
+        if not all(map(comment_start, self.buffer.splitlines())):
             self.last_recognised_keyword = ""
         self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
@@ -290,7 +288,7 @@ class Formatter(Parser):
         all_lines = formatted_string.splitlines()
         if len(all_lines) > 0:
             for line in reversed(all_lines):
-                if len(line) == 0 or line.lstrip()[0] != "#":
+                if not comment_start(line):
                     break
                 comment_matches += 1
             comment_break = len(all_lines) - comment_matches

@@ -593,8 +593,14 @@ class TestNewlineSpacing:
             assert formatter.get_formatted() == replaced
 
     def test_repeated_parameter_keyword_comment_in_between_no_spacing(self):
-        snakecode = 'include: "a"\n# A comment\ninclude: "b"\n'
-        assert setup_formatter(snakecode).get_formatted() == snakecode
+        snakecode = 'include: "a"\n# A comment\n # c2\ninclude: "b"\n'
+        expected = 'include: "a"\n# A comment\n# c2\ninclude: "b"\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_repeated_parameter_keyword_spaced_comment_in_between_spacing(self):
+        snakecode = 'include: "a"\n\n# A lone comment\n\ninclude: "b"\n'
+        expected = 'include: "a"\n\n\n# A lone comment\n\n\ninclude: "b"\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_repeated_parameter_keyword_code_in_between_spacing(self):
         snakecode = 'include: "a"\n\n\nfoo = 2\n\n\ninclude: "b"\n'
