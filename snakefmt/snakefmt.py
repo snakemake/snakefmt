@@ -225,11 +225,7 @@ def main(
     if "-" in src and len(src) > 1:
         raise click.BadArgumentUsage("Cannot mix stdin (-) with other files")
 
-    if check and (diff or compact_diff):
-        logging.warning(
-            "Both --check and --diff/--compact-diff given. Only running --check..."
-        )
-    elif diff and compact_diff:
+    if diff and compact_diff:
         logging.warning(
             "Both --diff and --compact-diff given. Returning compact diff..."
         )
@@ -278,33 +274,34 @@ def main(
         except AttributeError:
             original_content = path.read()
 
-        if check:
-            try:
-                snakefile = Snakefile(StringIO(original_content))
-                formatter = Formatter(
-                    snakefile, line_length=line_length, black_config=config
-                )
-                formatted_content = formatter.get_formatted()
-                is_changed = differ.is_changed(original_content, formatted_content)
-                if is_changed:
-                    logging.debug("Formatted content is different from original")
-                    files_changed += 1
-                else:
-                    files_unchanged += 1
-            except Exception as error:
+        try:
+            snakefile = Snakefile(StringIO(original_content))
+            formatter = Formatter(
+                snakefile, line_length=line_length, black_config=config
+            )
+            formatted_content = formatter.get_formatted()
+        except Exception as error:
+            if check:
                 logging.error(f"'{error.__class__.__name__}: {error}' in file {path}")
                 files_with_errors += 1
-            continue
+                continue
+            else:
+                raise error
 
-        snakefile = Snakefile(StringIO(original_content))
-        formatter = Formatter(snakefile, line_length=line_length, black_config=config)
-        formatted_content = formatter.get_formatted()
+        if check:
+            is_changed = differ.is_changed(original_content, formatted_content)
+            if is_changed:
+                logging.debug("Formatted content is different from original")
+                files_changed += 1
+            else:
+                files_unchanged += 1
+
         if diff or compact_diff:
             filename = "stdin" if path_is_stdin else str(path)
             click.echo(f"{'=' * 5}> Diff for {filename} <{'=' * 5}\n")
             difference = differ.compare(original_content, formatted_content)
             click.echo(difference)
-        else:
+        elif not any([check, diff, compact_diff]):
             if path_is_stdin:
                 sys.stdout.write(formatted_content)
             else:
