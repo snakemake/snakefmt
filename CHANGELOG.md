@@ -2,10 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
+this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+
+### Changed
+
+- allow `--check` and `--diff` to be used together [[#68][68]]
 
 ## [0.1.5]
 
@@ -13,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - dedented comments were being tied to previous indented context in `run` directive
   [[#61][61]]
-- single version sourcing from pyproject.toml was failing on `pip install`ed distributions [[#65][65]]. Fixed by using importlib_metadata.
+- single version sourcing from pyproject.toml was failing on `pip install`ed
+  distributions [[#65][65]]. Fixed by using importlib_metadata.
 
 ## [0.1.4]
 
@@ -49,6 +54,7 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 ## [0.1.0]
 
 ### Added
+
 - First release - so everything you see is new!
 
 [unreleased]: https://github.com/snakemake/snakefmt/compare/0.1.5...HEAD
@@ -63,3 +69,5 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [59]: https://github.com/snakemake/snakefmt/issues/59
 [61]: https://github.com/snakemake/snakefmt/issues/61
 [65]: https://github.com/snakemake/snakefmt/issues/65
+[68]: https://github.com/snakemake/snakefmt/issues/68
+
