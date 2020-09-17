@@ -178,18 +178,23 @@ class TestCLICheck:
 
         assert ExitCode(result.exit_code) is ExitCode.ERROR
 
-    def test_check_and_diff_only_runs_check(self, cli_runner, tmp_path):
-        content = 'include: "a"\n'
-        file1 = tmp_path / "Snakefile"
-        file1.write_text(content)
-        file2 = tmp_path / "Snakefile2"
-        content += "x='foo'"
-        file2.write_text(content)
-        params = ["--check", "--diff", str(file1), str(file2)]
+    def test_check_and_diff_runs_both_with_check_exit_code(self, cli_runner):
+        stdin = "x='foo'\n"
+        params = ["--check", "--diff", "-"]
 
-        result = cli_runner.invoke(main, params)
+        result = cli_runner.invoke(main, params, input=stdin)
 
         assert ExitCode(result.exit_code) is ExitCode.WOULD_CHANGE
+        expected_output = "=====> Diff for stdin <=====\n\n- x='foo'\n+ x = \"foo\"\n\n"
+        assert result.output == expected_output
+
+    def test_check_and_diff_doesnt_output_diff_if_error(self, cli_runner):
+        stdin = "rule:rule:\n"
+        params = ["--check", "--diff", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+
+        assert ExitCode(result.exit_code) is ExitCode.ERROR
         assert result.output == ""
 
 
@@ -270,6 +275,16 @@ class TestCLIDiff:
         expected_contents = content
         actual_contents = snakefile.read_text()
         assert actual_contents == expected_contents
+
+    def test_diff_doesnt_output_diff_if_error(self, cli_runner):
+        stdin = "rule:rule:\n"
+        params = ["--diff", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+
+        assert type(result.exception) == SyntaxError
+        assert result.exit_code != 0
+        assert result.output == ""
 
 
 class TestConstructRegex:
