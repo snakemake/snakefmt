@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.1.6]
+
+### Added
+
+- repeated top-level, single-parameter keywords get placed on consecutive lines [[#67][67]]
+
 ### Changed
 
 - allow `--check` and `--diff` to be used together [[#68][68]]
@@ -57,7 +63,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.1.5...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.1.6...HEAD
+[0.1.6]: https://github.com/snakemake/snakefmt/releases/tag/0.1.6
 [0.1.5]: https://github.com/snakemake/snakefmt/releases/tag/0.1.5
 [0.1.4]: https://github.com/snakemake/snakefmt/releases/tag/0.1.4
 [0.1.3]: https://github.com/snakemake/snakefmt/releases/tag/0.1.3
@@ -69,5 +76,6 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [59]: https://github.com/snakemake/snakefmt/issues/59
 [61]: https://github.com/snakemake/snakefmt/issues/61
 [65]: https://github.com/snakemake/snakefmt/issues/65
+[67]: https://github.com/snakemake/snakefmt/issues/67
 [68]: https://github.com/snakemake/snakefmt/issues/68
 
