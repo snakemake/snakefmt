@@ -126,7 +126,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
           VALIDATE_SNAKEMAKE_SNAKEFMT: true
-
 ```
 
 For more information check the `super-linter` readme.
