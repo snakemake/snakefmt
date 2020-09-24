@@ -128,6 +128,12 @@ jobs:
           VALIDATE_SNAKEMAKE_SNAKEFMT: true
 ```
 
+Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
+```toml
+[tool.black]
+skip-string-normalization = 1
+```
+
 For more information check the `super-linter` readme.
 
 ## Example File
