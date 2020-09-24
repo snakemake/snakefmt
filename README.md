@@ -361,4 +361,3 @@ See [CONTRIBUTING.md][contributing].
 [poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md
-
