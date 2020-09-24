@@ -95,6 +95,47 @@ poetry install
 poetry shell
 ```
 
+### GitHub Actions
+
+[GitHub Actions](https://github.com/features/actions) in combination with [super-linter](https://github.com/github/super-linter) allows you to automatically run `snakefmt` on all Snakefiles in your repository e.g. whenever you push a new commit.
+
+To do so, create the file `.github/workflows/linter.yml` in your repository:
+```yaml
+---
+name: Lint Code Base
+
+on:
+  push:
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Lint Code Base
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Lint Code Base
+        uses: github/super-linter@v3
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: master
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          VALIDATE_SNAKEMAKE_SNAKEFMT: true
+```
+
+Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
+```toml
+[tool.black]
+skip-string-normalization = 1
+```
+
+For more information check the `super-linter` readme.
+
 ## Example File
 
 Input
@@ -325,4 +366,3 @@ See [CONTRIBUTING.md][contributing].
 [poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md
-
