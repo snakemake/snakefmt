@@ -24,6 +24,7 @@ design and specifications of [Black][black].
   - [Conda](#conda)
   - [Containers](#containers)
   - [Local](#local)
+  - [Github Actions](#github-actions)
 - [Example File](#example-file)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
