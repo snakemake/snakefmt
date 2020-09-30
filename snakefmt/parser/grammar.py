@@ -80,6 +80,7 @@ class SnakeGlobal(Vocabulary):
         onsuccess=Grammar(PythonCode, KeywordSyntax),
         onerror=Grammar(PythonCode, KeywordSyntax),
         wildcard_constraints=Grammar(None, ParamList),
+        scattergather=Grammar(None, ParamList),
         singularity=Grammar(None, SingleParam),
         container=Grammar(None, SingleParam),
     )
