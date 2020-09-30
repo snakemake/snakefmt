@@ -505,7 +505,7 @@ description = "Snakemake is a workflow management system that aims to reduce the
 name = "snakemake"
 optional = false
 python-versions = "*"
-version = "5.24.0"
+version = "5.26.0"
 
 [package.dependencies]
 appdirs = "*"
@@ -516,7 +516,7 @@ gitpython = "*"
 jsonschema = "*"
 nbformat = "*"
 psutil = "*"
-pulp = "*"
+pulp = ">=2.0"
 pyyaml = "*"
 ratelimiter = "*"
 requests = "*"
@@ -896,7 +896,8 @@ smmap = [
     {file = "smmap-3.0.4.tar.gz", hash = "sha256:9c98bbd1f9786d22f14b3d4126894d56befb835ec90cef151af566c7e19b5d24"},
 ]
 snakemake = [
-    {file = "snakemake-5.24.0.tar.gz", hash = "sha256:1a66eff7fcbc90a1d01749f071492a417d2ad94daccc6003f6f5d0ece0b98860"},
+    {file = "snakemake-5.26.0-py3-none-any.whl", hash = "sha256:0ed361c00d2192dd0cb24b1d613456a2e0e65e6c8a6bca7b94d2f980dc5ba075"},
+    {file = "snakemake-5.26.0.tar.gz", hash = "sha256:c6a8a66fe5ee04a074480844ff5ca5d0871143eaa2ad292ed2c7cdc73cdf8fb7"},
 ]
 toml = [
     {file = "toml-0.10.1-py2.py3-none-any.whl", hash = "sha256:bda89d5935c2eac546d648028b9901107a595863cb36bae0c73ac804a9b4ce88"},

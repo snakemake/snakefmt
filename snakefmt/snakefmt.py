@@ -71,10 +71,7 @@ def read_snakefmt_defaults_from_pyproject_toml(
 
 
 def get_snakefiles_in_dir(
-    path: Path,
-    include: Pattern[str],
-    exclude: Pattern[str],
-    gitignore: PathSpec,
+    path: Path, include: Pattern[str], exclude: Pattern[str], gitignore: PathSpec,
 ) -> Iterator[Path]:
     """Generate all files under `path` whose paths are not excluded by the
     `exclude` regex, but are included by the `include` regex.
