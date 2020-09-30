@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.2.1]
+
+### Added
+
+- new `scattergather` directive to the grammar [[#74][74]]
+
 ## [0.2.0]
 
 ### Added
@@ -63,7 +69,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.0...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/snakemake/snakefmt/releases/tag/0.2.1
 [0.2.0]: https://github.com/snakemake/snakefmt/releases/tag/0.2.0
 [0.1.5]: https://github.com/snakemake/snakefmt/releases/tag/0.1.5
 [0.1.4]: https://github.com/snakemake/snakefmt/releases/tag/0.1.4
@@ -78,4 +85,5 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [65]: https://github.com/snakemake/snakefmt/issues/65
 [67]: https://github.com/snakemake/snakefmt/issues/67
 [68]: https://github.com/snakemake/snakefmt/issues/68
+[74]: https://github.com/snakemake/snakefmt/pull/74
 
