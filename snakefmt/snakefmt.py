@@ -60,7 +60,7 @@ def read_snakefmt_defaults_from_pyproject_toml(
         )
 
     if not config:
-        return None
+        return value
 
     if ctx.default_map is None:
         ctx.default_map = {}

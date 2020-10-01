@@ -5,7 +5,7 @@ import black
 import click
 import pytest
 
-from snakefmt.exceptions import InvalidBlackConfiguration, MalformattedToml
+from snakefmt.exceptions import MalformattedToml
 from snakefmt.formatter import TAB
 from snakefmt.snakefmt import main, read_snakefmt_defaults_from_pyproject_toml
 from tests import setup_formatter
@@ -96,7 +96,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
             ctx, param, value
         )
-        expected_config_path = None
+        expected_config_path = str(pyproject)
 
         assert actual_config_path == expected_config_path
         assert ctx.default_map == dict()
@@ -259,15 +259,15 @@ class TestReadBlackConfig:
 
         assert actual == expected
 
-    def test_config_exists_with_invalid_black_options_raises_error(self, tmp_path):
+    def test_config_exists_with_invalid_black_options_ignores_it(self, tmp_path):
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nfoo = false")
 
-        with pytest.raises(InvalidBlackConfiguration) as error:
-            formatter.read_black_config(path)
+        actual = formatter.read_black_config(path)
+        expected = black.FileMode()
 
-        assert error.match("unexpected keyword argument")
+        assert actual == expected
 
     def test_malformatted_toml_raises_error(self, tmp_path):
         formatter = setup_formatter("")
@@ -278,3 +278,36 @@ class TestReadBlackConfig:
             formatter.read_black_config(path)
 
         assert error.match("invalid character")
+
+    def test_skip_string_normalisation_handled_with_snakecase(self, tmp_path):
+        line_length = 88
+        formatter = setup_formatter("", line_length=line_length)
+        path = tmp_path / "config.toml"
+        path.write_text("[tool.black]\nskip_string_normalization = false")
+
+        actual = formatter.read_black_config(path)
+        expected = black.FileMode(line_length=line_length, string_normalization=True)
+
+        assert actual == expected
+
+    def test_skip_string_normalisation_handled_with_kebabcase(self, tmp_path):
+        line_length = 88
+        formatter = setup_formatter("", line_length=line_length)
+        path = tmp_path / "config.toml"
+        path.write_text("[tool.black]\nskip-string-normalization = 0")
+
+        actual = formatter.read_black_config(path)
+        expected = black.FileMode(line_length=line_length, string_normalization=True)
+
+        assert actual == expected
+
+    def test_string_normalisation_handled(self, tmp_path):
+        line_length = 88
+        formatter = setup_formatter("", line_length=line_length)
+        path = tmp_path / "config.toml"
+        path.write_text("[tool.black]\nstring-normalization = false")
+
+        actual = formatter.read_black_config(path)
+        expected = black.FileMode(line_length=line_length, string_normalization=False)
+
+        assert actual == expected
