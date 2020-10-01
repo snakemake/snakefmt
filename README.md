@@ -132,7 +132,7 @@ jobs:
 Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
 ```toml
 [tool.black]
-skip-string-normalization = 1
+skip_string_normalization = true
 ```
 
 For more information check the `super-linter` readme.
@@ -313,12 +313,12 @@ configuration file.
 
 ```toml
 [tool.snakefmt]
-line-length = 90
+line_length = 90
 include = '\.smk$|^Snakefile|\.py$'
 
 # snakefmt passes these options on to black
 [tool.black]
-target-version = ["py37"]
+skip_string_normalization = true
 ```
 
 In this example we increase the `--line-length` value and also include python (`*.py`)
