@@ -8,12 +8,7 @@ import black
 import toml
 
 from snakefmt import DEFAULT_LINE_LENGTH
-from snakefmt.exceptions import (
-    InvalidBlackConfiguration,
-    InvalidParameterSyntax,
-    InvalidPython,
-    MalformattedToml,
-)
+from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython, MalformattedToml
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import (
@@ -94,10 +89,7 @@ class Formatter(Parser):
 
             snakecase_config[key] = val
 
-        try:
-            return black.FileMode(**snakecase_config)
-        except TypeError as error:
-            raise InvalidBlackConfiguration(error)
+        return black.FileMode(**snakecase_config)
 
     @property
     def line_length(self) -> int:
