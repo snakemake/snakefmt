@@ -28,6 +28,12 @@ from snakefmt.types import TokenIterator
 
 PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
+valid_black_filemode_params = {
+    "target_versions",
+    "line_length",
+    "string_normalization",
+    "is_pyi",
+}
 
 triple_quote_matcher = re.compile(
     r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
@@ -74,8 +80,22 @@ class Formatter(Parser):
         if "line_length" not in config:
             config["line_length"] = self.line_length
 
+        snakecase_config = {}
+        for key, val in config.items():
+            # this is due to FileMode param being string_normalise, but CLI being
+            # skip_string_normalise - https://github.com/snakemake/snakefmt/issues/73
+            if key.startswith("skip"):
+                key = key[5:]
+                val = not val
+
+            key = key.replace("-", "_")
+            if key not in valid_black_filemode_params:
+                continue
+
+            snakecase_config[key] = val
+
         try:
-            return black.FileMode(**config)
+            return black.FileMode(**snakecase_config)
         except TypeError as error:
             raise InvalidBlackConfiguration(error)
 

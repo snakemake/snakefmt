@@ -47,6 +47,8 @@ class TestCLIBasic:
 
         actual = cli_runner.invoke(main, params, input=stdin)
 
+        print(actual.exception)
+
         assert actual.exit_code == 0
 
         expected_output = f'rule all:\n{TAB}input:\n{TAB*2}"c",\n'
@@ -415,3 +417,26 @@ class TestCLIValidRegex:
         )
         expected = Counter(["rules/map.smk", "rules/test/test.smk"])
         assert actual == expected
+
+
+class TestCliConfig:
+    def test_black_skip_string_norm_is_obeyed(self, tmp_path, cli_runner):
+        path = tmp_path / "config.toml"
+        path.write_text("[tool.black]\nskip-string-normalization = 1")
+        stdin = "x = 'foo'\n\n\nconfigfile: 'a'\n"
+        params = ["--config", str(path), "--check", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+        expected_exit_code = 0
+
+        assert result.exit_code == expected_exit_code
+
+    def test_black_string_norm_is_obeyed(self, tmp_path, cli_runner):
+        path = tmp_path / "config.toml"
+        path.write_text("[tool.black]\nskip-string-normalization = false")
+        stdin = "x = 'foo'\n\n\nconfigfile: 'a'\n"
+        params = ["--config", str(path), "--check", "-"]
+
+        result = cli_runner.invoke(main, params, input=stdin)
+
+        assert result.exit_code != 0

@@ -33,7 +33,6 @@ isort = "^5.1.0"
 
 [tool.black]
 line-length = 88
-target-version = ['py37']
 include = '\.pyi?$'
 exclude = '''
 (
