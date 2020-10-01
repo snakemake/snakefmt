@@ -7,6 +7,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Fixed
+
+- `black` config was not being used if it did not contain `[tool.snakefmt]` [[#73][73]]
+- better handling of `black.FileMode` params [[#73][73]]
+
 ## [0.2.1]
 
 ### Added
@@ -85,5 +90,6 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [65]: https://github.com/snakemake/snakefmt/issues/65
 [67]: https://github.com/snakemake/snakefmt/issues/67
 [68]: https://github.com/snakemake/snakefmt/issues/68
+[73]: https://github.com/snakemake/snakefmt/issues/73
 [74]: https://github.com/snakemake/snakefmt/pull/74
 
