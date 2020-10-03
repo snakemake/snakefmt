@@ -1,3 +1,4 @@
+import inspect
 import re
 import textwrap
 from ast import parse as ast_parse
@@ -23,12 +24,6 @@ from snakefmt.types import TokenIterator
 
 PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
-valid_black_filemode_params = {
-    "target_versions",
-    "line_length",
-    "string_normalization",
-    "is_pyi",
-}
 
 triple_quote_matcher = re.compile(
     r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
@@ -74,6 +69,8 @@ class Formatter(Parser):
 
         if "line_length" not in config:
             config["line_length"] = self.line_length
+
+        valid_black_filemode_params = inspect.getfullargspec(black.FileMode).args
 
         snakecase_config = {}
         for key, val in config.items():
