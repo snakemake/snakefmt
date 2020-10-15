@@ -24,13 +24,14 @@ design and specifications of [Black][black].
   - [Conda](#conda)
   - [Containers](#containers)
   - [Local](#local)
-  - [Github Actions](#github-actions)
 - [Example File](#example-file)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
 - [Configuration](#configuration)
-- [Editor Integration](#editor-integration)
+- [Integration](#integration)
+    - [Github Actions](#github-actions)
+    - [Editor Integration](#editor-integration)
 - [Plug Us](#plug-us)
 - [Changes](#changes)
 - [Contributing](#contributing)
@@ -95,47 +96,6 @@ poetry install
 # activate the environment so snakefmt is available on your PATH
 poetry shell
 ```
-
-### GitHub Actions
-
-[GitHub Actions](https://github.com/features/actions) in combination with [super-linter](https://github.com/github/super-linter) allows you to automatically run `snakefmt` on all Snakefiles in your repository e.g. whenever you push a new commit.
-
-To do so, create the file `.github/workflows/linter.yml` in your repository:
-```yaml
----
-name: Lint Code Base
-
-on:
-  push:
-  pull_request:
-    branches: [master]
-
-jobs:
-  build:
-    name: Lint Code Base
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-
-      - name: Lint Code Base
-        uses: github/super-linter@v3
-        env:
-          VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: master
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          VALIDATE_SNAKEMAKE_SNAKEFMT: true
-```
-
-Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
-```toml
-[tool.black]
-skip_string_normalization = true
-```
-
-For more information check the `super-linter` readme.
 
 ## Example File
 
@@ -326,7 +286,50 @@ files for formatting - this effectively runs `black` on them. `snakefmt` will al
 on the `[tool.black]` settings, internally, to `black`.
 
 
-## Editor Integration
+## Integration
+
+### GitHub Actions
+
+[GitHub Actions](https://github.com/features/actions) in combination with [super-linter](https://github.com/github/super-linter) allows you to automatically run `snakefmt` on all Snakefiles in your repository e.g. whenever you push a new commit.
+
+To do so, create the file `.github/workflows/linter.yml` in your repository:
+```yaml
+---
+name: Lint Code Base
+
+on:
+  push:
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Lint Code Base
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Lint Code Base
+        uses: github/super-linter@v3
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: master
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          VALIDATE_SNAKEMAKE_SNAKEFMT: true
+```
+
+Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
+```toml
+[tool.black]
+skip_string_normalization = true
+```
+
+For more information check the `super-linter` readme.
+
+### Editor Integration
 
 For instructions on how to integrate `snakefmt` into your editor of choice, refer to
 [`docs/editor_integration.md`](docs/editor_integration.md)
