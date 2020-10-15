@@ -37,12 +37,11 @@ def construct_regex(regex: str) -> Pattern[str]:
     )
 
 
-def read_snakefmt_defaults_from_pyproject_toml(
+def read_snakefmt_config(
     ctx: click.Context, param: click.Parameter, value: Optional[str] = None
 ) -> Optional[str]:
-    """Inject Snakefmt configuration from "pyproject.toml" into defaults in `ctx`.
-    Returns the path to a successfully found and read configuration file, None
-    otherwise.
+    """Parse Snakefmt configuration from provided toml, or "pyproject.toml" by default.
+    Returns the path to a found and read configuration file, None otherwise.
     """
     if not value:
         path = Path("pyproject.toml")
@@ -52,8 +51,8 @@ def read_snakefmt_defaults_from_pyproject_toml(
             return None
 
     try:
-        pyproject_toml = toml.load(value)
-        config = pyproject_toml.get("tool", {}).get("snakefmt", {})
+        config_toml = toml.load(value)
+        config = config_toml.get("tool", {}).get("snakefmt", {})
     except (toml.TomlDecodeError, OSError) as error:
         raise click.FileError(
             filename=value, hint=f"Error reading configuration file: {error}"
@@ -183,7 +182,7 @@ def get_snakefiles_in_dir(
     ),
     metavar="PATH",
     is_eager=True,
-    callback=read_snakefmt_defaults_from_pyproject_toml,
+    callback=read_snakefmt_config,
     help=(
         "Read configuration from PATH. By default, will try to read from "
         "`./pyproject.toml`"

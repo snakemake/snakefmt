@@ -7,7 +7,7 @@ import pytest
 
 from snakefmt.exceptions import MalformattedToml
 from snakefmt.formatter import TAB
-from snakefmt.snakefmt import main, read_snakefmt_defaults_from_pyproject_toml
+from snakefmt.snakefmt import main, read_snakefmt_config
 from tests import setup_formatter
 
 
@@ -74,7 +74,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
         value = None
 
-        return_val = read_snakefmt_defaults_from_pyproject_toml(ctx, param, value)
+        return_val = read_snakefmt_config(ctx, param, value)
 
         assert return_val is None
 
@@ -93,9 +93,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
         value = None
 
-        actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
-            ctx, param, value
-        )
+        actual_config_path = read_snakefmt_config(ctx, param, value)
         expected_config_path = str(pyproject)
 
         assert actual_config_path == expected_config_path
@@ -111,9 +109,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
         value = None
 
-        actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
-            ctx, param, value
-        )
+        actual_config_path = read_snakefmt_config(ctx, param, value)
         expected_config_path = str(pyproject)
 
         assert actual_config_path == expected_config_path
@@ -133,9 +129,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
         value = None
 
-        actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
-            ctx, param, value
-        )
+        actual_config_path = read_snakefmt_config(ctx, param, value)
         expected_config_path = str(pyproject)
 
         assert actual_config_path == expected_config_path
@@ -152,9 +146,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         ctx = click.Context(click.Command("snakefmt"), default_map=default_map)
         param = mock.MagicMock()
 
-        actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
-            ctx, param, value=str(pyproject)
-        )
+        actual_config_path = read_snakefmt_config(ctx, param, value=str(pyproject))
         expected_config_path = str(pyproject)
 
         assert actual_config_path == expected_config_path
@@ -172,9 +164,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
         value = str(pyproject)
 
-        actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
-            ctx, param, value
-        )
+        actual_config_path = read_snakefmt_config(ctx, param, value)
         expected_config_path = str(pyproject)
 
         assert actual_config_path == expected_config_path
@@ -194,9 +184,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
         value = str(snakefmt_config)
 
-        actual_config_path = read_snakefmt_defaults_from_pyproject_toml(
-            ctx, param, value
-        )
+        actual_config_path = read_snakefmt_config(ctx, param, value)
         expected_config_path = str(snakefmt_config)
 
         assert actual_config_path == expected_config_path
@@ -215,7 +203,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         value = None
 
         with pytest.raises(click.FileError):
-            read_snakefmt_defaults_from_pyproject_toml(ctx, param, value)
+            read_snakefmt_config(ctx, param, value)
 
 
 class TestReadBlackConfig:
