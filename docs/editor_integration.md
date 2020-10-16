@@ -65,15 +65,18 @@ $ where snakefmt
 
 ## Vim
 
+Credit: plugin inspired by
+[black](https://github.com/psf/black/blob/master/plugin/black.vim)
+
 1. Install the plugin.
 
-Recommended way is via a plugin manager, eg [vim-plug](https://github.com/junegunn/vim-plug):
+    Recommended way is via a plugin manager, eg [vim-plug](https://github.com/junegunn/vim-plug):
 
     ```
     Plug 'snakemake/snakefmt' 
     ```
 
-or [Vundle](https://github.com/VundleVim/Vundle.vim):
+    or [Vundle](https://github.com/VundleVim/Vundle.vim):
 
     ```
     Plugin 'snakemake/snakefmt'
@@ -81,13 +84,13 @@ or [Vundle](https://github.com/VundleVim/Vundle.vim):
 
 2. That's it! Run `:Snakefmt` to format a buffer, and `:SnakefmtVersion` for version info.
 
-If you do not run Vim 7.0+ built with Python3.6+ support, or you have not installed `snakefmt`, those commands will complain.
+    If you do not run Vim 7.0+ built with Python3.6+ support, or you have not installed `snakefmt`, those commands will complain.
 
 3. If you want to format your file automatically when saving it, write this in your vimrc:
 
-```
-au BufNewFile,BufRead Snakefile,*.smk set filetype=snakemake
-au FileType snakemake autocmd BufWritePre <buffer> execute ':Snakefmt'
-```
+    ```
+    au BufNewFile,BufRead Snakefile,*.smk set filetype=snakemake
+    au FileType snakemake autocmd BufWritePre <buffer> execute ':Snakefmt'
+    ```
 
 4. If you additionally want syntax highlighting on your snakemake files, install snakemake's [syntax highlighter](https://github.com/snakemake/snakemake/tree/master/misc/vim)!
