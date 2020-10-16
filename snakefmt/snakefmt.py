@@ -3,7 +3,7 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Iterator, List, Optional, Pattern, Set, Union
+from typing import Dict, Iterator, List, Optional, Pattern, Set, Union
 
 import click
 import toml
@@ -37,36 +37,41 @@ def construct_regex(regex: str) -> Pattern[str]:
     )
 
 
-def read_snakefmt_config(
-    ctx: click.Context, param: click.Parameter, value: Optional[str] = None
-) -> Optional[str]:
-    """Parse Snakefmt configuration from provided toml, or "pyproject.toml" by default.
-    Returns the path to a found and read configuration file, None otherwise.
+def read_snakefmt_config(path: Optional[str]) -> Dict[str, str]:
+    """Parse Snakefmt configuration from provided toml.
     """
-    if not value:
-        path = Path("pyproject.toml")
-        if path.is_file():
-            value = str(path)
-        else:
-            return None
-
     try:
-        config_toml = toml.load(value)
+        config_toml = toml.load(path)
         config = config_toml.get("tool", {}).get("snakefmt", {})
+        return config
     except (toml.TomlDecodeError, OSError) as error:
         raise click.FileError(
-            filename=value, hint=f"Error reading configuration file: {error}"
+            filename=path, hint=f"Error reading configuration file: {error}"
         )
 
-    if not config:
-        return value
+
+def inject_snakefmt_config(
+    ctx: click.Context, param: click.Parameter, config_file: Optional[str] = None
+) -> Optional[str]:
+    """
+    If no config file argument provided, parses "pyproject.toml" if one exists.
+    Injects any parsed configuration into the relevant parameters to the click `ctx`.
+    """
+    if config_file is None:
+        config_file = Path("pyproject.toml")
+        if not config_file.is_file():
+            return None
+        else:
+            config_file = str(config_file)
+
+    config = read_snakefmt_config(config_file)
 
     if ctx.default_map is None:
         ctx.default_map = {}
     ctx.default_map.update(  # type: ignore  # bad types in .pyi
         {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
     )
-    return value
+    return config_file
 
 
 def get_snakefiles_in_dir(
@@ -182,7 +187,7 @@ def get_snakefiles_in_dir(
     ),
     metavar="PATH",
     is_eager=True,
-    callback=read_snakefmt_config,
+    callback=inject_snakefmt_config,
     help=(
         "Read configuration from PATH. By default, will try to read from "
         "`./pyproject.toml`"
@@ -276,7 +281,7 @@ def main(
         try:
             snakefile = Snakefile(StringIO(original_content))
             formatter = Formatter(
-                snakefile, line_length=line_length, black_config=config
+                snakefile, line_length=line_length, black_config_file=config
             )
             formatted_content = formatter.get_formatted()
         except Exception as error:
