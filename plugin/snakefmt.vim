@@ -4,19 +4,16 @@
 "
 " Documentation:
 "   This plugin formats Snakemake files.
-"   It is heavily inspired by black's vim plugin for Python: https://github.com/psf/black/blob/master/plugin/black.vim. All credit to its author Łukasz Langa.
+"   It is inspired by black's vim plugin for Python: https://github.com/psf/black/blob/master/plugin/black.vim. Credit to its author Łukasz Langa.
 "
 " History:
 "  1.0:
 "    - initial version
 
-func! __Set_SNAKEFMT_MISSING(message)
-    command! Snakefmt echom a:message
-    command! SnakefmtVersion echom a:message
-endfunc
-    
 if v:version < 700 || !has('python3')
-    __Set_SNAKEFMT_MISSING("The snakemake.vim plugin requires vim7.0+ with Python 3.6 support.")
+    let g:snakefmt_missing = "The snakemake.vim plugin requires vim7.0+ with Python 3.6 support."
+    command! Snakefmt echom g:snakefmt_missing
+    command! SnakefmtVersion echom g:snakefmt_missing
     finish
 endif
 
