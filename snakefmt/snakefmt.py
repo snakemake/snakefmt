@@ -39,6 +39,8 @@ def construct_regex(regex: str) -> Pattern[str]:
 
 def read_snakefmt_config(path: Optional[str]) -> Dict[str, str]:
     """Parse Snakefmt configuration from provided toml."""
+    if path is None:
+        return dict()
     try:
         config_toml = toml.load(path)
         config = config_toml.get("tool", {}).get("snakefmt", {})
@@ -73,7 +75,7 @@ def inject_snakefmt_config(
 
 
 def get_snakefiles_in_dir(
-    path: Path, include: Pattern[str], exclude: Pattern[str], gitignore: PathSpec,
+    path: Path, include: Pattern[str], exclude: Pattern[str], gitignore: PathSpec
 ) -> Iterator[Path]:
     """Generate all files under `path` whose paths are not excluded by the
     `exclude` regex, but are included by the `include` regex.
@@ -113,10 +115,9 @@ def get_snakefiles_in_dir(
 @click.option(
     "-l",
     "--line-length",
-    default=DEFAULT_LINE_LENGTH,
-    show_default=True,
+    default=None,
     type=int,
-    help="Lines longer than INT will be wrapped.",
+    help=f"Lines longer than INT will be wrapped. [default: {DEFAULT_LINE_LENGTH}]",
     metavar="INT",
 )
 @click.option(
