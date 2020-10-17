@@ -38,11 +38,11 @@ def construct_regex(regex: str) -> Pattern[str]:
 
 
 def read_snakefmt_config(path: Optional[str]) -> Dict[str, str]:
-    """Parse Snakefmt configuration from provided toml.
-    """
+    """Parse Snakefmt configuration from provided toml."""
     try:
         config_toml = toml.load(path)
         config = config_toml.get("tool", {}).get("snakefmt", {})
+        config = {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
         return config
     except (toml.TomlDecodeError, OSError) as error:
         raise click.FileError(
@@ -68,9 +68,7 @@ def inject_snakefmt_config(
 
     if ctx.default_map is None:
         ctx.default_map = {}
-    ctx.default_map.update(  # type: ignore  # bad types in .pyi
-        {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
-    )
+    ctx.default_map.update(config)  # type: ignore  # bad types in .pyi
     return config_file
 
 

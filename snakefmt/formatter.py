@@ -26,10 +26,10 @@ PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
 triple_quote_matcher = re.compile(
-    r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE,
+    r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
 )
 contextual_matcher = re.compile(
-    r"(.*)^(if|elif|else|with|for|while)(.*)(:.*)", re.S | re.M,
+    r"(.*)^(if|elif|else|with|for|while)(.*)(:.*)", re.S | re.M
 )
 
 
@@ -41,19 +41,22 @@ class Formatter(Parser):
     def __init__(
         self,
         snakefile: TokenIterator,
-        line_length: int = DEFAULT_LINE_LENGTH,
+        line_length: Optional[int] = None,
         black_config_file: Optional[PathLike] = None,
     ):
-        self._line_length: int = line_length
+        self._line_length: int = DEFAULT_LINE_LENGTH
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
         self.last_recognised_keyword = ""
 
         if black_config_file is None:
-            self.black_mode = black.FileMode(line_length=self.line_length)
+            self.black_mode = black.FileMode()
         else:
             self.black_mode = self.read_black_config(black_config_file)
+        if line_length is not None:
+            self._line_length = line_length
+            self.black_mode.line_length = line_length
 
         super().__init__(snakefile)  # Call to parse snakefile
 
@@ -148,9 +151,7 @@ class Formatter(Parser):
         # Only stick together separated single-parm keywords when separated by comments
         if not all(map(comment_start, self.buffer.splitlines())):
             self.last_recognised_keyword = ""
-        self.add_newlines(
-            self.target_indent, formatted, final_flush, in_global_context,
-        )
+        self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
 
     def process_keyword_context(self, in_global_context: bool):
@@ -163,7 +164,7 @@ class Formatter(Parser):
         self.last_recognised_keyword = self.context.keyword_name
 
     def process_keyword_param(
-        self, param_context: ParameterSyntax, in_global_context: bool,
+        self, param_context: ParameterSyntax, in_global_context: bool
     ):
         self.add_newlines(
             param_context.target_indent - 1,
@@ -209,11 +210,11 @@ class Formatter(Parser):
             indented += first
             if len(all_lines) > 2:
                 middle = textwrap.indent(
-                    textwrap.dedent("".join(all_lines[1:-1])), used_indent,
+                    textwrap.dedent("".join(all_lines[1:-1])), used_indent
                 )
                 indented += middle
             if len(all_lines) > 1:
-                last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent,)
+                last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
                 indented += last
             pos = match.end()
         indented += textwrap.indent(string[pos:], used_indent)
@@ -277,7 +278,7 @@ class Formatter(Parser):
 
         for elem in parameters.all_params:
             result += self.format_param(
-                elem, target_indent, inline_fmting, single_param,
+                elem, target_indent, inline_fmting, single_param
             )
         return result
 
