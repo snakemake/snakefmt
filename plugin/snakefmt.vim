@@ -44,13 +44,13 @@ else:
     def Snakefmt():
       start = time.time()
       pyproject_toml: Optional[str] = find_pyproject_toml(vim.eval("fnamemodify(getcwd(), ':t')"))
-      config = {"line_length": DEFAULT_LINE_LENGTH}
-      config.update(read_snakefmt_config(pyproject_toml))
+      config = read_snakefmt_config(pyproject_toml)
+      line_length = config.get("line_length", None)
 
       buffer_str = '\n'.join(vim.current.buffer) + '\n'
       try:
         snakefile = Snakefile(StringIO(buffer_str))
-        formatter = Formatter(snakefile, line_length=config["line_length"], black_config_file=pyproject_toml)
+        formatter = Formatter(snakefile, line_length=line_length, black_config_file=pyproject_toml)
         new_buffer_str = formatter.get_formatted()
       except Exception as exc:
         print(exc)

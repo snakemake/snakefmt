@@ -8,7 +8,6 @@ from typing import Optional, Union
 import black
 import toml
 
-from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython, MalformattedToml
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
@@ -44,7 +43,6 @@ class Formatter(Parser):
         line_length: Optional[int] = None,
         black_config_file: Optional[PathLike] = None,
     ):
-        self._line_length: int = DEFAULT_LINE_LENGTH
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
@@ -54,8 +52,8 @@ class Formatter(Parser):
             self.black_mode = black.FileMode()
         else:
             self.black_mode = self.read_black_config(black_config_file)
+
         if line_length is not None:
-            self._line_length = line_length
             self.black_mode.line_length = line_length
 
         super().__init__(snakefile)  # Call to parse snakefile
@@ -86,14 +84,7 @@ class Formatter(Parser):
 
             snakecase_config[key] = val
 
-        if "line_length" not in snakecase_config:
-            snakecase_config["line_length"] = self.line_length
-
         return black.FileMode(**snakecase_config)
-
-    @property
-    def line_length(self) -> int:
-        return self._line_length
 
     def get_formatted(self) -> str:
         return self.result
@@ -171,20 +162,15 @@ class Formatter(Parser):
             in_global_context=in_global_context,
             context=param_context,
         )
-        in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule,)
+        in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
         self.result += self.format_params(param_context, in_rule)
         self.last_recognised_keyword = param_context.keyword_name
 
     def run_black_format_str(self, string: str, target_indent: int) -> str:
         # need to let black know about indentation as it effects line length
         indent_line_length = target_indent * 4
-        line_length = (
-            self.black_mode.line_length
-            if self.context.from_python
-            else self.line_length
-        )
-        contextual_line_length = max(0, line_length - indent_line_length)
-        old_black_line_length = self.black_mode.line_length
+        saved_black_line_length = self.black_mode.line_length
+        contextual_line_length = max(0, saved_black_line_length - indent_line_length)
         self.black_mode.line_length = contextual_line_length
         try:
             fmted = black.format_str(string, mode=self.black_mode)
@@ -192,7 +178,7 @@ class Formatter(Parser):
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
-        self.black_mode.line_length = old_black_line_length
+        self.black_mode.line_length = saved_black_line_length
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:

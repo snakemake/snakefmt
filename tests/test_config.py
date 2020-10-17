@@ -5,13 +5,22 @@ import black
 import click
 import pytest
 
+from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import MalformattedToml
 from snakefmt.formatter import TAB
-from snakefmt.snakefmt import inject_snakefmt_config, main
+from snakefmt.snakefmt import inject_snakefmt_config, main, read_snakefmt_config
 from tests import setup_formatter
 
 
+def test_black_and_snakefmt_default_line_lengths_aligned():
+    assert DEFAULT_LINE_LENGTH == black.DEFAULT_LINE_LENGTH
+
+
 class TestConfigAdherence:
+    def test_no_config_path_empty_config_dict(self):
+        parsed_config = read_snakefmt_config(None)
+        assert parsed_config == dict()
+
     def test_config_adherence_for_python_outside_rules(self, cli_runner, tmp_path):
         stdin = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
         config = tmp_path / "pyproject.toml"
@@ -69,9 +78,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert return_val is None
         assert ctx.default_map == dict()
 
-    def test_pyproject_present_but_empty_noparams_injected_returns_pyproject_path(
-        self, testdir
-    ):
+    def test_empty_pyproject_is_detected_and_injects_nothing(self, testdir):
         pyproject = Path("pyproject.toml")
         pyproject.touch()
         ctx = click.Context(click.Command("snakefmt"), default_map=dict())
@@ -82,7 +89,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert actual_config_path == str(pyproject)
         assert ctx.default_map == dict()
 
-    def test_pyprojecttoml_automatically_detected_and_parsed(self, testdir):
+    def test_nonempty_pyproject_is_detected_and_parsed(self, testdir):
         pyproject = Path("pyproject.toml")
         pyproject.write_text("[tool.snakefmt]\nline_length = 4\n" "foo = true")
         default_map = dict(line_length=88)
@@ -112,11 +119,11 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert parsed_config_file == str(pyproject)
         assert ctx.default_map == dict(foo=True)
 
-    def test_CLI_configfile_overrides_pyproject(self, testdir):
-        snakefmt_config = Path("snakefmt.toml")
-        snakefmt_config.write_text("[tool.snakefmt]\nfoo = true")
+    def test_passed_configfile_overrides_pyproject(self, testdir):
         pyproject = Path("pyproject.toml")
         pyproject.write_text("[tool.snakefmt]\n\nfoo = false\nline_length = 90")
+        snakefmt_config = Path("snakefmt.toml")
+        snakefmt_config.write_text("[tool.snakefmt]\nfoo = true")
         ctx = click.Context(click.Command("snakefmt"), default_map=dict())
         param = mock.MagicMock()
 
@@ -145,16 +152,14 @@ class TestReadBlackConfig:
         with pytest.raises(FileNotFoundError):
             formatter.read_black_config(path)
 
-    def test_config_exists_but_no_black_settings(self, tmp_path):
+    def test_empty_config_default_line_length_used(self, tmp_path):
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
-        path.write_text("[tool.snakefmt]\nline_length = 99")
+        path.touch()
+        expected = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
+        assert formatter.black_mode == expected
 
-        actual = formatter.read_black_config(path)
-        expected = black.FileMode(line_length=formatter.line_length)
-        assert actual == expected
-
-    def test_config_exists_with_black_settings(self, tmp_path):
+    def test_read_black_config_settings(self, tmp_path):
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         black_line_length = 9
@@ -165,25 +170,26 @@ class TestReadBlackConfig:
 
         assert actual == expected
 
-    def test_black_line_length_overriden_by_snakefmt_line_length(self, tmp_path):
+    def test_snakefmt_line_length_overrides_black(self, tmp_path):
         snakefmt_line_length = 100
         black_line_length = 10
         path = tmp_path / "config.toml"
         path.write_text(f"[tool.black]\nline_length = {black_line_length}")
 
+        # show black gets parsed
         formatter = setup_formatter("", black_config_file=str(path))
+
         expected = black.FileMode(line_length=black_line_length)
         assert formatter.black_mode == expected
 
-        # Now add in snakefmt line length
+        # Now, add overriding snakefmt line length
         formatter = setup_formatter(
             "", line_length=snakefmt_line_length, black_config_file=str(path)
         )
-
         expected = black.FileMode(line_length=snakefmt_line_length)
         assert formatter.black_mode == expected
 
-    def test_config_exists_with_invalid_black_options_ignores_it(self, tmp_path):
+    def test_invalid_black_options_in_config_ignored(self, tmp_path):
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nfoo = false")
@@ -226,12 +232,12 @@ class TestReadBlackConfig:
         assert actual == expected
 
     def test_string_normalisation_handled(self, tmp_path):
-        line_length = 88
-        formatter = setup_formatter("", line_length=line_length)
+        line_length = 50
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nstring-normalization = false")
+        formatter = setup_formatter(
+            "", line_length=line_length, black_config_file=str(path)
+        )
 
-        actual = formatter.read_black_config(path)
         expected = black.FileMode(line_length=line_length, string_normalization=False)
-
-        assert actual == expected
+        assert formatter.black_mode == expected
