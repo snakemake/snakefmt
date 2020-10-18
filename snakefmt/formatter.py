@@ -8,6 +8,7 @@ from typing import Optional, Union
 import black
 import toml
 
+from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython, MalformattedToml
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
@@ -49,7 +50,7 @@ class Formatter(Parser):
         self.last_recognised_keyword = ""
 
         if black_config_file is None:
-            self.black_mode = black.FileMode()
+            self.black_mode = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
         else:
             self.black_mode = self.read_black_config(black_config_file)
 
@@ -83,6 +84,8 @@ class Formatter(Parser):
                 continue
 
             snakecase_config[key] = val
+        if "line_length" not in snakecase_config:
+            snakecase_config["line_length"] = DEFAULT_LINE_LENGTH
 
         return black.FileMode(**snakecase_config)
 

@@ -8,12 +8,28 @@ import pytest
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import MalformattedToml
 from snakefmt.formatter import TAB
-from snakefmt.snakefmt import inject_snakefmt_config, main, read_snakefmt_config
+from snakefmt.snakefmt import (
+    find_pyproject_toml,
+    inject_snakefmt_config,
+    main,
+    read_snakefmt_config,
+)
 from tests import setup_formatter
 
 
 def test_black_and_snakefmt_default_line_lengths_aligned():
     assert DEFAULT_LINE_LENGTH == black.DEFAULT_LINE_LENGTH
+
+
+class TestFindPyprojectToml:
+    def test_find_pyproject_toml_nested_directory(self, tmp_path):
+        config_file = (tmp_path / "pyproject.toml").resolve()
+        config_file.touch()
+        dir1 = Path(tmp_path / "dir1").resolve()
+        dir1.mkdir()
+        snakefile = dir1 / "Snakefile"
+        actual = find_pyproject_toml((str(snakefile),))
+        assert actual == str(config_file)
 
 
 class TestConfigAdherence:
@@ -56,8 +72,7 @@ list_of_lots_of_things = [
         )
         for line_length, expect_same in zip((200, 30), (True, False)):
             config = tmp_path / "pyproject.toml"
-            with config.open("w") as fout:
-                fout.write(f"[tool.snakefmt]\nline_length = {line_length}\n")
+            config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
             params = ["--config", str(config), "-"]
 
             actual = cli_runner.invoke(main, params, input=stdin)
@@ -78,15 +93,16 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         assert return_val is None
         assert ctx.default_map == dict()
 
-    def test_empty_pyproject_is_detected_and_injects_nothing(self, testdir):
+    def test_empty_pyproject_is_detected_and_injects_nothing(self, cli_runner, testdir):
+        """ctx.params 'src' is set, simulating looking for pyproject.toml
+        in CLI passed formatted file's directory"""
         pyproject = Path("pyproject.toml")
         pyproject.touch()
-        ctx = click.Context(click.Command("snakefmt"), default_map=dict())
+        ctx = click.Context(click.Command("snakefmt"))
+        ctx.params = dict(src=(str(Path().resolve()),))
         param = mock.MagicMock()
-
         actual_config_path = inject_snakefmt_config(ctx, param, None)
-
-        assert actual_config_path == str(pyproject)
+        assert actual_config_path == str(pyproject.resolve())
         assert ctx.default_map == dict()
 
     def test_nonempty_pyproject_is_detected_and_parsed(self, testdir):
@@ -94,10 +110,11 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         pyproject.write_text("[tool.snakefmt]\nline_length = 4\n" "foo = true")
         default_map = dict(line_length=88)
         ctx = click.Context(click.Command("snakefmt"), default_map=default_map)
+        source_file = Path("to_format.smk")
+        ctx.params = dict(src=(str(source_file.resolve()),))
         param = mock.MagicMock()
-
         parsed_config_file = inject_snakefmt_config(ctx, param, config_file=None)
-        assert parsed_config_file == str(pyproject)
+        assert parsed_config_file == str(pyproject.resolve())
 
         expected_parameters = dict(line_length=4, foo=True)
         assert ctx.default_map == expected_parameters
@@ -125,6 +142,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         snakefmt_config = Path("snakefmt.toml")
         snakefmt_config.write_text("[tool.snakefmt]\nfoo = true")
         ctx = click.Context(click.Command("snakefmt"), default_map=dict())
+        ctx.params = dict(src=(str(Path().resolve()),))
         param = mock.MagicMock()
 
         inject_snakefmt_config(ctx, param, config_file=None)
@@ -140,6 +158,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         pyproject = Path("pyproject.toml")
         pyproject.write_text("foo:bar,baz\n{dict}&&&&")
         ctx = click.Context(click.Command("snakefmt"), default_map=dict())
+        ctx.params = dict(src=(str(Path().resolve()),))
         param = mock.MagicMock()
         with pytest.raises(click.FileError):
             inject_snakefmt_config(ctx, param, None)
@@ -189,13 +208,15 @@ class TestReadBlackConfig:
         expected = black.FileMode(line_length=snakefmt_line_length)
         assert formatter.black_mode == expected
 
-    def test_invalid_black_options_in_config_ignored(self, tmp_path):
+    def test_unrecognised_black_options_in_config_ignored_and_default_line_length_used(
+        self, tmp_path
+    ):
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nfoo = false")
 
         actual = formatter.read_black_config(path)
-        expected = black.FileMode()
+        expected = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
 
         assert actual == expected
 
@@ -210,24 +231,26 @@ class TestReadBlackConfig:
         assert error.match("invalid character")
 
     def test_skip_string_normalisation_handled_with_snakecase(self, tmp_path):
-        line_length = 88
-        formatter = setup_formatter("", line_length=line_length)
+        formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nskip_string_normalization = false")
 
         actual = formatter.read_black_config(path)
-        expected = black.FileMode(line_length=line_length, string_normalization=True)
+        expected = black.FileMode(
+            line_length=DEFAULT_LINE_LENGTH, string_normalization=True
+        )
 
         assert actual == expected
 
     def test_skip_string_normalisation_handled_with_kebabcase(self, tmp_path):
-        line_length = 88
-        formatter = setup_formatter("", line_length=line_length)
+        formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nskip-string-normalization = 0")
 
         actual = formatter.read_black_config(path)
-        expected = black.FileMode(line_length=line_length, string_normalization=True)
+        expected = black.FileMode(
+            line_length=DEFAULT_LINE_LENGTH, string_normalization=True
+        )
 
         assert actual == expected
 
