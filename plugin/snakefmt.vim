@@ -29,7 +29,7 @@ from io import StringIO
 
 try:
     from snakefmt import __version__ as snakefmt_version
-    from snakefmt.snakefmt import read_snakefmt_config, DEFAULT_LINE_LENGTH
+    from snakefmt.snakefmt import read_snakefmt_config, find_pyproject_toml, DEFAULT_LINE_LENGTH
     from snakefmt.formatter import Formatter
     from snakefmt.parser.parser import Snakefile
 except ModuleNotFoundError:
@@ -39,11 +39,11 @@ except ModuleNotFoundError:
     def SnakefmtVersion():
         print(error_message)
 else:
-    from black import find_pyproject_toml
 
     def Snakefmt():
       start = time.time()
-      pyproject_toml: Optional[str] = find_pyproject_toml(vim.eval("fnamemodify(getcwd(), ':t')"))
+      source_file = (vim.eval("expand('%:p')"),)
+      pyproject_toml = find_pyproject_toml(source_file)
       config = read_snakefmt_config(pyproject_toml)
       line_length = config.get("line_length", None)
 

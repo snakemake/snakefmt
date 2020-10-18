@@ -3,11 +3,11 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Pattern, Set, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Pattern, Set, Union
 
 import click
 import toml
-from black import get_gitignore
+from black import find_project_root, get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
@@ -52,6 +52,12 @@ def read_snakefmt_config(path: Optional[str]) -> Dict[str, str]:
         )
 
 
+def find_pyproject_toml(start_path: Iterable[str]) -> Optional[str]:
+    root = find_project_root(start_path)
+    config_file = root / "pyproject.toml"
+    return str(config_file) if config_file.is_file() else None
+
+
 def inject_snakefmt_config(
     ctx: click.Context, param: click.Parameter, config_file: Optional[str] = None
 ) -> Optional[str]:
@@ -60,11 +66,7 @@ def inject_snakefmt_config(
     Injects any parsed configuration into the relevant parameters to the click `ctx`.
     """
     if config_file is None:
-        config_file = Path("pyproject.toml")
-        if not config_file.is_file():
-            return None
-        else:
-            config_file = str(config_file)
+        config_file = find_pyproject_toml(ctx.params.get("src", ()))
 
     config = read_snakefmt_config(config_file)
 
@@ -177,6 +179,7 @@ def get_snakefiles_in_dir(
     type=click.Path(
         exists=True, file_okay=True, dir_okay=True, readable=True, allow_dash=True
     ),
+    is_eager=True,
 )
 @click.option(
     "-c",
