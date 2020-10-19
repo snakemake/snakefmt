@@ -49,17 +49,16 @@ class Formatter(Parser):
         self.no_formatting_yet: bool = True
         self.last_recognised_keyword = ""
 
-        if black_config_file is None:
-            self.black_mode = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
-        else:
-            self.black_mode = self.read_black_config(black_config_file)
+        self.black_mode = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
+        if black_config_file is not None:
+            self.read_black_config(black_config_file)
 
         if line_length is not None:
             self.black_mode.line_length = line_length
 
         super().__init__(snakefile)  # Call to parse snakefile
 
-    def read_black_config(self, path: PathLike) -> black.FileMode:
+    def read_black_config(self, path: PathLike) -> None:
         if not Path(path).is_file():
             raise FileNotFoundError(f"{path} is not a file.")
 
@@ -71,7 +70,6 @@ class Formatter(Parser):
 
         valid_black_filemode_params = inspect.getfullargspec(black.FileMode).args
 
-        snakecase_config = {}
         for key, val in config.items():
             # this is due to FileMode param being string_normalise, but CLI being
             # skip_string_normalise - https://github.com/snakemake/snakefmt/issues/73
@@ -83,11 +81,7 @@ class Formatter(Parser):
             if key not in valid_black_filemode_params:
                 continue
 
-            snakecase_config[key] = val
-        if "line_length" not in snakecase_config:
-            snakecase_config["line_length"] = DEFAULT_LINE_LENGTH
-
-        return black.FileMode(**snakecase_config)
+            setattr(self.black_mode, key, val)
 
     def get_formatted(self) -> str:
         return self.result

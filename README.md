@@ -260,9 +260,10 @@ Options:
 from a `pyproject.toml` file. In addition, it will also load any [`black`
 configurations][black-config] you have in the same file.
 
-By default, `snakefmt` will search in your current directory for a file named
-`pyproject.toml`. If your configuration file is located somewhere else or called
-something different, then specify the location with `--config`.
+By default, `snakefmt` will search in the parent directories of the formatted file(s)
+for a file called `pyproject.toml` and use any configuration there. 
+If your configuration file is located somewhere else or called something different, 
+specify it using `--config`.
 
 Any options you pass on the command line will take precedence over default values in the
 configuration file.

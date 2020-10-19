@@ -39,8 +39,9 @@ class TestConfigAdherence:
 
     def test_config_adherence_for_python_outside_rules(self, cli_runner, tmp_path):
         stdin = "include: 'a'\nlist_of_lots_of_things = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+        line_length = 30
         config = tmp_path / "pyproject.toml"
-        config.write_text("[tool.snakefmt]\nline_length = 30\n")
+        config.write_text(f"[tool.snakefmt]\nline_length = {line_length}\n")
         params = ["--config", str(config), "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
@@ -107,7 +108,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
     def test_nonempty_pyproject_is_detected_and_parsed(self, testdir):
         pyproject = Path("pyproject.toml")
-        pyproject.write_text("[tool.snakefmt]\nline_length = 4\n" "foo = true")
+        pyproject.write_text("[tool.snakefmt]\nline_length = 4\n")
         default_map = dict(line_length=88)
         ctx = click.Context(click.Command("snakefmt"), default_map=default_map)
         source_file = Path("to_format.smk")
@@ -116,14 +117,26 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         parsed_config_file = inject_snakefmt_config(ctx, param, config_file=None)
         assert parsed_config_file == str(pyproject.resolve())
 
-        expected_parameters = dict(line_length=4, foo=True)
+        expected_parameters = dict(line_length=4)
+        assert ctx.default_map == expected_parameters
+
+    def test_unknown_options_in_pyproject_get_parsed(self, testdir):
+        pyproject = Path("pyproject.toml")
+        pyproject.write_text("[tool.snakefmt]\nfoo = true")
+        ctx = click.Context(click.Command("snakefmt"), default_map=dict())
+        ctx.params = dict(src=(str(Path().resolve()),))
+        param = mock.MagicMock()
+        parsed_config_file = inject_snakefmt_config(ctx, param, config_file=None)
+        assert parsed_config_file == str(pyproject.resolve())
+
+        expected_parameters = dict(foo=True)
         assert ctx.default_map == expected_parameters
 
     def test_passed_configfile_gets_parsed(self, testdir):
-        """The configfile is not names 'pyproject.toml',
+        """The configfile is not named 'pyproject.toml',
         so does not get parsed without being passed at CLI"""
         pyproject = Path("snakefmt.toml")
-        pyproject.write_text("[tool.snakefmt]\nfoo = true")
+        pyproject.write_text("[tool.snakefmt]\nline_length = 40\nfoo = 'bar'")
         param = mock.MagicMock()
 
         ctx = click.Context(click.Command("snakefmt"), default_map=None)
@@ -134,11 +147,14 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
             ctx, param, config_file=str(pyproject)
         )
         assert parsed_config_file == str(pyproject)
-        assert ctx.default_map == dict(foo=True)
+        assert ctx.default_map == dict(line_length=40, foo="bar")
 
     def test_passed_configfile_overrides_pyproject(self, testdir):
         pyproject = Path("pyproject.toml")
-        pyproject.write_text("[tool.snakefmt]\n\nfoo = false\nline_length = 90")
+        configured_line_length = 90
+        pyproject.write_text(
+            f"[tool.snakefmt]\n\nfoo = false\nline_length = {configured_line_length}"
+        )
         snakefmt_config = Path("snakefmt.toml")
         snakefmt_config.write_text("[tool.snakefmt]\nfoo = true")
         ctx = click.Context(click.Command("snakefmt"), default_map=dict())
@@ -146,7 +162,7 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
         param = mock.MagicMock()
 
         inject_snakefmt_config(ctx, param, config_file=None)
-        expected_parameters = dict(foo=False, line_length=90)
+        expected_parameters = dict(foo=False, line_length=configured_line_length)
         assert ctx.default_map == expected_parameters
 
         ctx.default_map = dict()
@@ -184,7 +200,8 @@ class TestReadBlackConfig:
         black_line_length = 9
         path.write_text(f"[tool.black]\nline_length = {black_line_length}")
 
-        actual = formatter.read_black_config(path)
+        formatter.read_black_config(path)
+        actual = formatter.black_mode
         expected = black.FileMode(line_length=black_line_length)
 
         assert actual == expected
@@ -215,7 +232,8 @@ class TestReadBlackConfig:
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nfoo = false")
 
-        actual = formatter.read_black_config(path)
+        formatter.read_black_config(path)
+        actual = formatter.black_mode
         expected = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
 
         assert actual == expected
@@ -235,7 +253,8 @@ class TestReadBlackConfig:
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nskip_string_normalization = false")
 
-        actual = formatter.read_black_config(path)
+        formatter.read_black_config(path)
+        actual = formatter.black_mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH, string_normalization=True
         )
@@ -247,7 +266,8 @@ class TestReadBlackConfig:
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nskip-string-normalization = 0")
 
-        actual = formatter.read_black_config(path)
+        formatter.read_black_config(path)
+        actual = formatter.black_mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH, string_normalization=True
         )
