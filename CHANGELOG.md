@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.2.3]
+
+### Added
+
+- Add a vim plugin to `snakefmt` [[#62][62]] and instructions to use it
+- New searching for project configuration. Used to look for `pyproject.toml` in current working directory, now recursively search for it in directories of formatted file(s).
+
 ## [0.2.2]
 
 ### Fixed
@@ -76,7 +83,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.2...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.3...HEAD
+[0.2.3]: https://github.com/snakemake/snakefmt/releases/tag/0.2.3
 [0.2.2]: https://github.com/snakemake/snakefmt/releases/tag/0.2.2
 [0.2.1]: https://github.com/snakemake/snakefmt/releases/tag/0.2.1
 [0.2.0]: https://github.com/snakemake/snakefmt/releases/tag/0.2.0
@@ -90,6 +98,7 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [55]: https://github.com/snakemake/snakefmt/issues/55
 [59]: https://github.com/snakemake/snakefmt/issues/59
 [61]: https://github.com/snakemake/snakefmt/issues/61
+[62]: https://github.com/snakemake/snakefmt/issues/62
 [65]: https://github.com/snakemake/snakefmt/issues/65
 [67]: https://github.com/snakemake/snakefmt/issues/67
 [68]: https://github.com/snakemake/snakefmt/issues/68
