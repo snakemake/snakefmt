@@ -94,3 +94,7 @@ Credit: plugin inspired by
     ```
 
 4. If you additionally want syntax highlighting on your snakemake files, install snakemake's [syntax highlighter](https://github.com/snakemake/snakemake/tree/master/misc/vim)!
+
+### Troubleshooting
+
+Under certain circumstances, import errors can occur when using a virtual environment due to _Black_ dependency imports. See the [_Black_ Vim integration docs](https://black.readthedocs.io/en/stable/editor_integration.html#vim) for more details and a potential solution.
