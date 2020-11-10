@@ -332,7 +332,7 @@ For more information check the `super-linter` readme.
 
 ### Pre-commit
 
-[Pre-commit](https://pre-commit.com/) is a framework for managing git pre-commit hooks. Using this framework you can run `snakefmt` whenever you commit a `Snakefile` or `*.smk` file. `Pre-commit` automatically creates an isolated virtual environment with `snakefmt` and will stop the commit if `snakefmt` needed to modify the file. You then review, stage, re-commit these changes. Pre-commit is especially useful if you don't have access to a CI/CD systems like GitHub actions.
+[Pre-commit](https://pre-commit.com/) is a framework for managing git pre-commit hooks. Using this framework you can run `snakefmt` whenever you commit a `Snakefile` or `*.smk` file. `Pre-commit` automatically creates an isolated virtual environment with `snakefmt` and will stop the commit if `snakefmt` would modify the file. You then review, stage, and re-commit these changes. Pre-commit is especially useful if you don't have access to a CI/CD system like GitHub actions.
 
 To do so, create the file `.pre-commit-config.yaml` in the root of your project directory with the following:
 
