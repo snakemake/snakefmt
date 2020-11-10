@@ -380,6 +380,20 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_nested_ifelse_statements_indentation_maintained(self):
+        snakecode = (
+            'if config["a"] is None:\n\n'
+            f'{TAB * 1}include: "module_a_none.smk"\n\n\n'
+            f'{TAB * 1}if config["b"] is None:\n\n'
+            f'{TAB * 2}include: "module_b.smk"\n\n\n'
+            f"{TAB * 1}else:\n\n"
+            f'{TAB * 2}include: "module_c.smk"\n\n\n'
+            "else:\n\n"
+            f'{TAB * 1}include: "module_a.smk"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestStringFormatting:
     """Naming: tpq = triple quoted string"""
