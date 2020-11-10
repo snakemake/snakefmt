@@ -261,8 +261,8 @@ from a `pyproject.toml` file. In addition, it will also load any [`black`
 configurations][black-config] you have in the same file.
 
 By default, `snakefmt` will search in the parent directories of the formatted file(s)
-for a file called `pyproject.toml` and use any configuration there. 
-If your configuration file is located somewhere else or called something different, 
+for a file called `pyproject.toml` and use any configuration there.
+If your configuration file is located somewhere else or called something different,
 specify it using `--config`.
 
 Any options you pass on the command line will take precedence over default values in the
@@ -329,6 +329,22 @@ skip_string_normalization = true
 ```
 
 For more information check the `super-linter` readme.
+
+### Pre-commit
+
+[Pre-commit](https://pre-commit.com/) is a framework for managing git pre-commit hooks. Using this framework you can run `snakefmt` whenever you commit a `Snakefile` or `*.smk` file. `Pre-commit` automatically creates an isolated virtual environment with `snakefmt` and will stop the commit if `snakefmt` would modify the file. You then review, stage, and re-commit these changes. Pre-commit is especially useful if you don't have access to a CI/CD system like GitHub actions.
+
+To do so, create the file `.pre-commit-config.yaml` in the root of your project directory with the following:
+
+```yaml
+repos:
+-    repo: https://github.com/snakemake/snakefmt
+     rev: 0.2.4 # Replace by any tag/version ≥0.2.4 : https://github.com/snakemake/snakefmt/releases
+     hooks:
+     -    id: snakefmt
+```
+
+Then [install pre-commit](https://pre-commit.com/#installation) and initialize the pre-commit hooks by running `pre-commit install` (Note you need to run this step once per clone of your repository). Additional pre-commit hooks can be found [here](https://pre-commit.com/hooks.html).
 
 ### Editor Integration
 
