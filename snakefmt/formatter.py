@@ -131,6 +131,8 @@ class Formatter(Parser):
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
+            code_indent = max(self.context.cur_indent - 1, 0)
+            formatted = f"{TAB * code_indent}{formatted}"
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
@@ -164,8 +166,8 @@ class Formatter(Parser):
         self.last_recognised_keyword = param_context.keyword_name
 
     def run_black_format_str(self, string: str, target_indent: int) -> str:
-        # need to let black know about indentation as it effects line length
-        indent_line_length = target_indent * 4
+        # need to let black know about indentation as it affects line length
+        indent_line_length = target_indent * len(TAB)
         saved_black_line_length = self.black_mode.line_length
         contextual_line_length = max(0, saved_black_line_length - indent_line_length)
         self.black_mode.line_length = contextual_line_length
