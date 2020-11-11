@@ -7,6 +7,18 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Added
+
+- `pre-commit` hook integration (@jfear)
+
+### Fixed
+
+- Proper indentation of nested if/else python code mixed with snakemake keywords [[#78][78]]
+
+### Changed
+
+- Vim plugin imports: `snakefmt` and `black` module imports raise distinct errors (@dcroote)
+
 ## [0.2.3]
 
 ### Added
@@ -104,4 +116,5 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [68]: https://github.com/snakemake/snakefmt/issues/68
 [73]: https://github.com/snakemake/snakefmt/issues/73
 [74]: https://github.com/snakemake/snakefmt/pull/74
+[78]: https://github.com/snakemake/snakefmt/issues/78
 
