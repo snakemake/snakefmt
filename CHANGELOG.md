@@ -7,6 +7,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.2.4]
+
 ### Added
 
 - `pre-commit` hook integration (@jfear)
@@ -95,7 +97,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.3...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.4...HEAD
+[0.2.4]: https://github.com/snakemake/snakefmt/releases/tag/0.2.4
 [0.2.3]: https://github.com/snakemake/snakefmt/releases/tag/0.2.3
 [0.2.2]: https://github.com/snakemake/snakefmt/releases/tag/0.2.2
 [0.2.1]: https://github.com/snakemake/snakefmt/releases/tag/0.2.1
