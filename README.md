@@ -30,8 +30,9 @@ design and specifications of [Black][black].
   - [Full Usage](#full-usage)
 - [Configuration](#configuration)
 - [Integration](#integration)
-    - [Github Actions](#github-actions)
     - [Editor Integration](#editor-integration)
+    - [Version Control Integration](#version-control-integration)
+    - [Github Actions](#github-actions)
 - [Plug Us](#plug-us)
 - [Changes](#changes)
 - [Contributing](#contributing)
@@ -289,6 +290,28 @@ on the `[tool.black]` settings, internally, to `black`.
 
 ## Integration
 
+
+### Editor Integration
+
+For instructions on how to integrate `snakefmt` into your editor of choice, refer to
+[`docs/editor_integration.md`](docs/editor_integration.md)
+
+### Version Control Integration
+
+`snakefmt` supports [pre-commit](https://pre-commit.com/), a framework for managing git pre-commit hooks. Using this framework you can run `snakefmt` whenever you commit a `Snakefile` or `*.smk` file. `Pre-commit` automatically creates an isolated virtual environment with `snakefmt` and will stop the commit if `snakefmt` would modify the file. You then review, stage, and re-commit these changes. Pre-commit is especially useful if you don't have access to a CI/CD system like GitHub actions.
+
+To do so, create the file `.pre-commit-config.yaml` in the root of your project directory with the following:
+
+```yaml
+repos:
+  - repo: https://github.com/snakemake/snakefmt
+    rev: 0.2.4 # Replace by any tag/version ≥0.2.4 : https://github.com/snakemake/snakefmt/releases
+    hooks:
+      - id: snakefmt
+```
+
+Then [install pre-commit](https://pre-commit.com/#installation) and initialize the pre-commit hooks by running `pre-commit install` (Note you need to run this step once per clone of your repository). Additional pre-commit hooks can be found [here](https://pre-commit.com/hooks.html).
+
 ### GitHub Actions
 
 [GitHub Actions](https://github.com/features/actions) in combination with [super-linter](https://github.com/github/super-linter) allows you to automatically run `snakefmt` on all Snakefiles in your repository e.g. whenever you push a new commit.
@@ -329,27 +352,6 @@ skip_string_normalization = true
 ```
 
 For more information check the `super-linter` readme.
-
-### Pre-commit
-
-[Pre-commit](https://pre-commit.com/) is a framework for managing git pre-commit hooks. Using this framework you can run `snakefmt` whenever you commit a `Snakefile` or `*.smk` file. `Pre-commit` automatically creates an isolated virtual environment with `snakefmt` and will stop the commit if `snakefmt` would modify the file. You then review, stage, and re-commit these changes. Pre-commit is especially useful if you don't have access to a CI/CD system like GitHub actions.
-
-To do so, create the file `.pre-commit-config.yaml` in the root of your project directory with the following:
-
-```yaml
-repos:
--    repo: https://github.com/snakemake/snakefmt
-     rev: 0.2.4 # Replace by any tag/version ≥0.2.4 : https://github.com/snakemake/snakefmt/releases
-     hooks:
-     -    id: snakefmt
-```
-
-Then [install pre-commit](https://pre-commit.com/#installation) and initialize the pre-commit hooks by running `pre-commit install` (Note you need to run this step once per clone of your repository). Additional pre-commit hooks can be found [here](https://pre-commit.com/hooks.html).
-
-### Editor Integration
-
-For instructions on how to integrate `snakefmt` into your editor of choice, refer to
-[`docs/editor_integration.md`](docs/editor_integration.md)
 
 ## Plug Us
 
