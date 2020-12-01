@@ -1,3 +1,6 @@
+"""
+Code in charge of parsing and validating Snakemake syntax
+"""
 import tokenize
 from typing import NamedTuple, Optional
 
@@ -10,7 +13,16 @@ from snakefmt.exceptions import (
     NoParametersError,
     TooManyParameters,
 )
-from snakefmt.types import Parameter, Token, TokenIterator
+from snakefmt.types import (
+    TAB,
+    COMMENT_SPACING,
+    Parameter,
+    Token,
+    TokenIterator,
+    line_nb,
+    col_nb,
+    not_empty,
+)
 
 possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 
@@ -18,12 +30,14 @@ possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
-TAB = "    "  # PEP8, indentation will be coded as 4 spaces
-COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
 
 
 def is_colon(token: Token):
     return token.type == tokenize.OP and token.string == ":"
+
+
+def is_newline(token: Token):
+    return token.type == tokenize.NEWLINE or token.type == tokenize.NL
 
 
 def brack_open(token: Token):
@@ -40,10 +54,6 @@ def is_equal_sign(token: Token):
 
 def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
-
-
-def not_empty(token: Token):
-    return len(token.string) > 0 and not token.string.isspace()
 
 
 # ___Token spacing: for when cannot run black___#
@@ -142,13 +152,12 @@ class Syntax:
 
     @property
     def line_nb(self):
-        return f"L{self.token.start[0]}: "
-
-
-# ___Keyword parsing___#
+        return f"L{line_nb(self.token)}: "
 
 
 class KeywordSyntax(Syntax):
+    """Parses snakemake keywords that accept other keywords, eg 'rule'"""
+
     def __init__(
         self,
         keyword_name: str,
@@ -216,7 +225,7 @@ class KeywordSyntax(Syntax):
             elif token.type == tokenize.COMMENT:
                 if token.start[1] == 0:
                     return self.Status(token, 0, buffer, False, pythonable)
-            elif token.type == tokenize.NEWLINE or token.type == tokenize.NL:
+            elif is_newline(token):
                 self.queriable, newline = True, True
                 buffer += "\n"
                 prev_token = None
@@ -242,12 +251,9 @@ class KeywordSyntax(Syntax):
             buffer += token.string
 
 
-"""
-Parameter parsing
-"""
-
-
 class ParameterSyntax(Syntax):
+    """Parses snakemake keywords that accept values, eg 'input'"""
+
     def __init__(
         self,
         keyword_name: str,
@@ -260,8 +266,8 @@ class ParameterSyntax(Syntax):
         self.eof = False
         self.incident_vocab = incident_vocab
         self._brackets = list()
-        self.found_newline, self.in_lambda = False, False
-        self.latest_pushed_param = None
+        self.in_lambda = False
+        self.found_newline = False
 
         self.parse_params(snakefile)
 
@@ -274,7 +280,7 @@ class ParameterSyntax(Syntax):
         return len(self._brackets) > 0
 
     def parse_params(self, snakefile: TokenIterator):
-        cur_param = Parameter(self.line_nb)
+        cur_param = Parameter(self.token)
 
         while True:
             cur_param = self.process_token(cur_param)
@@ -291,43 +297,47 @@ class ParameterSyntax(Syntax):
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
     def check_exit(self, cur_param: Parameter):
-        res = False
-        if self.found_newline and not_empty(self.token):
-            # Special condition for comments: they do not trigger indents/dedents.
+        exit = False
+        if not self.found_newline:
+            return exit
+        if not_empty(self.token):
+            # Special condition for comments: they appear before indents/dedents.
             if self.token.type == tokenize.COMMENT:
-                if self.token.start[1] == 0:
-                    res = True
-            elif self.cur_indent < self.target_indent:
-                res = True
-        if res:
-            self.flush_param(cur_param, skip_empty=True)
-        return res
+                if not cur_param.is_empty() and col_nb(self.token) < cur_param.col_nb:
+                    exit = True
+            else:
+                exit = self.cur_indent < self.target_indent
+            if exit:
+                self.flush_param(cur_param, skip_empty=True)
+        return exit
 
     def process_token(self, cur_param: Parameter) -> Parameter:
         token_type = self.token.type
+        # Eager treatment of comments: tag them onto params
+        if token_type == tokenize.COMMENT and not self.in_brackets:
+            cur_param.add_comment(self.token.string, self.target_indent)
+            return cur_param
+        if is_newline(self.token):  # Special treatment for inline comments
+            if cur_param.fully_processed:
+                cur_param.inline = False
+            elif cur_param.has_value():
+                cur_param.add_elem(self.token)
+            self.found_newline = True
+            return cur_param
+
+        if cur_param.fully_processed:
+            self.flush_param(cur_param)
+            cur_param = Parameter(self.token)
+
         if token_type == tokenize.INDENT:
             self.cur_indent += 1
         elif token_type == tokenize.DEDENT:
             if self.cur_indent > 0:
                 self.cur_indent -= 1
-        elif token_type == tokenize.NEWLINE or token_type == tokenize.NL:
-            self.found_newline = True
-            if cur_param.has_value():
-                cur_param.add_elem(self.token)
-        elif token_type == tokenize.COMMENT and not self.in_brackets:
-            if str(cur_param) == "" and self.latest_pushed_param is not None:
-                target = self.latest_pushed_param.comments
-            else:
-                target = cur_param.comments
-            if len(target) == 0:
-                target.append(f"{COMMENT_SPACING}{self.token.string}")
-            else:
-                target.append(self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
-            self.flush_param(cur_param)
-            cur_param = Parameter(self.line_nb)
+            cur_param.fully_processed = True
         elif token_type != tokenize.ENDMARKER:
             if brack_open(self.token):
                 self._brackets.append(self.token.string)
@@ -354,10 +364,8 @@ class ParameterSyntax(Syntax):
 
         if parameter.has_a_key():
             self.keyword_params.append(parameter)
-            self.latest_pushed_param = self.keyword_params[-1]
         else:
             self.positional_params.append(parameter)
-            self.latest_pushed_param = self.positional_params[-1]
 
     def num_params(self):
         return len(self.keyword_params) + len(self.positional_params)

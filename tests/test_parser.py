@@ -19,6 +19,35 @@ from snakefmt.exceptions import (
 from snakefmt.formatter import TAB
 from tests import Formatter, Snakefile, setup_formatter
 
+class TestSnakefileTokenizer:
+    text = f"rule a:\n{TAB * 1}threads: 8"
+    def test_snakefile_sequential_parsing(self):
+        istream = StringIO(self.text)
+        expected_sequence = istream.read().split()
+        istream.seek(0)
+        snakefile = Snakefile(istream)
+        for expected_word in expected_sequence:
+            try:
+                parsed_word = next(snakefile).string
+                assert expected_word == parsed_word
+            except Exception:
+                break
+
+    def test_snakefile_staggered_parsing(self):
+        snakefile = Snakefile(StringIO(self.text))
+        token_buffer = list()
+        next(snakefile)
+        for _ in range(3):
+            token_buffer.append(next(snakefile))
+        for token in reversed(token_buffer):
+            snakefile.denext(token)
+        result_sequence = list()
+        for _ in range(3):
+            result_sequence.append(next(snakefile).string)
+        expected_sequence = ["a",":","\n"]
+        assert expected_sequence == result_sequence
+
+
 
 class TestKeywordSyntax:
     def test_nocolon(self):
