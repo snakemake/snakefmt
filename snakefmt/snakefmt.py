@@ -3,14 +3,14 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, List, Optional, Pattern, Set, Union
+from typing import Iterator, List, Optional, Pattern, Set, Union
 
 import click
-import toml
-from black import find_project_root, get_gitignore
+from black import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
+from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
 from snakefmt.formatter import Formatter
 from snakefmt.parser.parser import Snakefile
@@ -35,45 +35,6 @@ def construct_regex(regex: str) -> Pattern[str]:
         if "\n" in regex
         else re.compile(regex)
     )
-
-
-def read_snakefmt_config(path: Optional[str]) -> Dict[str, str]:
-    """Parse Snakefmt configuration from provided toml."""
-    if path is None:
-        return dict()
-    try:
-        config_toml = toml.load(path)
-        config = config_toml.get("tool", {}).get("snakefmt", {})
-        config = {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
-        return config
-    except (toml.TomlDecodeError, OSError) as error:
-        raise click.FileError(
-            filename=path, hint=f"Error reading configuration file: {error}"
-        )
-
-
-def find_pyproject_toml(start_path: Iterable[str]) -> Optional[str]:
-    root = find_project_root(start_path)
-    config_file = root / "pyproject.toml"
-    return str(config_file) if config_file.is_file() else None
-
-
-def inject_snakefmt_config(
-    ctx: click.Context, param: click.Parameter, config_file: Optional[str] = None
-) -> Optional[str]:
-    """
-    If no config file argument provided, parses "pyproject.toml" if one exists.
-    Injects any parsed configuration into the relevant parameters to the click `ctx`.
-    """
-    if config_file is None:
-        config_file = find_pyproject_toml(ctx.params.get("src", ()))
-
-    config = read_snakefmt_config(config_file)
-
-    if ctx.default_map is None:
-        ctx.default_map = {}
-    ctx.default_map.update(config)  # type: ignore  # bad types in .pyi
-    return config_file
 
 
 def get_snakefiles_in_dir(

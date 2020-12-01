@@ -42,7 +42,7 @@ except ModuleNotFoundError:
 
 
 else:
-    from snakefmt.snakefmt import (
+    from snakefmt.config import (
         read_snakefmt_config,
         find_pyproject_toml,
         DEFAULT_LINE_LENGTH,

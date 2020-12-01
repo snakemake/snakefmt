@@ -8,12 +8,13 @@ import pytest
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import MalformattedToml
 from snakefmt.formatter import TAB
-from snakefmt.snakefmt import (
+from snakefmt.config import (
     find_pyproject_toml,
     inject_snakefmt_config,
-    main,
     read_snakefmt_config,
+    read_black_config,
 )
+from snakefmt.snakefmt import main
 from tests import setup_formatter
 
 
@@ -185,7 +186,7 @@ class TestReadBlackConfig:
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         with pytest.raises(FileNotFoundError):
-            formatter.read_black_config(path)
+            read_black_config(path)
 
     def test_empty_config_default_line_length_used(self, tmp_path):
         formatter = setup_formatter("")
@@ -200,8 +201,7 @@ class TestReadBlackConfig:
         black_line_length = 9
         path.write_text(f"[tool.black]\nline_length = {black_line_length}")
 
-        formatter.read_black_config(path)
-        actual = formatter.black_mode
+        actual = read_black_config(path)
         expected = black.FileMode(line_length=black_line_length)
 
         assert actual == expected
@@ -232,7 +232,7 @@ class TestReadBlackConfig:
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nfoo = false")
 
-        formatter.read_black_config(path)
+        read_black_config(path)
         actual = formatter.black_mode
         expected = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
 
@@ -244,7 +244,7 @@ class TestReadBlackConfig:
         path.write_text("[tool.black]\n{key}: I am not json:\n or yaml = false")
 
         with pytest.raises(MalformattedToml) as error:
-            formatter.read_black_config(path)
+            read_black_config(path)
 
         assert error.match("invalid character")
 
@@ -253,7 +253,7 @@ class TestReadBlackConfig:
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nskip_string_normalization = false")
 
-        formatter.read_black_config(path)
+        read_black_config(path)
         actual = formatter.black_mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH, string_normalization=True
@@ -266,7 +266,7 @@ class TestReadBlackConfig:
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\nskip-string-normalization = 0")
 
-        formatter.read_black_config(path)
+        read_black_config(path)
         actual = formatter.black_mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH, string_normalization=True

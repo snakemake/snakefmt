@@ -1,16 +1,13 @@
-import inspect
 import re
 import textwrap
+from copy import copy
 from ast import parse as ast_parse
-from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import black
-import toml
 
 import snakefmt.warnings as warnings
-from snakefmt import DEFAULT_LINE_LENGTH
-from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython, MalformattedToml
+from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import (
@@ -23,8 +20,8 @@ from snakefmt.parser.syntax import (
     Syntax,
 )
 from snakefmt.types import TokenIterator
+from snakefmt.config import read_black_config, PathLike
 
-PathLike = Union[Path, str]
 rule_like_formatted = {"rule", "checkpoint"}
 
 triple_quote_matcher = re.compile(
@@ -51,39 +48,12 @@ class Formatter(Parser):
         self.no_formatting_yet: bool = True
         self.last_recognised_keyword = ""
 
-        self.black_mode = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
-        if black_config_file is not None:
-            self.read_black_config(black_config_file)
+        self.black_mode = read_black_config(black_config_file)
 
         if line_length is not None:
             self.black_mode.line_length = line_length
 
         super().__init__(snakefile)  # Call to parse snakefile
-
-    def read_black_config(self, path: PathLike) -> None:
-        if not Path(path).is_file():
-            raise FileNotFoundError(f"{path} is not a file.")
-
-        try:
-            pyproject_toml = toml.load(path)
-            config = pyproject_toml.get("tool", {}).get("black", {})
-        except toml.TomlDecodeError as error:
-            raise MalformattedToml(error)
-
-        valid_black_filemode_params = inspect.getfullargspec(black.FileMode).args
-
-        for key, val in config.items():
-            # this is due to FileMode param being string_normalise, but CLI being
-            # skip_string_normalise - https://github.com/snakemake/snakefmt/issues/73
-            if key.startswith("skip"):
-                key = key[5:]
-                val = not val
-
-            key = key.replace("-", "_")
-            if key not in valid_black_filemode_params:
-                continue
-
-            setattr(self.black_mode, key, val)
 
     def get_formatted(self) -> str:
         return self.result
@@ -168,18 +138,16 @@ class Formatter(Parser):
         self.last_recognised_keyword = param_context.keyword_name
 
     def run_black_format_str(self, string: str, target_indent: int) -> str:
-        # need to let black know about indentation as it affects line length
-        indent_line_length = target_indent * len(TAB)
-        saved_black_line_length = self.black_mode.line_length
-        contextual_line_length = max(0, saved_black_line_length - indent_line_length)
-        self.black_mode.line_length = contextual_line_length
+        # reduce black target line length according to how indented the code is
+        current_line_length = target_indent * len(TAB)
+        black_mode = copy(self.black_mode)
+        black_mode.line_length = max(0, black_mode.line_length - current_line_length)
         try:
-            fmted = black.format_str(string, mode=self.black_mode)
+            fmted = black.format_str(string, mode=black_mode)
         except black.InvalidInput as e:
             raise InvalidPython(
                 f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
             ) from None
-        self.black_mode.line_length = saved_black_line_length
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:
