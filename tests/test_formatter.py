@@ -626,6 +626,24 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
+    def test_preceding_comments_in_inline_formatted_params_get_relocated(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB * 1}# Threads1\n"
+            f"{TAB * 1}threads: # Threads2\n"
+            f"{TAB * 2}# Threads3\n"
+            f"{TAB * 2}8  # Threads 4\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB * 1}# Threads1\n"
+            f"{TAB * 1}# Threads2\n"
+            f"{TAB * 1}# Threads3\n"
+            f"{TAB * 1}threads: 8  # Threads 4\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
     def test_no_inline_comments_stay_untouched(self):
         snakecode = (
             "rule all:\n"

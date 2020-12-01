@@ -318,9 +318,9 @@ class ParameterSyntax(Syntax):
             cur_param.add_comment(self.token.string, self.target_indent)
             return cur_param
         if is_newline(self.token):  # Special treatment for inline comments
-            if cur_param.fully_processed:
+            if not cur_param.is_empty():
                 cur_param.inline = False
-            elif cur_param.has_value():
+            if cur_param.has_value():
                 cur_param.add_elem(self.token)
             self.found_newline = True
             return cur_param
