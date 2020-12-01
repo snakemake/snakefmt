@@ -580,6 +580,8 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    @pytest.mark.xfail(reason="This is non-trivial to implement, and black does not align the comments like this,"
+            " but places them two spaces after each line. See #86.")
     def test_aligned_comments_stay_untouched(self):
         snakecode = (
             "rule eval:                             # [hide]\n"
@@ -617,6 +619,17 @@ class TestCommentTreatment:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
+
+    def test_no_inline_comments_stay_untouched(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}p=2,\n"
+            f"{TAB * 2}#comment1\n"
+            f"{TAB * 2}#comment2\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
 
 
 

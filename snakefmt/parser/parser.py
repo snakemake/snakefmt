@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import Grammar, PythonCode, SnakeGlobal
 from snakefmt.parser.syntax import KeywordSyntax, ParameterSyntax, Syntax, Vocabulary
-from snakefmt.types import TokenIterator
+from snakefmt.types import Token, TokenIterator
 
 
 class Snakefile:
@@ -18,12 +18,19 @@ class Snakefile:
         except TypeError:
             self.stream = fpath_or_stream
 
-        self.tokens = tokenize.generate_tokens(self.stream.readline)
+        self._live_tokens = tokenize.generate_tokens(self.stream.readline)
+        self._buffered_tokens = list()
         self.rulecount = rulecount
         self.lines = 0
 
-    def __next__(self):
-        return next(self.tokens)
+    def __next__(self) -> Token:
+        if len(self._buffered_tokens) == 0:
+            return next(self._live_tokens)
+        else:
+            return self._buffered_tokens.pop()
+
+    def denext(self, token: Token) -> None:
+        self._buffered_tokens.append(token)
 
 
 class Parser(ABC):

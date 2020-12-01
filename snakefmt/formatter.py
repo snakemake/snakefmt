@@ -215,7 +215,6 @@ class Formatter(Parser):
     ) -> str:
         if inline_formatting:
             target_indent = 0
-        comments = f"\n{TAB * target_indent}".join(parameter.comments)
         val = str(parameter)
 
         try:
@@ -237,11 +236,13 @@ class Formatter(Parser):
             match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
             val = f"{match_equal.group(1)}={match_equal.group(2)}"
 
-        val = val.strip("\n")
-        if single_param:
-            result = f"{val}{comments}\n"
-        else:
-            result = f"{val},{comments}\n"
+        result = ""
+        if len(parameter.pre_comments) != 0:
+            result += "\n".join(parameter.pre_comments) + "\n" 
+        result += val.strip("\n")
+        if not single_param:
+            result += ","
+        result += "\n".join(parameter.post_comments) + "\n"
         return result
 
     def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
