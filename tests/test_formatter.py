@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from snakefmt.formatter import TAB
+from snakefmt.parser.syntax import TAB, COMMENT_SPACING
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from tests import Formatter, Snakefile, setup_formatter
 
@@ -531,7 +531,7 @@ class TestCommentTreatment:
         assert formatter.get_formatted() == expected
 
     def test_comment_after_keyword_kept(self):
-        snakecode = "rule a: # A comment \n" f"{TAB * 1}threads: 4\n"
+        snakecode = "rule a:  # A comment \n" f"{TAB * 1}threads: 4\n"
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
@@ -539,38 +539,85 @@ class TestCommentTreatment:
         snakecode = (
             f"rule a:\n"
             f"{TAB * 1}input:\n"
-            f'{TAB * 2}"myparam", # a comment\n'
-            f'{TAB * 2}b="param2", # another comment\n'
+            f'{TAB * 2}"myparam",  # a comment\n'
+            f'{TAB * 2}b="param2",  # another comment\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_comment_outside_keyword_context(self):
+    def test_comments_PEP8_spaced_and_aligned(self):
+        snakecode = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"myparam",{COMMENT_SPACING * 2}# a comment\n'
+            f"{TAB * 2}    # another comment\n"
+        )
+        expected = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"myparam",{COMMENT_SPACING}# a comment\n'
+            f"{TAB * 2}# another comment\n"
+        )
+
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_comment_outside_keyword_context_stays_untouched(self):
         snakecode = (
             f"rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}f()\n\n\n" f"# A comment\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_comments_inside_param_function_kept_and_formatted(self):
+    def test_comment_below_paramkeyword_stays_untouched(self):
         snakecode = (
             "rule all:\n"
             f"{TAB * 1}input:\n"
-            f"{TAB * 2}list_of_things=[\n"
-            f"{TAB * 3}elem1, #elem1,\n"
-            f"{TAB * 3}elem2,#elem2,\n"
-            f"{TAB * 2}],\n"
+            f"{TAB * 2}# A list of inputs\n"
+            f"{TAB * 2}elem1,  #The first elem\n"
+            f"{TAB * 2}elem1,  #The second elem\n"
         )
         formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_aligned_comments_stay_untouched(self):
+        snakecode = (
+            "rule eval:                             # [hide]\n"
+            f"{TAB * 1}output:                      # [hide]\n"
+            f'{TAB * 2}directory("resources/eval"), # [hide]\n'
+            f"{TAB * 1}wrapper:                     # [hide]\n"
+            f'{TAB * 2}"master/bio/benchmark/eval"  # [hide]\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_comments_above_parameter_keyword_stay_untouched(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB * 1}params:\n"
+            f'{TAB * 2}extra="",  # optional\n'
+            f"{TAB * 1}# comment1 above resources\n"
+            f"{TAB * 1}# comment2 above resources\n"
+            f"{TAB * 1}resources:\n"
+            f"{TAB * 2}mem_mb=1024,\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+    
+
+    def test_inline_param_merges_comments(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB * 1}threads:  # comment 1\n"
+            f"{TAB * 2}8  # comment 2\n"
+        )
         expected = (
             "rule all:\n"
-            f"{TAB * 1}input:\n"
-            f"{TAB * 2}list_of_things=[\n"
-            f"{TAB * 3}elem1,  # elem1,\n"
-            f"{TAB * 3}elem2,  # elem2,\n"
-            f"{TAB * 2}],\n"
+            f"{TAB * 1}threads: 8 # comment 1; comment 2\n"
         )
+        formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
+
 
 
 class TestNewlineSpacing:

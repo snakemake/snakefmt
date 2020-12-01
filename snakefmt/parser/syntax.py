@@ -19,6 +19,7 @@ QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
 TAB = "    "  # PEP8, indentation will be coded as 4 spaces
+COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
 
 
 def is_colon(token: Token):
@@ -136,7 +137,7 @@ class Syntax:
         self.token = next(snakefile)
 
         if self.token.type == tokenize.COMMENT:
-            self.comment = f" {self.token.string}"
+            self.comment = f"{COMMENT_SPACING}{self.token.string}"
             self.token = next(snakefile)
 
     @property
@@ -318,7 +319,10 @@ class ParameterSyntax(Syntax):
                 target = self.latest_pushed_param.comments
             else:
                 target = cur_param.comments
-            target.append(" " + self.token.string)
+            if len(target) == 0:
+                target.append(f"{COMMENT_SPACING}{self.token.string}")
+            else:
+                target.append(self.token.string)
         elif is_equal_sign(self.token) and not self.in_brackets:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
