@@ -43,7 +43,7 @@ class Parameter:
         self.len = 0
         self.inline: bool = True
         self.fully_processed: bool = False
-        self._num_post_added = 0
+        self._has_inline_comment: bool = False
 
     def __repr__(self):
         if self.has_a_key():
@@ -56,16 +56,11 @@ class Parameter:
 
     def add_comment(self, comment: str, indent_level: int) -> None:
         if self.is_empty():
-            self.pre_comments.append(f"{TAB * indent_level}{comment}")
+            self.pre_comments.append(comment)
         else:
             if self.inline:
-                self.post_comments.append(f"{COMMENT_SPACING}{comment}")
-            else:
-                to_add = f"{TAB * indent_level}{comment}"
-                if self._num_post_added == 0:  # Make sure will not appear inline
-                    to_add = "\n" + to_add
-                self.post_comments.append(to_add)
-            self._num_post_added += 1
+                self._has_inline_comment = True
+            self.post_comments.append(comment)
 
     def has_a_key(self) -> bool:
         return len(self.key) > 0

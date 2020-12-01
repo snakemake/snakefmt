@@ -8,11 +8,13 @@ from typing import Optional, Union
 import black
 import toml
 
+import snakefmt.warnings as warnings
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython, MalformattedToml
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import (
+    COMMENT_SPACING,
     TAB,
     Parameter,
     ParameterSyntax,
@@ -213,6 +215,7 @@ class Formatter(Parser):
         inline_formatting: bool,
         single_param: bool = False,
     ) -> str:
+        string_indent = TAB * target_indent
         if inline_formatting:
             target_indent = 0
         val = str(parameter)
@@ -237,12 +240,18 @@ class Formatter(Parser):
             val = f"{match_equal.group(1)}={match_equal.group(2)}"
 
         result = ""
-        if len(parameter.pre_comments) != 0:
-            result += "\n".join(parameter.pre_comments) + "\n"
+        if not inline_formatting:
+            for comment in parameter.pre_comments:
+                result += f"{string_indent}{comment}\n"
         result += val.strip("\n")
         if not single_param:
             result += ","
-        result += "\n".join(parameter.post_comments) + "\n"
+        post_comment_iter = iter(parameter.post_comments)
+        if parameter._has_inline_comment:
+            result += f"{COMMENT_SPACING}{next(post_comment_iter)}"
+        result += "\n"
+        for comment in post_comment_iter:
+            result += f"{string_indent}{comment}\n"
         return result
 
     def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
@@ -259,15 +268,24 @@ class Formatter(Parser):
         result = f"{used_indent}{parameters.keyword_name}:"
         if inline_fmting:
             result += " "
+            prepended_comments = ""
             if parameters.comment != "":
-                result = f"{used_indent}{parameters.comment.lstrip()}\n{result}"
+                prepended_comments += f"{used_indent}{parameters.comment.lstrip()}\n"
+            param = next(iter(parameters.all_params))
+            for comment in param.pre_comments:
+                prepended_comments += f"{used_indent}{comment}\n"
+            if prepended_comments != "":
+                warnings.comment_relocation(parameters.keyword_name, param.line_nb)
+            result = f"{prepended_comments}{result}"
         else:
             result += f"{parameters.comment}\n"
-
-        for elem in parameters.all_params:
+        for param in parameters.all_params:
             result += self.format_param(
-                elem, target_indent, inline_fmting, single_param
+                param, target_indent, inline_fmting, single_param
             )
+        num_c = len(param.post_comments)
+        if num_c > 1 or (not param._has_inline_comment and num_c == 1):
+            warnings.block_comment_below(parameters.keyword_name, param.line_nb)
         return result
 
     def add_newlines(
