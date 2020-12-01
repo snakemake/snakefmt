@@ -19,8 +19,10 @@ from snakefmt.exceptions import (
 from snakefmt.formatter import TAB
 from tests import Formatter, Snakefile, setup_formatter
 
+
 class TestSnakefileTokenizer:
     text = f"rule a:\n{TAB * 1}threads: 8"
+
     def test_snakefile_sequential_parsing(self):
         istream = StringIO(self.text)
         expected_sequence = istream.read().split()
@@ -44,9 +46,8 @@ class TestSnakefileTokenizer:
         result_sequence = list()
         for _ in range(3):
             result_sequence.append(next(snakefile).string)
-        expected_sequence = ["a",":","\n"]
+        expected_sequence = ["a", ":", "\n"]
         assert expected_sequence == result_sequence
-
 
 
 class TestKeywordSyntax:

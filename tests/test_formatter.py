@@ -8,8 +8,8 @@ from unittest import mock
 
 import pytest
 
-from snakefmt.parser.syntax import TAB, COMMENT_SPACING
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
+from snakefmt.parser.syntax import COMMENT_SPACING, TAB
 from tests import Formatter, Snakefile, setup_formatter
 
 
@@ -580,8 +580,10 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    @pytest.mark.xfail(reason="This is non-trivial to implement, and black does not align the comments like this,"
-            " but places them two spaces after each line. See #86.")
+    @pytest.mark.xfail(
+        reason="""This is non-trivial to implement, and black does no align the comments
+        like this, but places them two spaces after each line. See #86."""
+    )
     def test_aligned_comments_stay_untouched(self):
         snakecode = (
             "rule eval:                             # [hide]\n"
@@ -605,17 +607,21 @@ class TestCommentTreatment:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
-    
 
-    def test_inline_param_merges_comments(self):
+    def test_inline_formatted_params_relocate_inline_comments(self):
         snakecode = (
+            "include: # Include\n"
+            f"{TAB * 1}file.txt\n\n\n"
             "rule all:\n"
-            f"{TAB * 1}threads:  # comment 1\n"
-            f"{TAB * 2}8  # comment 2\n"
+            f"{TAB * 1}threads:  # Threads 1\n"
+            f"{TAB * 2}8  # Threads 2\n"
         )
         expected = (
+            "# Include\n"
+            f"include: file.txt\n\n\n"
             "rule all:\n"
-            f"{TAB * 1}threads: 8 # comment 1; comment 2\n"
+            f"{TAB * 1}# Threads 1\n"
+            f"{TAB * 1}threads: 8  # Threads 2\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
@@ -630,7 +636,6 @@ class TestCommentTreatment:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
-
 
 
 class TestNewlineSpacing:

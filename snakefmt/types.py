@@ -13,11 +13,14 @@ class Token(NamedTuple):
     start: Tuple[int, int] = (-1, -1)
     end: Tuple[int, int] = (-1, -1)
 
+
 def line_nb(token: Token) -> int:
     return token.start[0]
 
+
 def col_nb(token: Token) -> int:
     return token.start[1]
+
 
 def not_empty(token: Token):
     return len(token.string) > 0 and not token.string.isspace()
@@ -52,7 +55,7 @@ class Parameter:
         return str(self) == ""
 
     def add_comment(self, comment: str, indent_level: int) -> None:
-        if self.is_empty(): 
+        if self.is_empty():
             self.pre_comments.append(f"{TAB * indent_level}{comment}")
         else:
             if self.inline:

@@ -238,7 +238,7 @@ class Formatter(Parser):
 
         result = ""
         if len(parameter.pre_comments) != 0:
-            result += "\n".join(parameter.pre_comments) + "\n" 
+            result += "\n".join(parameter.pre_comments) + "\n"
         result += val.strip("\n")
         if not single_param:
             result += ","
@@ -248,7 +248,6 @@ class Formatter(Parser):
     def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
         target_indent = parameters.target_indent
         used_indent = TAB * (target_indent - 1)
-        result = f"{used_indent}{parameters.keyword_name}:{parameters.comment}"
 
         p_class = parameters.__class__
         single_param = issubclass(p_class, SingleParam)
@@ -257,10 +256,13 @@ class Formatter(Parser):
         if in_rule and p_class is not RuleInlineSingleParam:
             inline_fmting = False
 
+        result = f"{used_indent}{parameters.keyword_name}:"
         if inline_fmting:
             result += " "
+            if parameters.comment != "":
+                result = f"{used_indent}{parameters.comment.lstrip()}\n{result}"
         else:
-            result += "\n"
+            result += f"{parameters.comment}\n"
 
         for elem in parameters.all_params:
             result += self.format_param(
