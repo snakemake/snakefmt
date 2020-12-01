@@ -14,13 +14,13 @@ from snakefmt.exceptions import (
     TooManyParameters,
 )
 from snakefmt.types import (
-    TAB,
     COMMENT_SPACING,
+    TAB,
     Parameter,
     Token,
     TokenIterator,
-    line_nb,
     col_nb,
+    line_nb,
     not_empty,
 )
 
@@ -252,7 +252,7 @@ class KeywordSyntax(Syntax):
 
 
 class ParameterSyntax(Syntax):
-    """Parses snakemake keywords that accept values, eg 'input'"""
+    """Parses snakemake keywords that do not accept other keywords, eg 'input'"""
 
     def __init__(
         self,
