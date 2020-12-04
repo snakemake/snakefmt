@@ -6,14 +6,14 @@ import click
 import pytest
 
 from snakefmt import DEFAULT_LINE_LENGTH
-from snakefmt.exceptions import MalformattedToml
-from snakefmt.formatter import TAB
 from snakefmt.config import (
     find_pyproject_toml,
     inject_snakefmt_config,
-    read_snakefmt_config,
     read_black_config,
+    read_snakefmt_config,
 )
+from snakefmt.exceptions import MalformattedToml
+from snakefmt.formatter import TAB
 from snakefmt.snakefmt import main
 from tests import setup_formatter
 
@@ -183,7 +183,6 @@ class TestReadSnakefmtDefaultsFromPyprojectToml:
 
 class TestReadBlackConfig:
     def test_config_doesnt_exist_raises_error(self, tmp_path):
-        formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         with pytest.raises(FileNotFoundError):
             read_black_config(path)
@@ -196,7 +195,6 @@ class TestReadBlackConfig:
         assert formatter.black_mode == expected
 
     def test_read_black_config_settings(self, tmp_path):
-        formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         black_line_length = 9
         path.write_text(f"[tool.black]\nline_length = {black_line_length}")
@@ -239,7 +237,6 @@ class TestReadBlackConfig:
         assert actual == expected
 
     def test_malformatted_toml_raises_error(self, tmp_path):
-        formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.write_text("[tool.black]\n{key}: I am not json:\n or yaml = false")
 

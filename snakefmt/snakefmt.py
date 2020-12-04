@@ -181,7 +181,7 @@ def main(
      `snakefmt - < Snakefile` to avoid this.
     """
     log_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(format="[%(levelname)s] %(message)s", level=log_level)
+    toggle_logging(log_level)
 
     if not src:
         click.echo(
@@ -234,13 +234,15 @@ def main(
             logging.debug("Formatting from stdin")
             path = sys.stdin
         else:
-            logging.debug(f"Formatting {path}")
+            logging.debug("")
 
         try:
             original_content = path.read_text()
         except AttributeError:
             original_content = path.read()
 
+        if not path_is_stdin:
+            toggle_logging(log_level, path)
         try:
             snakefile = Snakefile(StringIO(original_content))
             formatter = Formatter(
@@ -249,7 +251,7 @@ def main(
             formatted_content = formatter.get_formatted()
         except Exception as error:
             if check:
-                logging.error(f"'{error.__class__.__name__}: {error}' in file {path}")
+                logging.error(f"'{error.__class__.__name__}: {error}'")
                 files_with_errors += 1
                 continue
             else:
@@ -263,6 +265,7 @@ def main(
             else:
                 files_unchanged += 1
 
+        toggle_logging(log_level)
         if diff or compact_diff:
             filename = "stdin" if path_is_stdin else str(path)
             click.echo(f"{'=' * 5}> Diff for {filename} <{'=' * 5}\n")
@@ -298,6 +301,18 @@ def main(
         ctx.exit(exit_value)
 
     logging.info("All done 🎉")
+
+
+log_template = "[%(levelname)s]{0} %(message)s"
+
+
+def toggle_logging(log_level, path: Optional[str] = None) -> None:
+    log_msg = log_template.format("")
+    if path is not None:
+        log_msg = log_template.format(f' In file "{path}": ')
+    logging.basicConfig(
+        format=log_msg, level=log_level, force=True,
+    )
 
 
 if __name__ == "__main__":

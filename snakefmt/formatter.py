@@ -1,12 +1,13 @@
 import re
 import textwrap
-from copy import copy
 from ast import parse as ast_parse
+from copy import copy
 from typing import Optional
 
 import black
 
 import snakefmt.warnings as warnings
+from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
@@ -20,7 +21,6 @@ from snakefmt.parser.syntax import (
     Syntax,
 )
 from snakefmt.types import TokenIterator
-from snakefmt.config import read_black_config, PathLike
 
 rule_like_formatted = {"rule", "checkpoint"}
 

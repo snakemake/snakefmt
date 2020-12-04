@@ -18,13 +18,13 @@ class TestCLIBasic:
         params = []
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code == 0
-        assert "Nothing to do" in actual.output
+        assert "Nothing to do" in actual.stderr
 
     def test_nonExistentParam_nonZeroExit(self, cli_runner):
         params = ["--fake"]
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
-        assert "no such option" in actual.output
+        assert "no such option" in actual.stderr
 
     def test_invalidPath_nonZeroExit(self, cli_runner):
         params = ["fake.txt"]
@@ -33,21 +33,19 @@ class TestCLIBasic:
         expected_pattern = re.compile(
             r"Path [\'\"]{}[\'\"] does not exist".format(params[0])
         )
-        assert expected_pattern.search(actual.output)
+        assert expected_pattern.search(actual.stderr)
 
     def test_dashMixedWithFiles_nonZeroExit(self, cli_runner):
         params = ["-", str(Path().resolve())]
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
-        assert "Cannot mix stdin (-) with other files" in actual.output
+        assert "Cannot mix stdin (-) with other files" in actual.stderr
 
     def test_stdinAsSrc_WritesToStdout(self, cli_runner):
         stdin = f"rule all:\n{TAB}input: 'c'"
         params = ["--verbose", "-"]
 
         actual = cli_runner.invoke(main, params, input=stdin)
-
-        print(actual.exception)
 
         assert actual.exit_code == 0
 
