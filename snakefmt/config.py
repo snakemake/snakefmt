@@ -3,12 +3,12 @@ Code for searching for and parsing snakefmt configuration files
 """
 
 import inspect
-from typing import Dict, Iterable, Optional, Union
 from pathlib import Path
+from typing import Dict, Iterable, Optional, Union
 
 import click
 import toml
-from black import find_project_root, FileMode
+from black import FileMode, find_project_root
 
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import MalformattedToml
