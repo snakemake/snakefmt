@@ -10,6 +10,7 @@ already.**
 
 # Table of Contents
 - [PyCharm/JetBrains IDEA](#pycharmjetbrains-idea)
+- [Visual Studio Code](#visual-studio-code)
 - [Vim](#Vim)
 
 
@@ -62,6 +63,14 @@ $ where snakefmt
       - Working directory: `$ProjectFileDir$`
 
    - Uncheck "Auto-save edited files to trigger the watcher" in Advanced Options
+
+## Visual Studio Code
+
+1. Install the extension within [Visual Studio (VS) Code](https://code.visualstudio.com/) by visiting the [Snakefmt extension](https://marketplace.visualstudio.com/items?itemName=tfehlmann.snakefmt) page and following the instructions at the top of the page.
+
+2. Follow the directions under the extension's [Details](https://marketplace.visualstudio.com/items?itemName=tfehlmann.snakefmt#features) page. Pay attention in particular to the [Requirements](https://marketplace.visualstudio.com/items?itemName=tfehlmann.snakefmt#requirements) section to provide a path to your `snakefmt` executable (if it isn't already in your `PATH` environment variable).
+
+3. See VS Code's documentation on [Formatting](https://code.visualstudio.com/docs/editor/codebasics#_formatting) for more instructions on how to apply formatting within the IDE.
 
 ## Vim
 
