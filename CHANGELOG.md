@@ -7,6 +7,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.2.5]
+
+### Added
+- Documentation for integration with Visual Studio Code ([#80][80]; thanks @austinkeller)
+- Issue warnings for comment-related formatting ([#85][85])
+- File-specific logging: warnings and errors during reformatting now automatically refer to the raising source file.
+### Fixed
+Better comment-related formatting ([#85][85]; thanks @dlaehnemann):
+- PEP8 inline comment formatting: use 2 spaces
+- Comments above keywords stay untouched
+- Inline comments in inline-formatted keywords get relocated above
+  keyword
+
 ## [0.2.4]
 
 ### Added
@@ -97,7 +110,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.4...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.5...HEAD
+[0.2.5]: https://github.com/snakemake/snakefmt/releases/tag/0.2.5
 [0.2.4]: https://github.com/snakemake/snakefmt/releases/tag/0.2.4
 [0.2.3]: https://github.com/snakemake/snakefmt/releases/tag/0.2.3
 [0.2.2]: https://github.com/snakemake/snakefmt/releases/tag/0.2.2
@@ -120,4 +134,6 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [73]: https://github.com/snakemake/snakefmt/issues/73
 [74]: https://github.com/snakemake/snakefmt/pull/74
 [78]: https://github.com/snakemake/snakefmt/issues/78
+[80]: https://github.com/snakemake/snakefmt/issues/80
+[85]: https://github.com/snakemake/snakefmt/issues/85
 
