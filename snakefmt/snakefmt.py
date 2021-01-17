@@ -13,6 +13,7 @@ from snakefmt import DEFAULT_LINE_LENGTH, __version__
 from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
 from snakefmt.formatter import Formatter
+from snakefmt.logging import LogConfig
 from snakefmt.parser.parser import Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
@@ -45,17 +46,18 @@ def get_snakefiles_in_dir(
     Adapted from
     https://github.com/psf/black/blob/ce14fa8b497bae2b50ec48b3bd7022573a59cdb1/black.py#L3519-L3573
     """
+    logger = LogConfig.get_logger()
     for child in path.iterdir():
         # First ignore files matching .gitignore
         if gitignore.match_file(child.as_posix()):
-            logging.debug(f"Ignoring: {child} matches .gitignore file content")
+            logger.debug(f"Ignoring: {child} matches .gitignore file content")
             continue
 
         # Then ignore with `exclude` option.
         normalized_path = str(child.resolve().as_posix())
         exclude_match = exclude.search(normalized_path)
         if exclude_match and exclude_match.group(0):
-            logging.debug(f"Excluded: {child} matched the --exclude regular expression")
+            logger.debug(f"Excluded: {child} matched the --exclude regular expression")
             continue
 
         if child.is_dir():
@@ -64,12 +66,12 @@ def get_snakefiles_in_dir(
         elif child.is_file():
             include_match = include.search(child.name)
             if include_match:
-                logging.debug(
+                logger.debug(
                     f"Included: {child} matched the --include regular expression"
                 )
                 yield child
             else:
-                logging.debug(
+                logger.debug(
                     f"Ignoring: {child} did not match the --include regular expression"
                 )
 
@@ -158,7 +160,7 @@ def get_snakefiles_in_dir(
 )
 @click.help_option("--help", "-h")
 @click.version_option(__version__, "--version", "-V")
-@click.option("-v", "--verbose", help="Turns on debug-level logging.", is_flag=True)
+@click.option("-v", "--verbose", help="Turns on debug-level logger.", is_flag=True)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -181,7 +183,8 @@ def main(
      `snakefmt - < Snakefile` to avoid this.
     """
     log_level = logging.DEBUG if verbose else logging.INFO
-    toggle_logging(log_level)
+    LogConfig.init(log_level)
+    logger = LogConfig.get_logger()
 
     if not src:
         click.echo(
@@ -193,7 +196,7 @@ def main(
         raise click.BadArgumentUsage("Cannot mix stdin (-) with other files")
 
     if diff and compact_diff:
-        logging.warning(
+        logger.warning(
             "Both --diff and --compact-diff given. Returning compact diff..."
         )
 
@@ -223,7 +226,7 @@ def main(
                 get_snakefiles_in_dir(path, include_regex, exclude_regex, gitignore)
             )
         else:
-            logging.warning(f"ignoring invalid path: {path}")
+            logger.warning(f"ignoring invalid path: {path}")
 
     differ = Diff(compact=compact_diff)
     files_changed, files_unchanged = 0, 0
@@ -231,10 +234,10 @@ def main(
     for path in files_to_format:
         path_is_stdin = path.name == "-"
         if path_is_stdin:
-            logging.debug("Formatting from stdin")
+            logger.debug("Formatting from stdin")
             path = sys.stdin
         else:
-            logging.debug("")
+            logger.debug("")
 
         try:
             original_content = path.read_text()
@@ -242,7 +245,7 @@ def main(
             original_content = path.read()
 
         if not path_is_stdin:
-            toggle_logging(log_level, path)
+            LogConfig.switch(path)
         try:
             snakefile = Snakefile(StringIO(original_content))
             formatter = Formatter(
@@ -251,7 +254,7 @@ def main(
             formatted_content = formatter.get_formatted()
         except Exception as error:
             if check:
-                logging.error(f"'{error.__class__.__name__}: {error}'")
+                logger.error(f"'{error.__class__.__name__}: {error}'")
                 files_with_errors += 1
                 continue
             else:
@@ -260,12 +263,12 @@ def main(
         if check:
             is_changed = differ.is_changed(original_content, formatted_content)
             if is_changed:
-                logging.debug("Formatted content is different from original")
+                logger.debug("Formatted content is different from original")
                 files_changed += 1
             else:
                 files_unchanged += 1
 
-        toggle_logging(log_level)
+        LogConfig.switch()
         if diff or compact_diff:
             filename = "stdin" if path_is_stdin else str(path)
             click.echo(f"{'=' * 5}> Diff for {filename} <{'=' * 5}\n")
@@ -277,15 +280,13 @@ def main(
             else:
                 write_file_back = differ.is_changed(original_content, formatted_content)
                 if write_file_back:
-                    logging.info(f"Writing formatted content to {path}")
+                    logger.info(f"Writing formatted content to {path}")
                     with path.open("w") as out_handle:
                         out_handle.write(formatted_content)
 
     if check:
         if files_unchanged == len(files_to_format):
-            logging.info(
-                f"All {len(files_to_format)} file(s) would be left unchanged 🎉"
-            )
+            logger.info(f"All {len(files_to_format)} file(s) would be left unchanged 🎉")
             ctx.exit(ExitCode.NO_CHANGE.value)
         elif files_with_errors > 0:
             exit_value = ExitCode.ERROR.value
@@ -293,26 +294,14 @@ def main(
             exit_value = ExitCode.WOULD_CHANGE.value
 
         if files_with_errors > 0:
-            logging.info(f"{files_with_errors} file(s) raised parsing errors 🤕")
+            logger.info(f"{files_with_errors} file(s) raised parsing errors 🤕")
         if files_changed > 0:
-            logging.info(f"{files_changed} file(s) would be changed 😬")
+            logger.info(f"{files_changed} file(s) would be changed 😬")
         if files_unchanged > 0:
-            logging.info(f"{files_unchanged} file(s) would be left unchanged 🎉")
+            logger.info(f"{files_unchanged} file(s) would be left unchanged 🎉")
         ctx.exit(exit_value)
 
-    logging.info("All done 🎉")
-
-
-log_template = "[%(levelname)s]{0} %(message)s"
-
-
-def toggle_logging(log_level, path: Optional[str] = None) -> None:
-    log_msg = log_template.format("")
-    if path is not None:
-        log_msg = log_template.format(f' In file "{path}": ')
-    logging.basicConfig(
-        format=log_msg, level=log_level, force=True,
-    )
+    logger.info("All done 🎉")
 
 
 if __name__ == "__main__":
