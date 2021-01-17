@@ -6,9 +6,9 @@ from typing import Optional
 
 import black
 
-import snakefmt.warnings as warnings
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
+from snakefmt.logging import Warnings
 from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser
 from snakefmt.parser.syntax import (
@@ -243,7 +243,7 @@ class Formatter(Parser):
             for comment in param.pre_comments:
                 prepended_comments += f"{used_indent}{comment}\n"
             if prepended_comments != "":
-                warnings.comment_relocation(parameters.keyword_name, param.line_nb)
+                Warnings.comment_relocation(parameters.keyword_name, param.line_nb)
             result = f"{prepended_comments}{result}"
         else:
             result += f"{parameters.comment}\n"
@@ -253,7 +253,7 @@ class Formatter(Parser):
             )
         num_c = len(param.post_comments)
         if num_c > 1 or (not param._has_inline_comment and num_c == 1):
-            warnings.block_comment_below(parameters.keyword_name, param.line_nb)
+            Warnings.block_comment_below(parameters.keyword_name, param.line_nb)
         return result
 
     def add_newlines(
