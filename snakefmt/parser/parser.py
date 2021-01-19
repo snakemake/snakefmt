@@ -41,6 +41,7 @@ class Parser(ABC):
         self.context_stack = [self.grammar]
         self.snakefile: TokenIterator = snakefile
         self.from_python: bool = False
+        self.last_recognised_keyword: str = ""
 
         status = self.context.get_next_queriable(self.snakefile)
         self.buffer = status.buffer
@@ -52,7 +53,6 @@ class Parser(ABC):
             if status.eof:
                 break
 
-            self.from_python = False
             keyword = status.token.string
             if self.vocab.recognises(keyword):
                 if status.indent > self.target_indent:
@@ -60,10 +60,15 @@ class Parser(ABC):
                         self.from_python = True
                     else:  # Over-indented context gets reset
                         self.context.cur_indent = max(self.target_indent - 1, 0)
+                elif self.from_python:
+                    self.from_python = False
+                    # We are exiting python context, so force spacing out keywords
+                    self.last_recognised_keyword = ""
                 self.flush_buffer(
                     from_python=self.from_python,
                     in_global_context=self.in_global_context,
                 )
+                self.context.code_indent = None
                 status = self.process_keyword(status, self.from_python)
             else:
                 if not self.context.accepts_python_code and not keyword[0] == "#":
@@ -73,6 +78,8 @@ class Parser(ABC):
                     )
                 else:
                     self.buffer += keyword
+                    if self.context.code_indent is None:
+                        self.context.code_indent = status.indent
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
             self.context.cur_indent = status.indent

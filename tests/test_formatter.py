@@ -369,13 +369,22 @@ class TestComplexPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    def test_parameter_keywords_inside_python_code(self):
+    def test_indented_consecutive_snakemake_directives(self):
         snakecode = (
-            "if condition:\n\n"
-            f'{TAB * 1}include: "a"\n\n\n'
+            'if config["load"]:\n\n'
+            f'{TAB * 1}include: "module_a.smk"\n'
+            f'{TAB * 1}include: "module_b.smk"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_spaced_out_consecutive_dedented_directive(self):
+        snakecode = (
+            'if config["load"]:\n\n'
+            f'{TAB * 1}include: "module_a.smk"\n\n\n'
             f"else:\n\n"
-            f'{TAB * 1}include: "b"\n'
-            f'include: "c"\n'
+            f'{TAB * 1}include: "module_b.smk"\n\n\n'
+            f'include: "other.smk"\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode

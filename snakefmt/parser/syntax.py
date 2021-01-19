@@ -117,6 +117,7 @@ class Syntax:
         assert target_indent >= 0
         self.target_indent = target_indent
         self.cur_indent = max(self.target_indent - 1, 0)
+        self.code_indent = None
         self.comment = ""
         self.token = None
 

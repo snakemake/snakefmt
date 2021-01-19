@@ -46,7 +46,6 @@ class Formatter(Parser):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
-        self.last_recognised_keyword = ""
 
         self.black_mode = read_black_config(black_config_file)
 
@@ -99,13 +98,9 @@ class Formatter(Parser):
                 )
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
-                indent_lines = sum(
-                    [line.strip().endswith(":") for line in formatted_lines]
-                )
-                code_indent = max(self.context.cur_indent - indent_lines, 0)
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
-                code_indent = max(self.context.cur_indent - 1, 0)
+            code_indent = self.context.code_indent
             formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
 
         # Re-add newline removed by black for proper parsing of comments
@@ -113,7 +108,8 @@ class Formatter(Parser):
             if comment_start(self.buffer.rstrip().splitlines()[-1]):
                 formatted += "\n"
         # Only stick together separated single-parm keywords when separated by comments
-        if not all(map(comment_start, self.buffer.splitlines())):
+        buffer_is_all_comments = all(map(comment_start, self.buffer.splitlines()))
+        if not buffer_is_all_comments:
             self.last_recognised_keyword = ""
         self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
@@ -284,8 +280,7 @@ class Formatter(Parser):
         have_only_comment_lines = comment_break == 0
         if not have_only_comment_lines or final_flush:
             collate_same_singleparamkeyword = (
-                cur_indent == 0
-                and context is not None
+                context is not None
                 and context.keyword_name == self.last_recognised_keyword
                 and issubclass(context.__class__, SingleParam)
             )
