@@ -28,7 +28,7 @@ triple_quote_matcher = re.compile(
     r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
 )
 contextual_matcher = re.compile(
-    r"(.*)^(if|elif|else|with|for|while)(.*)(:.*)", re.S | re.M
+    r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
 
 
@@ -88,9 +88,7 @@ class Formatter(Parser):
                 else:
                     test_substitute = f"{used_keyword} a"
                 to_format = (
-                    f"{re_match.group(1)}{test_substitute}"
-                    f"{re_match.group(4)}"
-                    f"{TAB * self.context.cur_indent}pass"
+                    f"{re_match.group(1)}{test_substitute}" f"{re_match.group(4)}pass"
                 )
                 formatted = self.run_black_format_str(to_format, self.target_indent)
                 re_rematch = contextual_matcher.match(formatted)
@@ -101,10 +99,14 @@ class Formatter(Parser):
                 )
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
+                indent_lines = sum(
+                    [line.strip().endswith(":") for line in formatted_lines]
+                )
+                code_indent = max(self.context.cur_indent - indent_lines, 0)
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
-            code_indent = max(self.context.cur_indent - 1, 0)
-            formatted = f"{TAB * code_indent}{formatted}"
+                code_indent = max(self.context.cur_indent - 1, 0)
+            formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
