@@ -10,7 +10,7 @@ from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.logging import Warnings
 from snakefmt.parser.grammar import SnakeRule
-from snakefmt.parser.parser import Parser
+from snakefmt.parser.parser import Parser, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
     TAB,
@@ -30,10 +30,6 @@ triple_quote_matcher = re.compile(
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
-
-
-def comment_start(string: str) -> bool:
-    return string.lstrip().startswith("#")
 
 
 class Formatter(Parser):

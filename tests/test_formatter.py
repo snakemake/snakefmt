@@ -389,6 +389,17 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_comment_support_after_python_code(self):
+        snakecode = (
+            'if config["a"]:\n\n'
+            f'{TAB * 1}include: "module_a.smk"\n\n\n'
+            f'# include: "module_b.smk"\n\n\n'
+            f'if config["c"]:\n\n'
+            f'{TAB * 1}include: "module_c.smk"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_nested_ifelse_statements(self):
         snakecode = (
             'if config["a"] is None:\n\n'

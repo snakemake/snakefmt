@@ -33,6 +33,10 @@ class Snakefile:
         self._buffered_tokens.append(token)
 
 
+def comment_start(string: str) -> bool:
+    return string.lstrip().startswith("#")
+
+
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
         self.grammar = Grammar(
@@ -71,14 +75,14 @@ class Parser(ABC):
                 self.context.code_indent = None
                 status = self.process_keyword(status, self.from_python)
             else:
-                if not self.context.accepts_python_code and not keyword[0] == "#":
+                if not self.context.accepts_python_code and not comment_start(keyword):
                     raise SyntaxError(
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.context.keyword_name} definition"
                     )
                 else:
                     self.buffer += keyword
-                    if self.context.code_indent is None:
+                    if self.context.code_indent is None and not comment_start(keyword):
                         self.context.code_indent = status.indent
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
