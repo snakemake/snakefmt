@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.2.6]
+
+### Fixed
+* Remove use of a Python 3.8-only `logging` module feature ([#89][89])
+* Update Python support to ^3.6.1 due to use of `typing` module `NamedTuple`s
+* Better support for python/snakemake interspersed code ([#91][91]; [#93][93])
+
 ## [0.2.5]
 
 ### Added
@@ -110,7 +117,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.5...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.2.6...HEAD
+[0.2.6]: https://github.com/snakemake/snakefmt/releases/tag/0.2.6
 [0.2.5]: https://github.com/snakemake/snakefmt/releases/tag/0.2.5
 [0.2.4]: https://github.com/snakemake/snakefmt/releases/tag/0.2.4
 [0.2.3]: https://github.com/snakemake/snakefmt/releases/tag/0.2.3
@@ -136,4 +144,7 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [78]: https://github.com/snakemake/snakefmt/issues/78
 [80]: https://github.com/snakemake/snakefmt/issues/80
 [85]: https://github.com/snakemake/snakefmt/issues/85
+[89]: https://github.com/snakemake/snakefmt/issues/89
+[91]: https://github.com/snakemake/snakefmt/issues/91
+[93]: https://github.com/snakemake/snakefmt/issues/93
 
