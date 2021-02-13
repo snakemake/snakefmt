@@ -364,7 +364,10 @@ class TestCLIValidRegex:
                     fout.write(gitignored)
                 gitignore = get_gitignore(abs_tmpdir)
             snakefiles = get_snakefiles_in_dir(
-                path=abs_tmpdir, include=include, exclude=exclude, gitignore=gitignore,
+                path=abs_tmpdir,
+                include=include,
+                exclude=exclude,
+                gitignore=gitignore,
             )
             snakefiles = list(map(lambda p: str(p.relative_to(abs_tmpdir)), snakefiles))
         return Counter(snakefiles)
@@ -404,7 +407,9 @@ class TestCLIValidRegex:
 
         assert actual == expected
 
-    def test_gitignore_paths_excluded(self,):
+    def test_gitignore_paths_excluded(
+        self,
+    ):
         include = re.compile(r"(\.smk$|^Snakefile)")
         exclude = re.compile(r"")
 
