@@ -24,7 +24,7 @@ importlib_metadata = "^1.7.0"
 pytest = "^5.2"
 pytest-cov = "^2.8.1"
 flake8 = "^3.7.9"
-snakemake = "^5.14.0"
+snakemake = "^5.32.2"
 isort = "^5.1.0"
 
 [tool.poetry.urls]

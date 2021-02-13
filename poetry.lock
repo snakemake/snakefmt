@@ -625,7 +625,7 @@ testing = ["pytest (>=3.5,!=3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "e60170781e832d31caac7c9b059297ef0d60841e7c596ac66cde55ed5de7ab8a"
+content-hash = "40f623208178077dc4b9a74a2c73afbedc07219c2d3657208e6a8cb67eaeee55"
 
 [metadata.files]
 amply = [
