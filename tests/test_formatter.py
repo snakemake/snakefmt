@@ -518,8 +518,7 @@ rule a:
         formatter = setup_formatter(snakecode)
         expected = f'''def f():
 {TAB * 1}"""Does not do
-  much
-"""
+    much"""
 {TAB * 1}pass
 
 
