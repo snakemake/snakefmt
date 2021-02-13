@@ -27,6 +27,7 @@ class PythonCode(Vocabulary):
 
 class SnakeRule(Vocabulary):
     spec = dict(
+        name=Grammar(None, SingleParam),
         input=Grammar(None, ParamList),
         output=Grammar(None, ParamList),
         params=Grammar(None, ParamList),
