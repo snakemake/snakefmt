@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Changed
+- Update click, toml and black (major version) to latest releases (@jlewis91)
+  [[#97][97]]
+
 ## [0.2.6]
 
 ### Fixed
@@ -147,4 +151,5 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [89]: https://github.com/snakemake/snakefmt/issues/89
 [91]: https://github.com/snakemake/snakefmt/issues/91
 [93]: https://github.com/snakemake/snakefmt/issues/93
+[97]: https://github.com/snakemake/snakefmt/pull/97
 
