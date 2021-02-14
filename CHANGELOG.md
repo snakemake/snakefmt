@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Fixed
+
+- Support nested python code following python/snakemake nested code ([#96][96])
+
 ### Removed
 
 - `Dockerfile` has been removed as the
@@ -161,5 +165,6 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [89]: https://github.com/snakemake/snakefmt/issues/89
 [91]: https://github.com/snakemake/snakefmt/issues/91
 [93]: https://github.com/snakemake/snakefmt/issues/93
+[96]: https://github.com/snakemake/snakefmt/issues/96
 [97]: https://github.com/snakemake/snakefmt/pull/97
 

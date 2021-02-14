@@ -97,7 +97,8 @@ class Formatter(Parser):
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
             code_indent = self.context.code_indent
-            formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
+            if code_indent is not None:
+                formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):

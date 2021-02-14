@@ -339,11 +339,10 @@ class TestComplexPythonFormatting:
         )
         assert formatter.get_formatted() == expected
 
-    @pytest.mark.xfail(reason="'else:' block not recognised as being from_python")
     def test_nested_snakecode_python_else_does_not_fail(self):
         snakecode = (
-            'if c["a"] is None:\n'
-            f'{TAB * 1}include: "a"\n'
+            'if c["a"] is None:\n\n'
+            f'{TAB * 1}include: "a"\n\n\n'
             "else:\n"  # All python from here
             f'{TAB * 1}var = "b"\n'
         )

@@ -83,9 +83,18 @@ class Parser(ABC):
                 else:
                     self.buffer += keyword
                     if self.context.code_indent is None and not comment_start(keyword):
+                        # This allows python code after a nested snakemake keyword
+                        # to be properly indented
                         self.context.code_indent = status.indent
                     status = self.context.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
+                    if self.from_python and status.indent == 0:
+                        # This flushes any nested python code following a
+                        # nested snakemake keyword
+                        self.flush_buffer(
+                            from_python=True, in_global_context=self.in_global_context
+                        )
+                        self.from_python = False
             self.context.cur_indent = status.indent
         self.flush_buffer(
             from_python=self.from_python,
