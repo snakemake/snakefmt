@@ -57,31 +57,22 @@ conda install -c bioconda snakefmt
 
 ### Containers
 
+As `snakefmt` has a Conda recipe, there is a matching image built for each version by
+Biocontainers.
+
+In the following examples, all tags (`<tag>`) can be found
+[here](https://quay.io/repository/biocontainers/snakefmt?tab=tags).
+
 #### Docker
 
-[![Docker Image Version (latest semver)](https://img.shields.io/docker/v/snakemake/snakefmt)](https://hub.docker.com/r/snakemake/snakefmt/tags)
-
-```sh
-docker pull snakemake/snakefmt
-docker run -it snakemake/snakefmt snakefmt --help
+```shell
+$ docker run -it "quay.io/biocontainers/snakefmt:<tag>" snakefmt --help
 ```
-
-You can find all the available tags on the [Docker Hub repository][dockerhub].
-
-[dockerhub]: https://hub.docker.com/r/snakemake/snakefmt
 
 #### Singularity
 
-```sh
-URI="docker://snakemake/snakefmt"
-singularity exec "$URI" snakefmt --help
-```
-
-The above will use the latest version. If you want to specify a version then use a [tag][dockerhub] like so.
-
-```sh
-VERSION="x.x.x"
-URI="docker://snakemake/snakefmt:${VERSION}"
+```shell
+$ singularity exec "docker://quay.io/biocontainers/snakefmt:<tag>" snakefmt --help
 ```
 
 ### Local

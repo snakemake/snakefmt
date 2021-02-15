@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Removed
+
+- `Dockerfile` has been removed as the
+  [biocontainers](https://hub.docker.com/r/snakemake/snakefmt/tags) images are smaller
+  and some recent changes to the `cryptography` dependency require Rust to be installed
+  (on Alpine) which further bloats our DockerHub image.
+
 ## [0.3.0]
 
 ### Changed
