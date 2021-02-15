@@ -57,8 +57,23 @@ conda install -c bioconda snakefmt
 
 ### Containers
 
-As `snakefmt` has a Conda recipe, there is a [matching image built for each version by
-Biocontainers](https://quay.io/repository/biocontainers/snakefmt?tab=tags).
+As `snakefmt` has a Conda recipe, there is a matching image built for each version by
+Biocontainers.
+
+In the following examples, all tags (`<tag>`) can be found
+[here](https://quay.io/repository/biocontainers/snakefmt?tab=tags).
+
+#### Docker
+
+```shell
+$ docker run -it "quay.io/biocontainers/snakefmt:<tag>" snakefmt --help
+```
+
+#### Singularity
+
+```shell
+$ singularity exec "docker://quay.io/biocontainers/snakefmt:<tag>" snakefmt --help
+```
 
 ### Local
 
