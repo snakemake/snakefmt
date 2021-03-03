@@ -24,7 +24,7 @@ from snakefmt.types import (
     not_empty,
 )
 
-possibly_named_keywords = {"rule", "checkpoint", "subworkflow"}
+possibly_named_keywords = {"rule", "checkpoint", "subworkflow", "module"}
 
 # ___Token parsing___#
 QUOTES = {'"', "'"}
@@ -396,12 +396,12 @@ class SingleParam(ParameterSyntax):
 ParamList = ParameterSyntax
 
 
-class RuleInlineSingleParam(SingleParam):
+class InlineSingleParam(SingleParam):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class NoKeywordParamList(ParameterSyntax):
+class NoKeyParamList(ParameterSyntax):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

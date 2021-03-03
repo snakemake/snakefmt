@@ -1,10 +1,10 @@
 from typing import NamedTuple, Optional, Type, Union
 
 from snakefmt.parser.syntax import (
+    InlineSingleParam,
     KeywordSyntax,
-    NoKeywordParamList,
+    NoKeyParamList,
     ParamList,
-    RuleInlineSingleParam,
     SingleParam,
     Syntax,
     Vocabulary,
@@ -31,9 +31,9 @@ class SnakeRule(Vocabulary):
         input=Grammar(None, ParamList),
         output=Grammar(None, ParamList),
         params=Grammar(None, ParamList),
-        threads=Grammar(None, RuleInlineSingleParam),
+        threads=Grammar(None, InlineSingleParam),
         resources=Grammar(None, ParamList),
-        priority=Grammar(None, RuleInlineSingleParam),
+        priority=Grammar(None, InlineSingleParam),
         version=Grammar(None, SingleParam),
         log=Grammar(None, ParamList),
         message=Grammar(None, SingleParam),
@@ -41,7 +41,8 @@ class SnakeRule(Vocabulary):
         conda=Grammar(None, SingleParam),
         singularity=Grammar(None, SingleParam),
         container=Grammar(None, SingleParam),
-        envmodules=Grammar(None, NoKeywordParamList),
+        containerized=Grammar(None, SingleParam),
+        envmodules=Grammar(None, NoKeyParamList),
         wildcard_constraints=Grammar(None, ParamList),
         shadow=Grammar(None, SingleParam),
         group=Grammar(None, SingleParam),
@@ -51,7 +52,17 @@ class SnakeRule(Vocabulary):
         notebook=Grammar(None, SingleParam),
         wrapper=Grammar(None, SingleParam),
         cwl=Grammar(None, SingleParam),
-        cache=Grammar(None, RuleInlineSingleParam),
+        cache=Grammar(None, InlineSingleParam),
+    )
+
+
+class SnakeModule(Vocabulary):
+    spec = dict(
+        snakefile=Grammar(None, SingleParam),
+        config=Grammar(None, SingleParam),
+        skip_validation=Grammar(None, SingleParam),
+        meta_wrapper=Grammar(None, SingleParam),
+        replace_prefix=Grammar(None, SingleParam),
     )
 
 
@@ -65,23 +76,25 @@ class SnakeSubworkflow(Vocabulary):
 
 class SnakeGlobal(Vocabulary):
     spec = dict(
-        envvars=Grammar(None, NoKeywordParamList),
-        include=Grammar(None, SingleParam),
-        workdir=Grammar(None, SingleParam),
-        configfile=Grammar(None, SingleParam),
-        pepfile=Grammar(None, SingleParam),
-        pepschema=Grammar(None, SingleParam),
-        report=Grammar(None, SingleParam),
-        ruleorder=Grammar(None, SingleParam),
+        envvars=Grammar(None, NoKeyParamList),
+        include=Grammar(None, InlineSingleParam),
+        workdir=Grammar(None, InlineSingleParam),
+        configfile=Grammar(None, InlineSingleParam),
+        pepfile=Grammar(None, InlineSingleParam),
+        pepschema=Grammar(None, InlineSingleParam),
+        report=Grammar(None, InlineSingleParam),
+        ruleorder=Grammar(None, InlineSingleParam),
         rule=Grammar(SnakeRule, KeywordSyntax),
         checkpoint=Grammar(SnakeRule, KeywordSyntax),
         subworkflow=Grammar(SnakeSubworkflow, KeywordSyntax),
-        localrules=Grammar(None, NoKeywordParamList),
+        localrules=Grammar(None, NoKeyParamList),
         onstart=Grammar(PythonCode, KeywordSyntax),
         onsuccess=Grammar(PythonCode, KeywordSyntax),
         onerror=Grammar(PythonCode, KeywordSyntax),
         wildcard_constraints=Grammar(None, ParamList),
+        singularity=Grammar(None, InlineSingleParam),
+        container=Grammar(None, InlineSingleParam),
+        containerized=Grammar(None, InlineSingleParam),
         scattergather=Grammar(None, ParamList),
-        singularity=Grammar(None, SingleParam),
-        container=Grammar(None, SingleParam),
+        module=Grammar(SnakeModule, KeywordSyntax),
     )

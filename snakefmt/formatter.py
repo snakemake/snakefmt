@@ -14,15 +14,13 @@ from snakefmt.parser.parser import Parser, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
     TAB,
+    InlineSingleParam,
     Parameter,
     ParameterSyntax,
-    RuleInlineSingleParam,
     SingleParam,
     Syntax,
 )
 from snakefmt.types import TokenIterator
-
-rule_like_formatted = {"rule", "checkpoint"}
 
 triple_quote_matcher = re.compile(
     r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
@@ -223,10 +221,9 @@ class Formatter(Parser):
 
         p_class = parameters.__class__
         single_param = issubclass(p_class, SingleParam)
-        inline_fmting = single_param
-        # Cancel single param formatting if in rule-like context and param not inline
-        if in_rule and p_class is not RuleInlineSingleParam:
-            inline_fmting = False
+        inline_fmting = False
+        if p_class is InlineSingleParam:
+            inline_fmting = True
 
         result = f"{used_indent}{parameters.keyword_name}:"
         if inline_fmting:

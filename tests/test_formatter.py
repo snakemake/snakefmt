@@ -97,6 +97,31 @@ class TestSimpleParamFormatting:
         assert actual == expected
 
 
+class TestModuleFormatting:
+    def test_module_specific_keyword_formatting(self):
+        formatter = setup_formatter(
+            "module a: \n"
+            f'{TAB * 1}snakefile: "other.smk"\n'
+            f"{TAB * 1}config: config\n"
+            f'{TAB * 1}replace_prefix: {{"results/": "results/testmodule/"}}\n'
+            f'{TAB * 1}meta_wrapper: "0.72.0/meta/bio/bwa_mapping"\n'
+        )
+
+        expected = (
+            "module a:\n"
+            f"{TAB * 1}snakefile:\n"
+            f'{TAB * 2}"other.smk"\n'
+            f"{TAB * 1}config:\n"
+            f"{TAB * 2}config\n"
+            f"{TAB * 1}replace_prefix:\n"
+            f'{TAB * 2}{{"results/": "results/testmodule/"}}\n'
+            f"{TAB * 1}meta_wrapper:\n"
+            f'{TAB * 2}"0.72.0/meta/bio/bwa_mapping"\n'
+        )
+
+        assert formatter.get_formatted() == expected
+
+
 class TestComplexParamFormatting:
     """
     Parameters are delimited with ','

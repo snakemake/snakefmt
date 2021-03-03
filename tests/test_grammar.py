@@ -25,6 +25,11 @@ class TestCompleteness:
         existing_keywords = set(grammar.SnakeGlobal.spec)
         self.check_completeness(target_keywords, existing_keywords)
 
+    def test_module_context_completeness(self):
+        target_keywords = set(parser.Module.subautomata)
+        existing_keywords = set(grammar.SnakeModule.spec)
+        self.check_completeness(target_keywords, existing_keywords)
+
     def test_subworkflow_context_completeness(self):
         target_keywords = set(parser.Subworkflow.subautomata)
         existing_keywords = set(grammar.SnakeSubworkflow.spec)
