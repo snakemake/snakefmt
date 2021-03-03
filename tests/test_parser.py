@@ -120,6 +120,29 @@ class TestKeywordSyntax:
             Formatter(snakefile)
 
 
+class TestUseRuleKeywordSyntax:
+    def test_rule_from_module_passes(self):
+        setup_formatter("use rule a from mymodule")
+
+    def test_renamed_rule_from_module_passes(self):
+        setup_formatter("use rule a from mymodule as mymodule_a")
+        setup_formatter("use rule * from mymodule as mymodule_*")
+
+    def test_modified_rule_from_module_passes(self):
+        setup_formatter("use rule a from mymodule with:" f"{TAB * 1}threads: 4")
+        setup_formatter(
+            "use rule b from mymodule as my_b with:"
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"new_output"'
+        )
+
+    def test_use_rule_cannot_use_rule_specific_keywords(self):
+        with pytest.raises(SyntaxError, match="Unrecognised keyword"):
+            setup_formatter(
+                "use rule a from mymodule with:" f'{TAB * 1}shell: "mycommand"'
+            )
+
+
 class TestParamSyntax:
     def test_key_value_no_key_fails(self):
         with pytest.raises(InvalidParameterSyntax, match="Operator ="):
