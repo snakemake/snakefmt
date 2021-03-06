@@ -138,6 +138,14 @@ class TestUseRuleFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_use_rule_with_comment(self):
+        snakecode = (
+            "# Comment here\n\n\n"
+            "use rule * from module as module_*  # Use these cool rules\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestComplexParamFormatting:
     """

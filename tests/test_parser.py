@@ -138,6 +138,13 @@ class TestUseRuleKeywordSyntax:
             f'{TAB * 2}"new_output"'
         )
 
+    def test_invalid_syntax_throws(self):
+        with pytest.raises(SyntaxError, match="not of form"):
+            setup_formatter("use rule b from *")
+
+        with pytest.raises(SyntaxError, match="not of form"):
+            setup_formatter("use rule b from module as with:")
+
     def test_use_rule_cannot_use_rule_specific_keywords(self):
         with pytest.raises(SyntaxError, match="Unrecognised keyword"):
             setup_formatter(
