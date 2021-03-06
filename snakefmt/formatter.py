@@ -94,7 +94,7 @@ class Formatter(Parser):
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
-            code_indent = self.context.code_indent
+            code_indent = self.syntax.code_indent
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
 
@@ -110,13 +110,13 @@ class Formatter(Parser):
         self.buffer = ""
 
     def process_keyword_context(self, in_global_context: bool):
-        cur_indent = self.context.cur_indent
+        cur_indent = self.syntax.cur_indent
         self.add_newlines(cur_indent, in_global_context=in_global_context)
         formatted = (
-            f"{TAB * cur_indent}{self.context.keyword_name}:{self.context.comment}\n"
+            f"{TAB * cur_indent}{self.syntax.keyword_name}:{self.syntax.comment}\n"
         )
         self.result += formatted
-        self.last_recognised_keyword = self.context.keyword_name
+        self.last_recognised_keyword = self.syntax.keyword_name
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool

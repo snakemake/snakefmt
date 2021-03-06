@@ -164,7 +164,7 @@ class KeywordSyntax(Syntax):
         keyword_name: str,
         target_indent: int,
         snakefile: TokenIterator = None,
-        incident_context: "KeywordSyntax" = None,
+        incident_syntax: "KeywordSyntax" = None,
         from_python: bool = False,
         accepts_py: bool = False,
     ):
@@ -174,7 +174,7 @@ class KeywordSyntax(Syntax):
         self.queriable = True
         self.from_python = from_python
 
-        if incident_context is not None:
+        if incident_syntax is not None:
             if self.token.type != tokenize.NEWLINE:
                 raise SyntaxError(
                     (
@@ -183,7 +183,7 @@ class KeywordSyntax(Syntax):
                     )
                 )
             if not from_python:
-                incident_context.add_processed_keyword(self.token, self.keyword_name)
+                incident_syntax.add_processed_keyword(self.token, self.keyword_name)
 
     def add_processed_keyword(self, token: Token, keyword: str, check_dup: bool = True):
         if check_dup and keyword in self.processed_keywords:

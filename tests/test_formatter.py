@@ -738,7 +738,7 @@ class TestNewlineSpacing:
         global_single_param_keywords = [
             keyval[0]
             for keyval in SnakeGlobal.spec.items()
-            if keyval[1].context is SingleParam
+            if keyval[1].syntax is SingleParam
         ]
         snakecode = '{keyword_param}: "value1"\n{keyword_param}: "value2"\n'
         for keyword in global_single_param_keywords:
