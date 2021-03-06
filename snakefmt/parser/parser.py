@@ -152,24 +152,24 @@ class Parser(ABC):
         accepts_py = new_context.vocab is PythonCode
         if issubclass(new_context.syntax, KeywordSyntax):
             in_global_context = self.in_global_context
-            new_syntax = new_context.syntax(
-                keyword,
-                self.syntax.cur_indent + 1,
-                snakefile=self.snakefile,
-                incident_syntax=self.syntax,
-                from_python=from_python,
-                accepts_py=accepts_py,
-            )
+            saved_context = self.context
             # 'use' keyword can not enter a new context
-            if new_syntax.enter_context:
-                self.context = Context(
-                    new_context.vocab(),
-                    new_syntax,
-                )
+            self.context = Context(
+                new_context.vocab(),
+                new_context.syntax(
+                    keyword,
+                    self.syntax.cur_indent + 1,
+                    snakefile=self.snakefile,
+                    incident_syntax=self.syntax,
+                    from_python=from_python,
+                    accepts_py=accepts_py,
+                ),
+            )
+            self.process_keyword_context(in_global_context)
+            if self.syntax.enter_context:
                 self.context_stack.append(self.context)
-                self.process_keyword_context(in_global_context)
             else:
-                self.result += new_syntax.keyword_line
+                self.context = saved_context
 
             status = self.syntax.get_next_queriable(self.snakefile)
             self.buffer += status.buffer

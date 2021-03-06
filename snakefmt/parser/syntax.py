@@ -2,9 +2,9 @@
 Code in charge of parsing and validating Snakemake syntax
 """
 import tokenize
-from typing import NamedTuple, Optional
 from abc import ABC, abstractmethod
 from re import match as re_match
+from typing import NamedTuple, Optional
 
 from snakefmt.exceptions import (
     ColonError,
@@ -15,8 +15,8 @@ from snakefmt.exceptions import (
     NewlineError,
     NoParametersError,
     NotAnIdentifierError,
-    TooManyParameters,
     SyntaxFormError,
+    TooManyParameters,
 )
 from snakefmt.types import (
     COMMENT_SPACING,
@@ -176,12 +176,16 @@ class KeywordSyntax(Syntax):
     def validate_userule_syntax(self, snakefile: TokenIterator):
         identifier = r"[a-zA-Z_]\S*"
         use_syntax_regexp = (
-            r"use rule (?:(?:{id})|\*) from {id}(?: as {id})?( with[ ]?:)?$".format(
-                id=identifier
-            )
+            r"use rule (?:(?:{id})|\*)"
+            r"(?: from {id})?(?: as {id})?( with[ ]?:)?$".format(id=identifier)
         )
-        use_ebnf_syntax = '"use" "rule" (identifier | "*") "from" identifier ["as" identifier] ["with" ":"]'
+        use_ebnf_syntax = (
+            '"use" "rule" (identifier | "*") '
+            '"from" identifier ["as" identifier] ["with" ":"]'
+        )
         while not is_newline(self.token):
+            if self.token.type == tokenize.COMMENT:
+                break
             # Tokenizing splits up '<identifier>*' into two tokens
             if self.token.string != "*":
                 self.keyword_line += " "
@@ -191,9 +195,9 @@ class KeywordSyntax(Syntax):
             except StopIteration:
                 break
 
-        self.keyword_line = self.keyword_line.replace("rule*", "rule *").replace(
-            "as*", "as *"
-        )
+        self.keyword_line = self.keyword_line.replace(
+            "use rule*", "use rule *"
+        ).replace("as*", "as *")
         match = re_match(use_syntax_regexp, self.keyword_line)
         if match is None:
             SyntaxFormError(self.line_nb, self.keyword_line, use_ebnf_syntax)
@@ -386,13 +390,6 @@ class ParameterSyntax(Syntax):
             if len(cur_param.value.split()) == 1:
                 if cur_param.value == "lambda":
                     self.in_lambda = True
-                if self.incident_vocab.recognises(cur_param.value):
-                    raise InvalidParameterSyntax(
-                        (
-                            f"{self.line_nb}Over-indented recognised keyword found: "
-                            f"'{cur_param.value}'"
-                        )
-                    )
             cur_param.add_elem(self.token)
         return cur_param
 

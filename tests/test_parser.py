@@ -123,6 +123,9 @@ class TestUseRuleKeywordSyntax:
     def test_rule_from_module_passes(self):
         setup_formatter("use rule a from mymodule")
 
+    def test_rule_modified_from_rule_passes(self):
+        setup_formatter("use rule a as b with:\n" f"{TAB * 1}threads: 4")
+
     def test_renamed_rule_from_module_passes(self):
         setup_formatter("use rule a from mymodule as mymodule_a")
         setup_formatter("use rule * from mymodule as mymodule_*")

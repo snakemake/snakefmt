@@ -112,9 +112,10 @@ class Formatter(Parser):
     def process_keyword_context(self, in_global_context: bool):
         cur_indent = self.syntax.cur_indent
         self.add_newlines(cur_indent, in_global_context=in_global_context)
-        formatted = (
-            f"{TAB * cur_indent}{self.syntax.keyword_line}:{self.syntax.comment}\n"
-        )
+        formatted = f"{TAB * cur_indent}{self.syntax.keyword_line}"
+        if self.syntax.enter_context:
+            formatted += ":"
+        formatted += f"{self.syntax.comment}\n"
         self.result += formatted
         self.last_recognised_keyword = self.syntax.keyword_name
 

@@ -122,6 +122,23 @@ class TestModuleFormatting:
         assert formatter.get_formatted() == expected
 
 
+class TestUseRuleFormatting:
+    def test_use_rule_rule_like_indented(self):
+        snakecode = (
+            'include: "file.txt"\n\n\n'
+            "use rule a from module with:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}b=2,\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_use_rule_no_with_two_line_indented(self):
+        snakecode = 'include: "file.txt"\n\n\n' "use rule * from module as module_*\n"
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+
 class TestComplexParamFormatting:
     """
     Parameters are delimited with ','
@@ -905,7 +922,6 @@ class TestLineWrapping:
         formatter = setup_formatter(snakecode, line_length)
 
         actual = formatter.get_formatted()
-        print(actual)
         expected = (
             f"rule coverage_report:\n"
             f"{TAB * 1}input:\n"
