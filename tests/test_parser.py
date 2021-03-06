@@ -12,7 +12,6 @@ from snakefmt.exceptions import (
     InvalidParameter,
     InvalidParameterSyntax,
     InvalidPython,
-    NamedKeywordError,
     NoParametersError,
     TooManyParameters,
 )
@@ -70,7 +69,7 @@ class TestKeywordSyntax:
             Formatter(snakefile)
 
     def test_invalid_name_for_keyword(self):
-        with pytest.raises(NamedKeywordError, match="Invalid name.*checkpoint"):
+        with pytest.raises(SyntaxError, match=".*checkpoint.*valid identifier"):
             stream = StringIO("checkpoint (): \n" '\tinput: "a"')
             snakefile = Snakefile(stream)
             Formatter(snakefile)
@@ -129,9 +128,9 @@ class TestUseRuleKeywordSyntax:
         setup_formatter("use rule * from mymodule as mymodule_*")
 
     def test_modified_rule_from_module_passes(self):
-        setup_formatter("use rule a from mymodule with:" f"{TAB * 1}threads: 4")
+        setup_formatter("use rule a from mymodule with:\n" f"{TAB * 1}threads: 4")
         setup_formatter(
-            "use rule b from mymodule as my_b with:"
+            "use rule b from mymodule as my_b with:\n"
             f"{TAB * 1}output:\n"
             f'{TAB * 2}"new_output"'
         )
@@ -139,7 +138,7 @@ class TestUseRuleKeywordSyntax:
     def test_use_rule_cannot_use_rule_specific_keywords(self):
         with pytest.raises(SyntaxError, match="Unrecognised keyword"):
             setup_formatter(
-                "use rule a from mymodule with:" f'{TAB * 1}shell: "mycommand"'
+                "use rule a from mymodule with:\n" f'{TAB * 1}shell: "mycommand"'
             )
 
 

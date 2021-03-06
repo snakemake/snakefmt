@@ -113,7 +113,7 @@ class Formatter(Parser):
         cur_indent = self.syntax.cur_indent
         self.add_newlines(cur_indent, in_global_context=in_global_context)
         formatted = (
-            f"{TAB * cur_indent}{self.syntax.keyword_name}:{self.syntax.comment}\n"
+            f"{TAB * cur_indent}{self.syntax.keyword_line}:{self.syntax.comment}\n"
         )
         self.result += formatted
         self.last_recognised_keyword = self.syntax.keyword_name

@@ -3,15 +3,20 @@ Code in charge of parsing and validating Snakemake syntax
 """
 import tokenize
 from typing import NamedTuple, Optional
+from abc import ABC, abstractmethod
+from re import match as re_match
 
 from snakefmt.exceptions import (
+    ColonError,
     DuplicateKeyWordError,
     EmptyContextError,
     InvalidParameter,
     InvalidParameterSyntax,
-    NamedKeywordError,
+    NewlineError,
     NoParametersError,
+    NotAnIdentifierError,
     TooManyParameters,
+    SyntaxFormError,
 )
 from snakefmt.types import (
     COMMENT_SPACING,
@@ -23,8 +28,6 @@ from snakefmt.types import (
     line_nb,
     not_empty,
 )
-
-possibly_named_keywords = {"rule", "checkpoint", "subworkflow", "module"}
 
 # ___Token parsing___#
 QUOTES = {'"', "'"}
@@ -95,7 +98,7 @@ class Vocabulary:
         return self.spec[keyword]
 
 
-class Syntax:
+class Syntax(ABC):
     """
     Responsible for reading and processing tokens
     Classes derived from it raise syntax errors when snakemake syntax is not respected
@@ -114,6 +117,7 @@ class Syntax:
         self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
     ):
         self.keyword_name = keyword_name
+        self.keyword_line = keyword_name
         assert target_indent >= 0
         self.target_indent = target_indent
         self.cur_indent = max(self.target_indent - 1, 0)
@@ -122,34 +126,14 @@ class Syntax:
         self.token = None
 
         if snakefile is not None:
-            self.parse_and_validate_keyword(snakefile)
-
-    def parse_and_validate_keyword(self, snakefile: TokenIterator):
-        self.token = next(snakefile)
-
-        if not is_colon(self.token):
-            if self.keyword_name in possibly_named_keywords:
-                if self.token.type != tokenize.NAME:
-                    raise NamedKeywordError(
-                        (
-                            f"{self.line_nb}Invalid name {self.token.string} "
-                            f"for '{self.keyword_name}'"
-                        )
-                    )
-                self.keyword_name += f" {self.token.string}"
+            self.validate_keyword_line(snakefile)
+            if self.token.type == tokenize.COMMENT:
+                self.comment = f"{COMMENT_SPACING}{self.token.string}"
                 self.token = next(snakefile)
-        if not is_colon(self.token):
-            raise SyntaxError(
-                (
-                    f"{self.line_nb}Colon (not '{self.token.string}') expected after "
-                    f"'{self.keyword_name}'"
-                )
-            )
-        self.token = next(snakefile)
 
-        if self.token.type == tokenize.COMMENT:
-            self.comment = f"{COMMENT_SPACING}{self.token.string}"
-            self.token = next(snakefile)
+    @abstractmethod
+    def validate_keyword_line(self, snakefile: TokenIterator):
+        """Checks the keyword-containing line is syntactically valid"""
 
     @property
     def line_nb(self):
@@ -168,6 +152,7 @@ class KeywordSyntax(Syntax):
         from_python: bool = False,
         accepts_py: bool = False,
     ):
+        self.enter_context = True
         super().__init__(keyword_name, target_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
@@ -176,14 +161,59 @@ class KeywordSyntax(Syntax):
 
         if incident_syntax is not None:
             if self.token.type != tokenize.NEWLINE:
-                raise SyntaxError(
-                    (
-                        f"{self.line_nb}Newline expected after keyword "
-                        f"'{self.keyword_name}'"
-                    )
-                )
+                NewlineError(line_nb, self.keyword_line)
             if not from_python:
-                incident_syntax.add_processed_keyword(self.token, self.keyword_name)
+                incident_syntax.add_processed_keyword(self.token, self.keyword_line)
+
+    def validate_keyword_line(self, snakefile: TokenIterator):
+        self.token = next(snakefile)
+
+        if self.keyword_name == "use":
+            self.validate_userule_syntax(snakefile)
+        else:
+            self.validate_rulelike_syntax(snakefile)
+
+    def validate_userule_syntax(self, snakefile: TokenIterator):
+        identifier = r"[a-zA-Z_]\S*"
+        use_syntax_regexp = (
+            r"use rule (?:(?:{id})|\*) from {id}(?: as {id})?( with[ ]?:)?$".format(
+                id=identifier
+            )
+        )
+        use_ebnf_syntax = '"use" "rule" (identifier | "*") "from" identifier ["as" identifier] ["with" ":"]'
+        while not is_newline(self.token):
+            # Tokenizing splits up '<identifier>*' into two tokens
+            if self.token.string != "*":
+                self.keyword_line += " "
+            self.keyword_line += self.token.string
+            try:
+                self.token = next(snakefile)
+            except StopIteration:
+                break
+
+        self.keyword_line = self.keyword_line.replace("rule*", "rule *").replace(
+            "as*", "as *"
+        )
+        match = re_match(use_syntax_regexp, self.keyword_line)
+        if match is None:
+            SyntaxFormError(self.line_nb, self.keyword_line, use_ebnf_syntax)
+        if match.groups()[0] is None:
+            self.enter_context = False
+        else:
+            # Gets added at formatting
+            self.keyword_line = self.keyword_line.rstrip(": ")
+
+    def validate_rulelike_syntax(self, snakefile: TokenIterator):
+        if not is_colon(self.token):
+            if self.token.type != tokenize.NAME:
+                raise NotAnIdentifierError(
+                    self.line_nb, self.token.string, self.keyword_line
+                )
+            self.keyword_line += f" {self.token.string}"
+            self.token = next(snakefile)
+        if not is_colon(self.token):
+            ColonError(self.line_nb, self.token.string, self.keyword_line)
+        self.token = next(snakefile)
 
     def add_processed_keyword(self, token: Token, keyword: str, check_dup: bool = True):
         if check_dup and keyword in self.processed_keywords:
@@ -271,6 +301,13 @@ class ParameterSyntax(Syntax):
         self.found_newline = False
 
         self.parse_params(snakefile)
+
+    def validate_keyword_line(self, snakefile: TokenIterator):
+        self.token = next(snakefile)
+
+        if not is_colon(self.token):
+            ColonError(self.line_nb, self.token.string, self.keyword_line)
+        self.token = next(snakefile)
 
     @property
     def all_params(self):
