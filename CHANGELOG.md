@@ -7,6 +7,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Added
+
+* Support for module syntax: `module` keyword and `use rule` syntax ([#99][99])
+* Support for `containerized` keyword
+
+### Changed
+
+* Updated snakemake dependency to ^6.0.0 ([#99][99])
+
 ## [0.3.1]
 
 ### Fixed
@@ -170,4 +179,5 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [93]: https://github.com/snakemake/snakefmt/issues/93
 [96]: https://github.com/snakemake/snakefmt/issues/96
 [97]: https://github.com/snakemake/snakefmt/pull/97
+[99]: https://github.com/snakemake/snakefmt/issues/99
 
