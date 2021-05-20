@@ -52,33 +52,23 @@ class TestSnakefileTokenizer:
 class TestKeywordSyntax:
     def test_nocolon(self):
         with pytest.raises(SyntaxError, match="Colon.*expected"):
-            stream = StringIO("rule a")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a")
 
     def test_no_newline_in_keyword_context_SMK_NOBREAK(self):
         with pytest.raises(SyntaxError, match="Newline expected"):
-            stream = StringIO('rule a: input: "input_file"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter('rule a: input: "input_file"')
 
     def test_keyword_cannot_be_named(self):
         with pytest.raises(SyntaxError, match="Colon.*expected"):
-            stream = StringIO('workdir a: "/to/dir"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter('workdir a: "/to/dir"')
 
     def test_invalid_name_for_keyword(self):
         with pytest.raises(SyntaxError, match=".*checkpoint.*valid identifier"):
-            stream = StringIO("checkpoint (): \n" '\tinput: "a"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("checkpoint (): \n" '\tinput: "a"')
 
     def test_explicitly_unrecognised_keyword(self):
         with pytest.raises(SyntaxError, match="Unrecognised keyword"):
-            stream = StringIO("rule a:" "\n\talien_keyword: 3")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a:" "\n\talien_keyword: 3")
 
     def test_implicitly_unrecognised_keyword(self):
         """
@@ -87,36 +77,31 @@ class TestKeywordSyntax:
         In that case black will complain of invalid python and not format it.
         """
         with pytest.raises(InvalidPython):
-            stream = StringIO(f"role a: \n" f'{TAB * 1}input: "b"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter(f"role a: \n" f'{TAB * 1}input: "b"')
 
     def test_duplicate_rule_fails_SMK_NOBREAK(self):
         with pytest.raises(DuplicateKeyWordError, match="rule a"):
-            stream = StringIO("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
+
+    def test_duplicate_anonymous_rule_passes(self):
+        setup_formatter(
+            "rule:\n" f"{TAB * 1}threads: 4\n" "rule:\n" f"{TAB * 1}threads: 4\n"
+        )
 
     def test_authorised_duplicate_keyword_passes(self):
         setup_formatter('include: "a"\n' 'include: "b"\n')
 
     def test_empty_keyword_SMK_NOBREAK(self):
         with pytest.raises(EmptyContextError, match="rule"):
-            stream = StringIO("rule a:")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a:")
 
     def test_empty_keyword_2(self):
         with pytest.raises(NoParametersError, match="threads"):
-            stream = StringIO("rule a:" "\n\tthreads:")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a:" "\n\tthreads:")
 
     def test_empty_keyword_3(self):
         with pytest.raises(NoParametersError, match="message"):
-            stream = StringIO("rule a:" "\n\tthreads: 3" "\n\tmessage:")
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a:" "\n\tthreads: 3" "\n\tmessage:")
 
 
 class TestUseRuleKeywordSyntax:

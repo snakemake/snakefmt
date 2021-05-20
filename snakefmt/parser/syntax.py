@@ -224,7 +224,8 @@ class KeywordSyntax(Syntax):
             raise DuplicateKeyWordError(
                 f"L{token.start[0]}: '{keyword}' specified twice."
             )
-        self.processed_keywords.add(keyword)
+        if keyword != "rule":  # Allows anonymous rules
+            self.processed_keywords.add(keyword)
 
     def check_empty(self):
         if len(self.processed_keywords) == 0:
