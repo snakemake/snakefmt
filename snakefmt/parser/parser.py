@@ -172,7 +172,8 @@ class Parser(ABC):
                 self.context = saved_context
 
             status = self.syntax.get_next_queriable(self.snakefile)
-            self.buffer += status.buffer
+            # lstrip forces the formatter deal with newlines
+            self.buffer += status.buffer.lstrip()
             return status
 
         elif issubclass(new_context.syntax, ParameterSyntax):

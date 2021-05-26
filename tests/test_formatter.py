@@ -146,6 +146,15 @@ class TestUseRuleFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_use_rule_newline_spacing(self):
+        snakecode = (
+            "use rule * from module as module_*\n\n\n"
+            "rule baz:\n"
+            f"{TAB * 1}threads: 4\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestComplexParamFormatting:
     """
