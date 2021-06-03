@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.4.1]
+
+### Fixed
+
+* Add support for multiple anonymous rules, as per [snakemake grammar][snakemake_grammar] ([#103][103])
+* Newline bug in `use` syntax ([#106][106])
+
 ## [0.4.0]
 
 ### Added
@@ -147,7 +154,9 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 
 - First release - so everything you see is new!
 
+[snakemake_grammar]: https://snakemake.readthedocs.io/en/stable/snakefiles/writing_snakefiles.html#grammar
 [unreleased]: https://github.com/snakemake/snakefmt/compare/0.4.0...HEAD
+[0.4.1]: https://github.com/snakemake/snakefmt/releases/tag/0.4.1
 [0.4.0]: https://github.com/snakemake/snakefmt/releases/tag/0.4.0
 [0.3.1]: https://github.com/snakemake/snakefmt/releases/tag/0.3.1
 [0.3.0]: https://github.com/snakemake/snakefmt/releases/tag/0.3.0
@@ -183,4 +192,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [96]: https://github.com/snakemake/snakefmt/issues/96
 [97]: https://github.com/snakemake/snakefmt/pull/97
 [99]: https://github.com/snakemake/snakefmt/issues/99
-
+[106]: https://github.com/snakemake/snakefmt/issues/106
