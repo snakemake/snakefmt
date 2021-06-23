@@ -315,7 +315,7 @@ name: Lint Code Base
 on:
   push:
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   build:
@@ -330,7 +330,7 @@ jobs:
         uses: github/super-linter@v3
         env:
           VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: master
+          DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
           VALIDATE_SNAKEMAKE_SNAKEFMT: true
