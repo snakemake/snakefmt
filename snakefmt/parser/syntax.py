@@ -21,7 +21,6 @@ from snakefmt.exceptions import (
 from snakefmt.types import (
     COMMENT_SPACING,
     TAB,
-    Parameter,
     Token,
     TokenIterator,
     col_nb,
@@ -33,6 +32,39 @@ from snakefmt.types import (
 QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
+
+# ___Token spacing: for when cannot run black___#
+spacing_triggers = {
+    tokenize.NAME: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
+    tokenize.STRING: {tokenize.NAME, tokenize.OP},
+    tokenize.NUMBER: {tokenize.NAME, tokenize.OP},
+    tokenize.OP: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
+}
+
+
+def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
+    if prev_token.type != tokenize.OP and token.type != tokenize.OP:
+        return False
+    if (
+        prev_token.string in BRACKETS_OPEN
+        or prev_token.string == "."
+        or token.string in BRACKETS_CLOSE
+        or token.string in {"[", ":", "."}
+    ):
+        return True
+    elif prev_token.type == tokenize.NAME and token.string == "(":
+        return True
+    else:
+        return False
+
+
+def add_token_space(prev_token: Token, token: Token) -> bool:
+    result = False
+    if prev_token is not None and prev_token.type in spacing_triggers:
+        if not operator_skip_spacing(prev_token, token):
+            if token.type in spacing_triggers[prev_token.type]:
+                result = True
+    return result
 
 
 def is_colon(token: Token):
@@ -59,29 +91,67 @@ def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
 
 
-# ___Token spacing: for when cannot run black___#
-spacing_triggers = {
-    tokenize.NAME: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
-    tokenize.STRING: {tokenize.NAME, tokenize.OP},
-    tokenize.NUMBER: {tokenize.NAME, tokenize.OP},
-    tokenize.OP: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
-}
+class Parameter:
+    """
+    Holds the value of a parameter-accepting keyword
+    """
 
+    def __init__(self, token: Token):
+        self.line_nb = line_nb(token)
+        self.col_nb = col_nb(token)
+        self.key = ""
+        self.value = ""
+        self.pre_comments, self.post_comments = list(), list()
+        self.len = 0
+        self.inline: bool = True
+        self.fully_processed: bool = False
+        self._has_inline_comment: bool = False
 
-def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
-    if prev_token.type != tokenize.OP and token.type != tokenize.OP:
-        return False
-    if (
-        prev_token.string in BRACKETS_OPEN
-        or prev_token.string == "."
-        or token.string in BRACKETS_CLOSE
-        or token.string in {"[", ":", "."}
-    ):
-        return True
-    elif prev_token.type == tokenize.NAME and token.string == "(":
-        return True
-    else:
-        return False
+    def __repr__(self):
+        if self.has_a_key():
+            return f"{self.key}={self.value}"
+        else:
+            return self.value
+
+    def is_empty(self) -> bool:
+        return str(self) == ""
+
+    def add_comment(self, comment: str, indent_level: int) -> None:
+        if self.is_empty():
+            self.pre_comments.append(comment)
+        else:
+            if self.inline:
+                self._has_inline_comment = True
+            self.post_comments.append(comment)
+
+    def has_a_key(self) -> bool:
+        return len(self.key) > 0
+
+    def has_value(self) -> bool:
+        return len(self.value) > 0
+
+    def add_elem(self, prev_token: Token, token: Token):
+        if add_token_space(prev_token, token) and len(self.value) > 0:
+            self.value += " "
+
+        if self.is_empty():
+            self.col_nb = col_nb(token)
+
+        self.value += token.string
+
+    def to_key_val_mode(self, token: Token):
+        if not self.has_value():
+            raise InvalidParameterSyntax(
+                f"L{token.start[0]}:Operator = used with no preceding key"
+            )
+        try:
+            exec(f"{self.value} = 0")
+        except SyntaxError:
+            raise InvalidParameterSyntax(
+                f"L{token.start[0]}:Invalid key {self.value}"
+            ) from None
+        self.key = self.value
+        self.value = ""
 
 
 class Vocabulary:
@@ -275,10 +345,8 @@ class KeywordSyntax(Syntax):
                 self.queriable = False
                 return self.Status(token, self.cur_indent, buffer, False, pythonable)
 
-            if prev_token is not None and prev_token.type in spacing_triggers:
-                if not operator_skip_spacing(prev_token, token):
-                    if token.type in spacing_triggers[prev_token.type]:
-                        buffer += " "
+            if add_token_space(prev_token, token):
+                buffer += " "
             prev_token = token
             if newline:
                 newline = False
@@ -324,10 +392,12 @@ class ParameterSyntax(Syntax):
 
     def parse_params(self, snakefile: TokenIterator):
         cur_param = Parameter(self.token)
+        prev_token = None
 
         while True:
-            cur_param = self.process_token(cur_param)
+            cur_param = self.process_token(cur_param, prev_token)
             try:
+                prev_token = self.token
                 self.token = next(snakefile)
             except StopIteration:
                 self.flush_param(cur_param, skip_empty=True)
@@ -354,7 +424,7 @@ class ParameterSyntax(Syntax):
                 self.flush_param(cur_param, skip_empty=True)
         return exit
 
-    def process_token(self, cur_param: Parameter) -> Parameter:
+    def process_token(self, cur_param: Parameter, prev_token: Token) -> Parameter:
         token_type = self.token.type
         # Eager treatment of comments: tag them onto params
         if token_type == tokenize.COMMENT and not self.in_brackets:
@@ -364,7 +434,7 @@ class ParameterSyntax(Syntax):
             if not cur_param.is_empty():
                 cur_param.inline = False
             if cur_param.has_value():
-                cur_param.add_elem(self.token)
+                cur_param.add_elem(prev_token, self.token)
             self.found_newline = True
             return cur_param
 
@@ -389,9 +459,9 @@ class ParameterSyntax(Syntax):
             if is_colon(self.token) and self.in_lambda:
                 self.in_lambda = False
             if len(cur_param.value.split()) == 1:
-                if cur_param.value == "lambda":
+                if cur_param.value.lstrip() == "lambda":
                     self.in_lambda = True
-            cur_param.add_elem(self.token)
+            cur_param.add_elem(prev_token, self.token)
         return cur_param
 
     def flush_param(self, parameter: Parameter, skip_empty: bool = False) -> None:

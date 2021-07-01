@@ -187,12 +187,14 @@ class TestComplexParamFormatting:
 
         assert actual == expected
 
-    def test_lambda_function_with_multiple_args(self):
+    def test_lambda_function_with_multiple_args_and_ifelse(self):
         stream = StringIO(
             f"rule a:\n"
             f'{TAB * 1}input: "foo.txt" \n'
-            f"{TAB * 1}resources:"
-            f"{TAB * 2}mem_mb = lambda wildcards, attempt: attempt * 1000"
+            f"{TAB * 1}resources:\n"
+            f"{TAB * 2}time_min=lambda wildcards, attempt: (\n"
+            f'{TAB * 3}60 * 23 if "cv" in wildcards.method else 60 * 10\n'
+            f"{TAB * 2}) * attempt,\n"
         )
         smk = Snakefile(stream)
         formatter = Formatter(smk)
@@ -203,7 +205,12 @@ class TestComplexParamFormatting:
             f"{TAB * 1}input:\n"
             f'{TAB * 2}"foo.txt",\n'
             f"{TAB * 1}resources:\n"
-            f"{TAB * 2}mem_mb=lambda wildcards, attempt: attempt * 1000,\n"
+            f"{TAB * 2}time_min=(\n"
+            f"{TAB * 3}lambda wildcards, attempt: (\n"
+            f'{TAB * 4}60 * 23 if "cv" in wildcards.method else 60 * 10\n'
+            f"{TAB * 3})\n"
+            f"{TAB * 3}* attempt\n"
+            f"{TAB * 2}),\n"
         )
 
         assert actual == expected
