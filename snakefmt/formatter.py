@@ -9,7 +9,6 @@ import black
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.logging import Warnings
-from snakefmt.parser.grammar import SnakeRule
 from snakefmt.parser.parser import Parser, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
@@ -17,6 +16,7 @@ from snakefmt.parser.syntax import (
     InlineSingleParam,
     Parameter,
     ParameterSyntax,
+    ParamList,
     SingleParam,
     Syntax,
 )
@@ -127,8 +127,7 @@ class Formatter(Parser):
             in_global_context=in_global_context,
             context=param_context,
         )
-        in_rule = issubclass(param_context.incident_vocab.__class__, SnakeRule)
-        self.result += self.format_params(param_context, in_rule)
+        self.result += self.format_params(param_context)
         self.last_recognised_keyword = param_context.keyword_name
 
     def run_black_format_str(self, string: str, target_indent: int) -> str:
@@ -175,7 +174,7 @@ class Formatter(Parser):
         parameter: Parameter,
         target_indent: int,
         inline_formatting: bool,
-        single_param: bool = False,
+        param_list: bool = True,
     ) -> str:
         string_indent = TAB * target_indent
         if inline_formatting:
@@ -188,7 +187,7 @@ class Formatter(Parser):
         except SyntaxError:
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
 
-        if inline_formatting:
+        if inline_formatting or param_list:
             val = val.replace("\n", "")  # collapse strings on multiple lines
         try:
             val = self.run_black_format_str(val, target_indent)
@@ -199,14 +198,17 @@ class Formatter(Parser):
         val = self.align_strings(val, target_indent)
         if parameter.has_a_key():  # Remove space either side of '='
             match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
-            val = f"{match_equal.group(1)}={match_equal.group(2)}"
+            try:
+                val = f"{match_equal.group(1)}={match_equal.group(2)}"
+            except AttributeError:
+                pass
 
         result = ""
         if not inline_formatting:
             for comment in parameter.pre_comments:
                 result += f"{string_indent}{comment}\n"
         result += val.strip("\n")
-        if not single_param:
+        if param_list:
             result += ","
         post_comment_iter = iter(parameter.post_comments)
         if parameter._has_inline_comment:
@@ -216,12 +218,12 @@ class Formatter(Parser):
             result += f"{string_indent}{comment}\n"
         return result
 
-    def format_params(self, parameters: ParameterSyntax, in_rule: bool) -> str:
+    def format_params(self, parameters: ParameterSyntax) -> str:
         target_indent = parameters.target_indent
         used_indent = TAB * (target_indent - 1)
 
         p_class = parameters.__class__
-        single_param = issubclass(p_class, SingleParam)
+        param_list = issubclass(p_class, ParamList)
         inline_fmting = False
         if p_class is InlineSingleParam:
             inline_fmting = True
@@ -241,9 +243,7 @@ class Formatter(Parser):
         else:
             result += f"{parameters.comment}\n"
         for param in parameters.all_params:
-            result += self.format_param(
-                param, target_indent, inline_fmting, single_param
-            )
+            result += self.format_param(param, target_indent, inline_fmting, param_list)
         num_c = len(param.post_comments)
         if num_c > 1 or (not param._has_inline_comment and num_c == 1):
             Warnings.block_comment_below(parameters.keyword_name, param.line_nb)

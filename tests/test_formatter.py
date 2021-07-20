@@ -944,7 +944,6 @@ class TestLineWrapping:
         )
         line_length = 88
         formatter = setup_formatter(snakecode, line_length)
-
         actual = formatter.get_formatted()
         expected = (
             f"rule coverage_report:\n"
@@ -957,3 +956,26 @@ class TestLineWrapping:
         )
 
         assert actual == expected
+
+    def test_multiline_parameter_list_gets_wrapped(self):
+        """issue 111"""
+        snakecode = (
+            f"rule r:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}expand(\n"
+            f'{TAB * 3}os.path.join("dir1"),\n'
+            f"{TAB * 2})+\n"
+            f"{TAB * 2}[\n"
+            f'{TAB * 2}"dirname",\n'
+            f"{TAB * 2}],\n"
+        )
+        expected = (
+            f"rule r:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}expand(os.path.join("dir1"),) + [\n'
+            f'{TAB * 3}"dirname",\n'
+            f"{TAB * 2}],\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+        

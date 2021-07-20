@@ -498,7 +498,9 @@ class SingleParam(ParameterSyntax):
             )
 
 
-ParamList = ParameterSyntax
+class ParamList(ParameterSyntax):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class InlineSingleParam(SingleParam):
@@ -506,7 +508,7 @@ class InlineSingleParam(SingleParam):
         super().__init__(*args, **kwargs)
 
 
-class NoKeyParamList(ParameterSyntax):
+class NoKeyParamList(ParamList):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
