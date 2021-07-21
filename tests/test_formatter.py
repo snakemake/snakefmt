@@ -188,32 +188,19 @@ class TestComplexParamFormatting:
         assert actual == expected
 
     def test_lambda_function_with_multiple_args_and_ifelse(self):
-        stream = StringIO(
-            f"rule a:\n"
-            f'{TAB * 1}input: "foo.txt" \n'
-            f"{TAB * 1}resources:\n"
-            f"{TAB * 2}time_min=lambda wildcards, attempt: (\n"
-            f'{TAB * 3}60 * 23 if "cv" in wildcards.method else 60 * 10\n'
-            f"{TAB * 2}) * attempt,\n"
-        )
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
-
-        actual = formatter.get_formatted()
-        expected = (
+        snakecode = (
             f"rule a:\n"
             f"{TAB * 1}input:\n"
             f'{TAB * 2}"foo.txt",\n'
             f"{TAB * 1}resources:\n"
-            f"{TAB * 2}time_min=(\n"
-            f"{TAB * 3}lambda wildcards, attempt: (\n"
-            f'{TAB * 4}60 * 23 if "cv" in wildcards.method else 60 * 10\n'
-            f"{TAB * 3})\n"
-            f"{TAB * 3}* attempt\n"
-            f"{TAB * 2}),\n"
+            f"{TAB * 2}time_min=lambda wildcards, attempt: (\n"
+            f'{TAB * 3}60 * 23 if "cv" in wildcards.method else 60 * 10\n'
+            f"{TAB * 2})\n"
+            f"{TAB * 2}* attempt,\n"
         )
-
-        assert actual == expected
+        formatter = setup_formatter(snakecode)
+        actual = formatter.get_formatted()
+        assert actual == snakecode
 
     def test_lambda_function_with_input_keyword_and_nested_parentheses(self):
         """
@@ -233,8 +220,22 @@ class TestComplexParamFormatting:
 
         actual = formatter.get_formatted()
         expected = snakefile
-
         assert actual == expected
+
+    def test_arg_and_kwarg_unpacking(self):
+        """issue 109"""
+        snakecode = (
+            f"rule r:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}*["a", "b", "c"],\n'
+            f"{TAB * 2}*myfunc(a=1),\n"
+            f'{TAB * 2}**{{"a": "b", "c": "d"}},\n'
+            f"{TAB * 2}**myfunc(a=1, b=2),\n"
+            f"{TAB * 2}**module.myfunc(a=1, b=2),\n"
+        )
+        formatter = setup_formatter(snakecode)
+        actual = formatter.get_formatted()
+        assert actual == snakecode
 
 
 class TestSimplePythonFormatting:
@@ -360,7 +361,7 @@ class TestComplexPythonFormatting:
             mock_m.return_value = "if condition:\n"
             setup_formatter(snakecode)
             assert mock_m.call_count == 3
-            assert mock_m.call_args_list[1] == mock.call('"a"', 0)
+            assert mock_m.call_args_list[1] == mock.call('"a"', 0, 0)
             assert mock_m.call_args_list[2] == mock.call("b = 2\n", 0)
 
         formatter = setup_formatter(snakecode)
@@ -972,10 +973,12 @@ class TestLineWrapping:
         expected = (
             f"rule r:\n"
             f"{TAB * 1}input:\n"
-            f'{TAB * 2}expand(os.path.join("dir1"),) + [\n'
+            f"{TAB * 2}expand(\n"
+            f'{TAB * 3}os.path.join("dir1"),\n'
+            f"{TAB * 2})\n"
+            f"{TAB * 2}+ [\n"
             f'{TAB * 3}"dirname",\n'
             f"{TAB * 2}],\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
-        

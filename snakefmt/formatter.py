@@ -130,11 +130,15 @@ class Formatter(Parser):
         self.result += self.format_params(param_context)
         self.last_recognised_keyword = param_context.keyword_name
 
-    def run_black_format_str(self, string: str, target_indent: int) -> str:
+    def run_black_format_str(
+        self, string: str, target_indent: int, extra_spacing: int = 0
+    ) -> str:
         # reduce black target line length according to how indented the code is
         current_line_length = target_indent * len(TAB)
         black_mode = copy(self.black_mode)
-        black_mode.line_length = max(0, black_mode.line_length - current_line_length)
+        black_mode.line_length = max(
+            0, black_mode.line_length - current_line_length + extra_spacing
+        )
         try:
             fmted = black.format_str(string, mode=black_mode)
         except black.InvalidInput as e:
@@ -189,19 +193,17 @@ class Formatter(Parser):
 
         if inline_formatting or param_list:
             val = val.replace("\n", "")  # collapse strings on multiple lines
-        try:
-            val = self.run_black_format_str(val, target_indent)
-        except InvalidPython:
-            if "**" in val:
-                val = val.replace("** ", "**")
+        extra_spacing = 0
+        if param_list:
+            val = f"f({val})"
+            extra_spacing = 3
+        val = self.run_black_format_str(val, target_indent, extra_spacing)
+        if param_list:
+            match_equal = re.match(r"f\((.*)\)", val, re.DOTALL)
+            val = match_equal.group(1)
+            val = textwrap.dedent(val)
 
         val = self.align_strings(val, target_indent)
-        if parameter.has_a_key():  # Remove space either side of '='
-            match_equal = re.match("(.*?) = (.*)", val, re.DOTALL)
-            try:
-                val = f"{match_equal.group(1)}={match_equal.group(2)}"
-            except AttributeError:
-                pass
 
         result = ""
         if not inline_formatting:
