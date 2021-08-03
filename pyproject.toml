@@ -14,9 +14,9 @@ keywords = ["python", "snakemake", "code", "formatter", "parser", "workflow", "m
 snakefmt = 'snakefmt.snakefmt:main'
 
 [tool.poetry.dependencies]
-python = "^3.6.1"
+python = "^3.6.2"
 click = "^7.1.2"
-black = {version = "^20.8.b1", allow-prereleases = true}
+black = {version = "^21.7.b0", allow-prereleases = true}
 toml = "^0.10.2"
 importlib_metadata = "^1.7.0"
 
