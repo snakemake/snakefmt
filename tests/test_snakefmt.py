@@ -54,14 +54,14 @@ class TestCLIBasic:
         assert actual.output == expected_output
 
     def test_src_dir_arg_files_modified_inplace(self, cli_runner):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             content = 'include: "a"'
             abs_tmpdir = Path(tmpdir).resolve()
             snakedir = abs_tmpdir / "workflows"
             snakedir.mkdir()
             snakefile = snakedir / "Snakefile"
             snakefile.write_text(content)
-            params = [str(tmpdir)]
+            params = ["-v", str(tmpdir)]
 
             cli_runner.invoke(main, params)
             expected_contents = content + "\n"
