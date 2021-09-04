@@ -7,6 +7,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.4.3]
+
+### Added
+* Missing `handover` rule keyword that was added in
+  [`snakemake` v6.2.0](https://github.com/snakemake/snakemake/blob/main/CHANGELOG.rst#620---2021-04-22)
+
+### Changed
+* Upgraded minimum `black` version to 21.7b0 [[#116][116]] (@jalaziz)
+
 ## [0.4.2]
 
 ### Fixed
@@ -164,7 +173,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 - First release - so everything you see is new!
 
 [snakemake_grammar]: https://snakemake.readthedocs.io/en/stable/snakefiles/writing_snakefiles.html#grammar
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.4.2...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.4.3...HEAD
+[0.4.3]: https://github.com/snakemake/snakefmt/releases/tag/0.4.3
 [0.4.2]: https://github.com/snakemake/snakefmt/releases/tag/0.4.2
 [0.4.1]: https://github.com/snakemake/snakefmt/releases/tag/0.4.1
 [0.4.0]: https://github.com/snakemake/snakefmt/releases/tag/0.4.0
@@ -206,3 +216,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [108]: https://github.com/snakemake/snakefmt/issues/108
 [109]: https://github.com/snakemake/snakefmt/issues/109
 [111]: https://github.com/snakemake/snakefmt/issues/111
+[116]: https://github.com/snakemake/snakefmt/pull/116

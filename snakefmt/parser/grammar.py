@@ -47,6 +47,7 @@ rule_properties = dict(
     shadow=Context(None, SingleParam),
     group=Context(None, SingleParam),
     cache=Context(None, InlineSingleParam),
+    handover=Context(None, InlineSingleParam),
 )
 
 
