@@ -54,7 +54,7 @@ class TestCLIBasic:
         assert actual.output == expected_output
 
     def test_src_dir_arg_files_modified_inplace(self, cli_runner):
-        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
+        with tempfile.TemporaryDirectory(dir=".") as tmpdir:
             content = 'include: "a"'
             abs_tmpdir = Path(tmpdir).resolve()
             snakedir = abs_tmpdir / "workflows"
