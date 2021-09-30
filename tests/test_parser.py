@@ -289,3 +289,21 @@ class TestPythonCode:
         )
         with pytest.raises(InvalidPython):
             setup_formatter(snake_code)
+
+    def test_multiline_correctly_passed_to_black(self):
+        snake = """rule multiqc_report:
+    input:
+        fastqc_pe=expand(
+            os.path.join(
+                config["output_dir"], "samples", "{sample}", "fastqc", "{mate}"
+            ),
+            sample=[
+                i
+                for i in pd.unique(
+                    samples_table[samples_table["seqmode"] == "pe"].index.values
+                )
+            ],
+            mate="fq2",
+        ),
+"""
+        setup_formatter(snake)
