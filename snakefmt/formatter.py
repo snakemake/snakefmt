@@ -192,7 +192,9 @@ class Formatter(Parser):
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
 
         if inline_formatting or param_list:
-            val = " ".join(val.rstrip().split("\n"))  # collapse strings on multiple lines
+            val = " ".join(
+                val.rstrip().split("\n")
+            )  # collapse strings on multiple lines
         extra_spacing = 0
         if param_list:
             val = f"f({val})"
