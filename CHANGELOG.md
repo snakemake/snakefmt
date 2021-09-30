@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Fixed
+* Collapsing of multi-line strings does not cause syntax error now [[#118][118]]
+* Version detection adapts to python version
+
 ## [0.4.3]
 
 ### Added
@@ -217,3 +221,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [109]: https://github.com/snakemake/snakefmt/issues/109
 [111]: https://github.com/snakemake/snakefmt/issues/111
 [116]: https://github.com/snakemake/snakefmt/pull/116
+[118]: https://github.com/snakemake/snakefmt/issues/118
