@@ -22,8 +22,9 @@ from snakefmt.parser.syntax import (
 )
 from snakefmt.types import TokenIterator
 
-triple_quote_matcher = re.compile(
-    r"^\s*(\w?\"{3}.*?\"{3})|^\s*(\w?'{3}.*?'{3})", re.DOTALL | re.MULTILINE
+# This regex matches any number of consecutive strings; each can span multiple lines.
+full_string_matcher = re.compile(
+    r"^\s*(\w?([\"']{3}.*?[\"']{3})|([\"']{1}.*?[\"']{1}))$", re.DOTALL | re.MULTILINE
 )
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
@@ -154,7 +155,7 @@ class Formatter(Parser):
         pos = 0
         used_indent = TAB * target_indent
         indented = ""
-        for match in re.finditer(triple_quote_matcher, string):
+        for match in re.finditer(full_string_matcher, string):
             indented += textwrap.indent(string[pos : match.start(1)], used_indent)
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)

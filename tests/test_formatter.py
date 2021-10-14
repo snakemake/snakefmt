@@ -566,6 +566,26 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
+    def test_single_quoted_multiline_string_proper_tabbing(self):
+        snakecode = f"""
+rule a:
+{TAB * 1}shell:
+{TAB * 2}"(kallisto quant \\
+        --pseudobam \\
+        input > output) \\
+        2> log.stderr"
+"""
+        formatter = setup_formatter(snakecode)
+        expected = f"""
+rule a:
+{TAB * 1}shell:
+{TAB * 2}"(kallisto quant \\
+{TAB * 2}--pseudobam \\
+{TAB * 2}input > output) \\
+{TAB * 2}2> log.stderr"
+"""
+        assert formatter.get_formatted() == expected
+
     def test_docstrings_get_retabbed_for_snakecode_only(self):
         """Black only retabs the first tpq in a docstring."""
         snakecode = '''def f():
