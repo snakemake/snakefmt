@@ -7,9 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.4.4]
+
 ### Fixed
 * Collapsing of multi-line strings does not cause syntax error now [[#118][118]]
 * Version detection adapts to python version
+* Single-quoted multi-line strings are now supported [[#121][121]]
 
 ## [0.4.3]
 
@@ -177,7 +180,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 - First release - so everything you see is new!
 
 [snakemake_grammar]: https://snakemake.readthedocs.io/en/stable/snakefiles/writing_snakefiles.html#grammar
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.4.3...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.4.4...HEAD
+[0.4.4]: https://github.com/snakemake/snakefmt/releases/tag/0.4.4
 [0.4.3]: https://github.com/snakemake/snakefmt/releases/tag/0.4.3
 [0.4.2]: https://github.com/snakemake/snakefmt/releases/tag/0.4.2
 [0.4.1]: https://github.com/snakemake/snakefmt/releases/tag/0.4.1
@@ -222,3 +226,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [111]: https://github.com/snakemake/snakefmt/issues/111
 [116]: https://github.com/snakemake/snakefmt/pull/116
 [118]: https://github.com/snakemake/snakefmt/issues/118
+[121]: https://github.com/snakemake/snakefmt/issues/121
