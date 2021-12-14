@@ -1,7 +1,3 @@
-class DuplicateKeyWordError(Exception):
-    pass
-
-
 class InvalidPython(Exception):
     pass
 

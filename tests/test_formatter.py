@@ -409,12 +409,21 @@ class TestComplexPythonFormatting:
     def test_nested_snakecode_python_else_does_not_fail(self):
         snakecode = (
             'if c["a"] is None:\n\n'
-            f'{TAB * 1}include: "a"\n\n\n'
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}shell:""\n\n\n'
+            "else:\n"  # All python from here
+            f'{TAB * 1}var = "b"\n'
+        )
+        expected = (
+            'if c["a"] is None:\n\n'
+            f"{TAB * 1}rule a:\n"
+            f"{TAB * 2}shell:\n"
+            f'{TAB * 3}""\n\n\n'
             "else:\n"  # All python from here
             f'{TAB * 1}var = "b"\n'
         )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
+        assert formatter.get_formatted() == expected
 
     def test_multiple_rules_inside_python_code(self):
         formatter = setup_formatter(

@@ -7,7 +7,6 @@ from io import StringIO
 import pytest
 
 from snakefmt.exceptions import (
-    DuplicateKeyWordError,
     EmptyContextError,
     InvalidParameter,
     InvalidParameterSyntax,
@@ -78,10 +77,6 @@ class TestKeywordSyntax:
         """
         with pytest.raises(InvalidPython):
             setup_formatter(f"role a: \n" f'{TAB * 1}input: "b"')
-
-    def test_duplicate_rule_fails_SMK_NOBREAK(self):
-        with pytest.raises(DuplicateKeyWordError, match="rule a"):
-            setup_formatter("rule a:\n" '\tinput: "a"\n' "rule a:\n" '\tinput:"b"')
 
     def test_duplicate_anonymous_rule_passes(self):
         setup_formatter(
@@ -265,19 +260,6 @@ class TestPythonCode:
             f'{TAB * 2}configfile: "f2"\n'
         )
         setup_formatter(snake)
-
-    def test_multicopy_rule_name_after_python_code_fails(self):
-        snake = (
-            f"if condition1:\n"
-            f"{TAB * 1}rule all:\n"
-            f'{TAB * 2}wrapper:"a"\n'
-            f"rule b:\n"
-            f'{TAB * 1}wrapper:"b"\n'
-            f"rule b:\n"
-            f'{TAB * 1}wrapper:"b"'
-        )
-        with pytest.raises(DuplicateKeyWordError):
-            setup_formatter(snake)
 
     def test_snakecode_inside_run_directive_fails(self):
         snake_code = (

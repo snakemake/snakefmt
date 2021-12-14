@@ -66,7 +66,6 @@ class Parser(ABC):
                     else:  # Over-indented context gets reset
                         self.syntax.cur_indent = max(self.target_indent - 1, 0)
                 elif self.from_python:
-                    self.from_python = False
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
                 self.flush_buffer(
@@ -181,9 +180,7 @@ class Parser(ABC):
                 keyword, self.syntax.cur_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context, self.in_global_context)
-            self.syntax.add_processed_keyword(
-                status.token, status.token.string, check_dup=False
-            )
+            self.syntax.add_processed_keyword(status.token, status.token.string)
             return Syntax.Status(
                 param_context.token,
                 param_context.cur_indent,

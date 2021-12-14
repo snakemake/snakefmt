@@ -8,7 +8,6 @@ from typing import NamedTuple, Optional
 
 from snakefmt.exceptions import (
     ColonError,
-    DuplicateKeyWordError,
     EmptyContextError,
     InvalidParameter,
     InvalidParameterSyntax,
@@ -289,13 +288,8 @@ class KeywordSyntax(Syntax):
             ColonError(self.line_nb, self.token.string, self.keyword_line)
         self.token = next(snakefile)
 
-    def add_processed_keyword(self, token: Token, keyword: str, check_dup: bool = True):
-        if check_dup and keyword in self.processed_keywords:
-            raise DuplicateKeyWordError(
-                f"L{token.start[0]}: '{keyword}' specified twice."
-            )
-        if keyword != "rule":  # Allows anonymous rules
-            self.processed_keywords.add(keyword)
+    def add_processed_keyword(self, token: Token, keyword: str):
+        self.processed_keywords.add(keyword)
 
     def check_empty(self):
         if len(self.processed_keywords) == 0:
