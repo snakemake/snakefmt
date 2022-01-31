@@ -103,6 +103,7 @@ class TestModuleFormatting:
             "module a: \n"
             f'{TAB * 1}snakefile: "other.smk"\n'
             f"{TAB * 1}config: config\n"
+            f'{TAB * 1}prefix: "testmodule"\n'
             f'{TAB * 1}replace_prefix: {{"results/": "results/testmodule/"}}\n'
             f'{TAB * 1}meta_wrapper: "0.72.0/meta/bio/bwa_mapping"\n'
         )
@@ -113,6 +114,8 @@ class TestModuleFormatting:
             f'{TAB * 2}"other.smk"\n'
             f"{TAB * 1}config:\n"
             f"{TAB * 2}config\n"
+            f"{TAB * 1}prefix:\n"
+            f'{TAB * 2}"testmodule"\n'
             f"{TAB * 1}replace_prefix:\n"
             f'{TAB * 2}{{"results/": "results/testmodule/"}}\n'
             f"{TAB * 1}meta_wrapper:\n"
