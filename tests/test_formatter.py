@@ -83,15 +83,18 @@ class TestSimpleParamFormatting:
 
     def test_single_numeric_param_keyword_in_rule_stays_on_same_line(self):
         formatter = setup_formatter(
-            "rule a: \n" f'{TAB * 1}input: "c"\n' f"{TAB * 1}threads:\n" f"{TAB * 2}20"
+            "rule a: \n"
+            f'{TAB * 1}input: "c"\n'
+            f"{TAB * 1}threads:\n"
+            f"{TAB * 2}20\n"
+            f"{TAB * 1}default_target:\n"
+            f"{TAB * 2}True\n"
         )
 
         actual = formatter.get_formatted()
         expected = (
-            "rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"c",\n'
-            f"{TAB * 1}threads: 20\n"
+            f'rule a:\n{TAB * 1}input:\n{TAB * 2}"c",\n{TAB * 1}threads: 20\n'
+            f"{TAB * 1}default_target: True\n"
         )
 
         assert actual == expected
