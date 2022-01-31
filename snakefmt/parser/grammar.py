@@ -73,6 +73,7 @@ class SnakeModule(Vocabulary):
         config=Context(None, SingleParam),
         skip_validation=Context(None, SingleParam),
         meta_wrapper=Context(None, SingleParam),
+        prefix=Context(None, SingleParam),
         replace_prefix=Context(None, SingleParam),
     )
 
