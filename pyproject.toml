@@ -15,8 +15,8 @@ snakefmt = 'snakefmt.snakefmt:main'
 
 [tool.poetry.dependencies]
 python = "^3.6.2"
-click = "^7.1.2"
-black = {version = "^21.7.b0", allow-prereleases = true}
+click = "^8.0.0"
+black = "^22.1.0"
 toml = "^0.10.2"
 importlib_metadata = "^1.7.0"
 

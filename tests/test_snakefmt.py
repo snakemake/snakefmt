@@ -24,7 +24,7 @@ class TestCLIBasic:
         params = ["--fake"]
         actual = cli_runner.invoke(main, params)
         assert actual.exit_code != 0
-        assert "no such option" in actual.stderr
+        assert "no such option" in actual.stderr.lower()
 
     def test_invalidPath_nonZeroExit(self, cli_runner):
         params = ["fake.txt"]
