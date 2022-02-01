@@ -7,14 +7,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
-### Fixed
+### Added
+* Support for `prefix` and `default_target` keywords [[#131][131]]
 
+### Changed
+* Updated snakemake dependency to ^6.15.0
+
+### Fixed
 * Fix edge case for keywords inside Python if/else ([#115][115])
 
 ### Removed
-
 * No longer raise error if multiple keywords have the same name (e.g. `rule a` used
   twice)
+
 
 ## [0.4.4]
 
@@ -237,3 +242,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [116]: https://github.com/snakemake/snakefmt/pull/116
 [118]: https://github.com/snakemake/snakefmt/issues/118
 [121]: https://github.com/snakemake/snakefmt/issues/121
+[131]: https://github.com/snakemake/snakefmt/pull/131
