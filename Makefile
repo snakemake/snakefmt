@@ -1,7 +1,7 @@
 PROJECT = snakefmt
 COVG_REPORT = htmlcov/index.html
 OS := $(shell uname -s)
-VERSION := $(shell poetry version | grep -P '(?P<version>\d.\d.\d)' --only-matching)
+VERSION := $(shell poetry version -s)
 BOLD := $(shell tput bold)
 NORMAL := $(shell tput sgr0)
 # MAIN #########################################################################
