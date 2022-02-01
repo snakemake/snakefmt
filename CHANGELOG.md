@@ -12,6 +12,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 * Updated snakemake dependency to ^6.15.0
+* Updated black dependency to stable version (v22.1.0). See [the release changes](https://github.com/psf/black/releases/tag/22.1.0) 
+for details of style changes. This also required updating click to v8.0.0.
 
 ### Fixed
 * Fix edge case for keywords inside Python if/else ([#115][115])

@@ -4,7 +4,7 @@ Code for searching for and parsing snakefmt configuration files
 
 import inspect
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Union
+from typing import Dict, Optional, Sequence, Union
 
 import click
 import toml
@@ -16,8 +16,8 @@ from snakefmt.exceptions import MalformattedToml
 PathLike = Union[Path, str]
 
 
-def find_pyproject_toml(start_path: Iterable[str]) -> Optional[str]:
-    root = find_project_root(start_path)
+def find_pyproject_toml(start_path: Sequence[str]) -> Optional[str]:
+    root, _ = find_project_root(start_path)
     config_file = root / "pyproject.toml"
     return str(config_file) if config_file.is_file() else None
 
