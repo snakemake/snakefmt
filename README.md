@@ -36,6 +36,7 @@ design and specifications of [Black][black].
 - [Plug Us](#plug-us)
 - [Changes](#changes)
 - [Contributing](#contributing)
+- [Cite](#cite)
 
 
 ## Install
@@ -296,7 +297,7 @@ To do so, create the file `.pre-commit-config.yaml` in the root of your project 
 ```yaml
 repos:
   - repo: https://github.com/snakemake/snakefmt
-    rev: 0.2.4 # Replace by any tag/version ≥0.2.4 : https://github.com/snakemake/snakefmt/releases
+    rev: 0.5.0 # Replace by any tag/version ≥0.2.4 : https://github.com/snakemake/snakefmt/releases
     hooks:
       - id: snakefmt
 ```
@@ -372,6 +373,25 @@ See [`CHANGELOG.md`][changes].
 
 See [CONTRIBUTING.md][contributing].
 
+## Cite
+
+[![DOI][doi-shield]][doi]
+
+```Bibtex
+@article{snakemake2021,
+  doi = {10.12688/f1000research.29032.2},
+  url = {https://doi.org/10.12688/f1000research.29032.2},
+  year = {2021},
+  month = apr,
+  publisher = {F1000 Research Ltd},
+  volume = {10},
+  pages = {33},
+  author = {Felix M\"{o}lder and Kim Philipp Jablonski and Brice Letcher and Michael B. Hall and Christopher H. Tomkins-Tinch and Vanessa Sochat and Jan Forster and Soohyun Lee and Sven O. Twardziok and Alexander Kanitz and Andreas Wilm and Manuel Holtgrewe and Sven Rahmann and Sven Nahnsen and Johannes K\"{o}ster},
+  title = {Sustainable data analysis with Snakemake},
+  journal = {F1000Research}
+}
+```
+
 
 [snakemake]: https://snakemake.readthedocs.io/
 [black]: https://black.readthedocs.io/en/stable/
@@ -380,3 +400,5 @@ See [CONTRIBUTING.md][contributing].
 [poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md
+[doi-shield]: https://img.shields.io/badge/DOI-10.12688%2Ff1000research.29032.2-brightgreen.svg
+[doi]: https://doi.org/10.12688/f1000research.29032.2

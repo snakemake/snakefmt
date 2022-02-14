@@ -7,6 +7,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.5.0]
+
 ### Added
 * Support for `prefix` and `default_target` keywords [[#131][131]]
 
@@ -196,7 +198,8 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 - First release - so everything you see is new!
 
 [snakemake_grammar]: https://snakemake.readthedocs.io/en/stable/snakefiles/writing_snakefiles.html#grammar
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.4.4...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/snakemake/snakefmt/releases/tag/0.5.0
 [0.4.4]: https://github.com/snakemake/snakefmt/releases/tag/0.4.4
 [0.4.3]: https://github.com/snakemake/snakefmt/releases/tag/0.4.3
 [0.4.2]: https://github.com/snakemake/snakefmt/releases/tag/0.4.2
