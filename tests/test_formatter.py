@@ -208,6 +208,18 @@ class TestComplexParamFormatting:
         actual = formatter.get_formatted()
         assert actual == snakecode
 
+    def test_lambda_function_with_keyword_arg(self):
+        snakecode = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f"{TAB * 1}resources:\n"
+            f"{TAB * 2}mem_mb=lambda wildcards, attempt, mem=1000: attempt * mem,\n"
+        )
+        formatter = setup_formatter(snakecode)
+        actual = formatter.get_formatted()
+        assert actual == snakecode
+
     def test_lambda_function_with_input_keyword_and_nested_parentheses(self):
         """
         We need to ignore 'input:' as a recognised keyword and ',' inside brackets
