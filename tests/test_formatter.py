@@ -493,6 +493,20 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_nested_if_statements_with_comments_and_snakecode_inside(self):
+        """https://github.com/snakemake/snakefmt/issues/126"""
+        snakecode = (
+            "# when using nested if-statements with___\n"
+            "if True:\n"
+            f"{TAB * 1}if True:\n"
+            f"{TAB * 2}ruleorder: __a_ruleorder_and__\n"
+            "\n"
+            f"{TAB * 1}# ___any comment, breaks the parsing of the next line\n"
+            f'{TAB * 1}var = "anything really"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_nested_ifelse_statements(self):
         snakecode = (
             'if config["a"] is None:\n\n'
