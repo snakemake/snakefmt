@@ -9,6 +9,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 * Keyword argument lambdas are now allowed inside rules [[#135][135]]
+* Improve reported line number in Snakefile when black fails to parse [[#127][127]]
 
 ## [0.6.0](https://www.github.com/snakemake/snakefmt/compare/v0.5.0...v0.6.0) (2022-03-03)
 
@@ -256,5 +257,6 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [116]: https://github.com/snakemake/snakefmt/pull/116
 [118]: https://github.com/snakemake/snakefmt/issues/118
 [121]: https://github.com/snakemake/snakefmt/issues/121
+[127]: https://github.com/snakemake/snakefmt/issues/127
 [131]: https://github.com/snakemake/snakefmt/pull/131
 [135]: https://github.com/snakemake/snakefmt/issues/135
