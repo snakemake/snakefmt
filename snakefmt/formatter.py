@@ -8,7 +8,7 @@ import black
 
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
-from snakefmt.logging import Warnings
+from snakefmt.logging import LogConfig, Warnings
 from snakefmt.parser.parser import Parser, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
@@ -143,9 +143,31 @@ class Formatter(Parser):
         try:
             fmted = black.format_str(string, mode=black_mode)
         except black.InvalidInput as e:
-            raise InvalidPython(
-                f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
-            ) from None
+            logger = LogConfig.get_logger()
+            err_msg = ""
+            # Not clear whether all Black errors start with 'Cannot parse' - it seems to
+            # in the tests I ran
+            match = re.search(r"Cannot parse: (?P<line>\d+):(?P<char>\d+)", str(e))
+            if match:
+                # this is the line number within the piece of code that was passed to
+                # black, not necessarily the line number within the Snakefile
+                lin_num = int(match.group("line"))
+                context_lin_num = len(self.result.splitlines())
+                total_lin_num = context_lin_num + lin_num
+                err_msg += f"Black failed to parse line number {total_lin_num}."
+            else:
+                err_msg += (
+                    "Black failed to parse code, but we could not determine the line "
+                    "number."
+                )
+
+            err_msg += (
+                " Note: the line number in the black error below may not be the line "
+                "number in the original file."
+            )
+            logger.error(err_msg)
+            err_msg = f"Black error:\n```\n{str(e)}\n```\n"
+            raise InvalidPython(err_msg) from None
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:
