@@ -64,6 +64,7 @@ class SnakeRule(Vocabulary):
         notebook=Context(None, SingleParam),
         wrapper=Context(None, SingleParam),
         cwl=Context(None, SingleParam),
+        template_engine=Context(None, SingleParam),
         **rule_properties
     )
 
