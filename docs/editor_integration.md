@@ -98,8 +98,7 @@ Credit: plugin inspired by
 3. If you want to format your file automatically when saving it, write this in your vimrc:
 
     ```
-    au BufNewFile,BufRead Snakefile,*.smk set filetype=snakemake
-    au FileType snakemake autocmd BufWritePre <buffer> execute ':Snakefmt'
+    au BufNewFile,BufRead Snakefile,snakefile,*.smk set syntax=snakemake
     ```
 
 4. If you additionally want syntax highlighting on your snakemake files, install snakemake's [syntax highlighter](https://github.com/snakemake/snakemake/tree/master/misc/vim)!
