@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Added
+
+* Support for `template_engine` keyword. **This requires bumping our minimum python version to 3.7 to allow for snakemake v7.**
+
 ## [0.5.0]
 
 ### Added

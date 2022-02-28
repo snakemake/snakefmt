@@ -14,7 +14,7 @@ keywords = ["python", "snakemake", "code", "formatter", "parser", "workflow", "m
 snakefmt = 'snakefmt.snakefmt:main'
 
 [tool.poetry.dependencies]
-python = "^3.6.2"
+python = "^3.7.0"
 click = "^8.0.0"
 black = "^22.1.0"
 toml = "^0.10.2"
@@ -24,7 +24,7 @@ importlib_metadata = "^1.7.0"
 pytest = "^5.2"
 pytest-cov = "^2.8.1"
 flake8 = "^3.7.9"
-snakemake = "^6.15.0"
+snakemake = "^7.0"
 isort = "^5.1.0"
 
 [tool.poetry.urls]
