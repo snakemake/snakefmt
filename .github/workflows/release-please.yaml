@@ -1,0 +1,40 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: GoogleCloudPlatform/release-please-action@v2
+        id: release
+        with:
+          release-type: python
+          package-name: snakefmt
+
+      - uses: actions/checkout@v2
+        if: ${{ steps.release.outputs.release_created }}
+
+      - uses: actions/setup-python@v2
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          python-version: "3.6"
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.release_created }}
+        run:  make install-ci
+
+      - name: Build a binary wheel and a source tarball
+        if: ${{ steps.release.outputs.release_created }}
+        run:  make build
+
+      - name: Publish to PyPI
+        if: ${{ steps.release.outputs.release_created }}
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user:     __token__
+          password: ${{ secrets.PYPI_TOKEN }}
