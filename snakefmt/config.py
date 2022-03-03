@@ -2,13 +2,13 @@
 Code for searching for and parsing snakefmt configuration files
 """
 
-import inspect
+from dataclasses import fields
 from pathlib import Path
 from typing import Dict, Optional, Sequence, Union
 
 import click
 import toml
-from black import FileMode, find_project_root
+from black import Mode, find_project_root
 
 from snakefmt import DEFAULT_LINE_LENGTH
 from snakefmt.exceptions import MalformattedToml
@@ -55,9 +55,9 @@ def inject_snakefmt_config(
     return config_file
 
 
-def read_black_config(path: Optional[PathLike]) -> FileMode:
+def read_black_config(path: Optional[PathLike]) -> Mode:
     """Parse Black configuration from provided toml."""
-    black_mode = FileMode(line_length=DEFAULT_LINE_LENGTH)
+    black_mode = Mode(line_length=DEFAULT_LINE_LENGTH)
     if path is None:
         return black_mode
     if not Path(path).is_file():
@@ -69,7 +69,7 @@ def read_black_config(path: Optional[PathLike]) -> FileMode:
     except toml.TomlDecodeError as error:
         raise MalformattedToml(error)
 
-    valid_black_filemode_params = inspect.getfullargspec(FileMode).args
+    valid_black_filemode_params = sorted([field.name for field in fields(Mode)])
 
     for key, val in config.items():
         # this is due to FileMode param being string_normalise, but CLI being
