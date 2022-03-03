@@ -35,3 +35,9 @@ You should be all set to go now!
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [flake8]: https://github.com/snakemake/snakefmt/blob/master/.flake8
 
+
+### Pull requests
+
+Any changes to snakefmt should be provided as pull requests via Github.
+Importantly, the pull request title has to follow the [conventional commits specification](https://www.conventionalcommits.org).
+If the pull requests consists of a single commit, the commit message of that commit has to follow the [conventional commits specification](https://www.conventionalcommits.org) as well.
