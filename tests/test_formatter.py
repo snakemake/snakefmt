@@ -498,9 +498,9 @@ class TestComplexPythonFormatting:
         snakecode = (
             "# when using nested if-statements with___\n"
             "if True:\n"
-            f"{TAB * 1}if True:\n"
+            f"{TAB * 1}if True:\n\n"
             f"{TAB * 2}ruleorder: __a_ruleorder_and__\n"
-            "\n"
+            "\n\n"
             f"{TAB * 1}# ___any comment, breaks the parsing of the next line\n"
             f'{TAB * 1}var = "anything really"\n'
         )
