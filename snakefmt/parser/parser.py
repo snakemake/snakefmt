@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import Context, PythonCode, SnakeGlobal
 from snakefmt.parser.syntax import KeywordSyntax, ParameterSyntax, Syntax, Vocabulary
-from snakefmt.types import Token, TokenIterator, TAB
+from snakefmt.types import TAB, Token, TokenIterator
 
 
 class Snakefile:
