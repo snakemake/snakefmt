@@ -323,8 +323,14 @@ class KeywordSyntax(Syntax):
             elif token.type == tokenize.ENDMARKER:
                 return self.Status(token, self.cur_indent, buffer, True, pythonable)
             elif token.type == tokenize.COMMENT:
-                if token.start[1] == 0:
+                comment_indent = int(token.start[1] / len(TAB))
+                if comment_indent == 0:
                     return self.Status(token, 0, buffer, False, pythonable)
+                else:
+                    buffer += f"{TAB * comment_indent}{token.string}"
+                    prev_token = token
+                    continue
+
             elif is_newline(token):
                 self.queriable, newline = True, True
                 buffer += "\n"
