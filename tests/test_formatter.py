@@ -496,13 +496,17 @@ class TestComplexPythonFormatting:
     def test_nested_if_statements_with_comments_and_snakecode_inside(self):
         """https://github.com/snakemake/snakefmt/issues/126"""
         snakecode = (
-            "# when using nested if-statements with___\n"
+            "# first standalone comment\n"
             "if True:\n"
             f"{TAB * 1}if True:\n\n"
-            f"{TAB * 2}ruleorder: __a_ruleorder_and__\n"
+            f"{TAB * 2}ruleorder: __a_ruleorder_and__  # inline comment\n"
             "\n\n"
-            f"{TAB * 1}# ___any comment, breaks the parsing of the next line\n"
+            f"{TAB * 1}# second standalone comment\n"
             f'{TAB * 1}var = "anything really"\n'
+            "\n\n"
+            f"else:\n\n"
+            f"{TAB * 1}# third standalone comment\n"
+            f"{TAB * 1}ruleorder: some_other_order\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode

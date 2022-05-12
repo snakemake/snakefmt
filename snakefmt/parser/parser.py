@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import Context, PythonCode, SnakeGlobal
 from snakefmt.parser.syntax import KeywordSyntax, ParameterSyntax, Syntax, Vocabulary
-from snakefmt.types import Token, TokenIterator
+from snakefmt.types import Token, TokenIterator, TAB
 
 
 class Snakefile:
@@ -59,6 +59,14 @@ class Parser(ABC):
                 break
 
             keyword = status.token.string
+
+            if status.token.type == tokenize.COMMENT:
+                # check if inline or standalone
+                is_standalone_comment = comment_start(status.token.line)
+                if is_standalone_comment:
+                    comment_indent = int(status.token.start[1] / len(TAB))
+                    self.buffer += TAB * comment_indent
+
             if self.vocab.recognises(keyword):
                 if status.indent > self.target_indent:
                     if self.syntax.from_python or status.pythonable:

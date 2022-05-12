@@ -94,10 +94,15 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                formatted = self.run_black_format_str(self.buffer, self.target_indent)
+                # need to dedent as we could be inside an if statement but after
+                # snakemake code
+                to_fmt = textwrap.dedent(self.buffer)
+                formatted = self.run_black_format_str(to_fmt, self.syntax.cur_indent)
             code_indent = self.syntax.code_indent
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
+                if self.syntax.effective_indent == 0:
+                    self.syntax.code_indent = 0
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
