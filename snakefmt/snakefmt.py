@@ -254,7 +254,7 @@ def main(
             formatted_content = formatter.get_formatted()
         except Exception as error:
             if check:
-                logger.error(f"'{error.__class__.__name__}: {error}'")
+                logger.error(f"{error.__class__.__name__}: {error}")
                 files_with_errors += 1
                 continue
             else:
