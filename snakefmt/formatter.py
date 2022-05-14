@@ -8,7 +8,7 @@ import black
 
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
-from snakefmt.logging import LogConfig, Warnings
+from snakefmt.logging import Warnings
 from snakefmt.parser.parser import Parser, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
@@ -148,30 +148,28 @@ class Formatter(Parser):
         try:
             fmted = black.format_str(string, mode=black_mode)
         except black.InvalidInput as e:
-            logger = LogConfig.get_logger()
             err_msg = ""
             # Not clear whether all Black errors start with 'Cannot parse' - it seems to
             # in the tests I ran
-            match = re.search(r"Cannot parse: (?P<line>\d+):(?P<char>\d+)", str(e))
-            if match:
+            match = re.search(r"(Cannot parse: )(?P<line>\d+)(.*)", str(e))
+            try:
+                next_token = next(self.snakefile)
+                self.snakefile.denext(next_token)
+            except StopIteration:
+                next_token = None
+            if match and next_token is not None:
                 # this is the line number within the piece of code that was passed to
                 # black, not necessarily the line number within the Snakefile
-                lin_num = int(match.group("line"))
-                context_lin_num = len(self.result.splitlines())
-                total_lin_num = context_lin_num + lin_num
-                err_msg += f"Black failed to parse line number {total_lin_num}."
+                line_num = int(match.group("line"))
+                context_line_num = next_token.start[0] - len(string.splitlines())
+                total_line_num = context_line_num + line_num - 1
+                err_msg = match.group(1) + str(total_line_num) + match.group(3)
             else:
-                err_msg += (
-                    "Black failed to parse code, but we could not determine the line "
-                    "number."
+                err_msg = str(e) + (
+                    "\n\n(Note reported line number may be incorrect, as"
+                    " snakefmt could not determine the true line number)"
                 )
-
-            err_msg += (
-                " Note: the line number in the black error below may not be the line "
-                "number in the original file."
-            )
-            logger.error(err_msg)
-            err_msg = f"Black error:\n```\n{str(e)}\n```\n"
+            err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
             raise InvalidPython(err_msg) from None
         return fmted
 
