@@ -1,3 +1,2 @@
 [tool.snakefmt]
 line_length = 30
-
