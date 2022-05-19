@@ -511,6 +511,31 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_nested_if_statements_with_comments_and_snakecode_inside2(self):
+        """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}ruleorder: A > B\n"
+            "\n\n"
+            f"{TAB * 1}mylist = []  # you can even remove the indentation from this line\n"
+            f'{TAB * 1}mystr = "a"  # error occurs in the 2nd line of code below a nested ruleorder\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_nested_if_statements_with_function_and_snakecode_inside(self):
+        """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}ruleorder: A > B\n"
+            "\n\n"
+            f"{TAB * 1}def myfunc():\n"
+            f"{TAB * 2}pass\n\n"
+            f"{TAB * 1}mylist = []\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_nested_ifelse_statements(self):
         snakecode = (
             'if config["a"] is None:\n\n'
