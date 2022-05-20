@@ -326,10 +326,6 @@ class KeywordSyntax(Syntax):
                 comment_indent = int(token.start[1] / len(TAB))
                 if comment_indent == 0:
                     return self.Status(token, 0, buffer, False, pythonable)
-                else:
-                    buffer += f"{TAB * comment_indent}{token.string}"
-                    prev_token = token
-                    continue
 
             elif is_newline(token):
                 self.queriable, newline = True, True

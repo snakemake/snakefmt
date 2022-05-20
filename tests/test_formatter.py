@@ -517,8 +517,8 @@ class TestComplexPythonFormatting:
             "if True:\n\n"
             f"{TAB * 1}ruleorder: A > B\n"
             "\n\n"
-            f"{TAB * 1}mylist = []  # you can even remove the indentation from this line\n"
-            f'{TAB * 1}mystr = "a"  # error occurs in the 2nd line of code below a nested ruleorder\n'
+            f"{TAB * 1}mylist = []  # inline comment\n"
+            f'{TAB * 1}mystr = "a"  # inline comment\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -530,7 +530,8 @@ class TestComplexPythonFormatting:
             f"{TAB * 1}ruleorder: A > B\n"
             "\n\n"
             f"{TAB * 1}def myfunc():\n"
-            f"{TAB * 2}pass\n\n"
+            f"{TAB * 2}pass\n"
+            "\n\n"
             f"{TAB * 1}mylist = []\n"
         )
         formatter = setup_formatter(snakecode)

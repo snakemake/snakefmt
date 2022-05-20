@@ -94,10 +94,8 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                # need to dedent as we could be inside an if statement but after
-                # snakemake code
-                to_fmt = textwrap.dedent(self.buffer)
-                formatted = self.run_black_format_str(to_fmt, self.syntax.cur_indent)
+                formatted = self.run_black_format_str(self.buffer, self.target_indent)
+
             code_indent = self.syntax.code_indent
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
@@ -139,6 +137,21 @@ class Formatter(Parser):
     def run_black_format_str(
         self, string: str, target_indent: int, extra_spacing: int = 0
     ) -> str:
+        # this initial section deals with comment indenting inside if-else statements
+        # that have had snakecode. Somehow the indenting after snakecode inside these
+        # nested statements gets messed up
+        inside_nested_statement = (
+            self.syntax.code_indent is not None and self.syntax.code_indent > 0
+        )
+        if inside_nested_statement and self.from_python:  # i.e. after snakecode
+            # indent any comments and the first line
+            tmpstring = ""
+            for i, line in enumerate(string.splitlines(keepends=True)):
+                if comment_start(line) or i == 0:
+                    line = f"{TAB * self.syntax.code_indent}{line}"
+                tmpstring += line
+            string = textwrap.dedent(tmpstring)
+
         # reduce black target line length according to how indented the code is
         current_line_length = target_indent * len(TAB)
         black_mode = copy(self.black_mode)
