@@ -7,6 +7,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+### Added
+* Support for `retries` keyword [[#145][145]]
+
 ### Fixed
 * Keyword argument lambdas are now allowed inside rules [[#135][135]]
 * Improve reported line number in Snakefile when black fails to parse [[#127][127]]
@@ -262,3 +265,4 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 [127]: https://github.com/snakemake/snakefmt/issues/127
 [131]: https://github.com/snakemake/snakefmt/pull/131
 [135]: https://github.com/snakemake/snakefmt/issues/135
+[145]: https://github.com/snakemake/snakefmt/pull/145
