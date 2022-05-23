@@ -143,7 +143,8 @@ class Formatter(Parser):
         inside_nested_statement = (
             self.syntax.code_indent is not None and self.syntax.code_indent > 0
         )
-        if inside_nested_statement and self.from_python:  # i.e. after snakecode
+        # this checks if we are inside snakecode, within a nested if-else statement
+        if inside_nested_statement and self.from_python and self.in_global_context:
             # indent any comments and the first line
             tmpstring = ""
             for i, line in enumerate(string.splitlines(keepends=True)):

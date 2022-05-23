@@ -523,6 +523,22 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_nested_if_statements_with_comments_and_snakecode_inside3(self):
+        """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1132845522"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}rule with_run_directive:\n"
+            f"{TAB * 2}output:\n"
+            f'{TAB * 3}"test.txt",\n'
+            f"{TAB * 2}run:\n"
+            f"{TAB * 3}if True:\n"
+            f'{TAB * 4}print("this line is in the error")\n'
+            "\n\n"
+            f'{TAB * 1}print("the indenting on this line matters")\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_nested_if_statements_with_function_and_snakecode_inside(self):
         """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
         snakecode = (
