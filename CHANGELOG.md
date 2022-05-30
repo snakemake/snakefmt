@@ -7,15 +7,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [unreleased]
 
+## [0.6.1]
+
 ### Added
 * Support for `retries` keyword [[#145][145]]
 
 ### Fixed
 * Keyword argument lambdas are now allowed inside rules [[#135][135]]
 * Improve reported line number in Snakefile when black fails to parse [[#127][127]]
-* Better handling of snakemake code inside nested if-else statements with comments at differing indentation levels [[#126][126]]
+* Better handling of snakemake code inside nested if-else statements with comments at differing indentation levels [[#126][126]] - a HUGE thank you to [@siebrenf](https://github.com/siebrenf) for testing
 
-## [0.6.0](https://www.github.com/snakemake/snakefmt/compare/v0.5.0...v0.6.0) (2022-03-03)
+## [0.6.0] (2022-03-03)
 
 ### Added
 
@@ -212,7 +214,9 @@ is 40 character long, the line is 48 characters long. However, we were only pass
 - First release - so everything you see is new!
 
 [snakemake_grammar]: https://snakemake.readthedocs.io/en/stable/snakefiles/writing_snakefiles.html#grammar
-[unreleased]: https://github.com/snakemake/snakefmt/compare/0.5.0...HEAD
+[unreleased]: https://github.com/snakemake/snakefmt/compare/0.6.1...HEAD
+[0.6.1]: https://www.github.com/snakemake/snakefmt/compare/v0.6.0...v0.6.1
+[0.6.0]: https://www.github.com/snakemake/snakefmt/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/snakemake/snakefmt/releases/tag/0.5.0
 [0.4.4]: https://github.com/snakemake/snakefmt/releases/tag/0.4.4
 [0.4.3]: https://github.com/snakemake/snakefmt/releases/tag/0.4.3
