@@ -17,7 +17,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.6.1]
 
 ### Added
-* Support for `retries` keyword [[#145][145]]
+* Support for `retries` keyword [[#145][145]] - thanks [@maarten-k](https://github.com/maarten-k)
 
 ### Fixed
 * Keyword argument lambdas are now allowed inside rules [[#135][135]]
