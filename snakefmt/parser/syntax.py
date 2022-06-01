@@ -325,6 +325,7 @@ class KeywordSyntax(Syntax):
             elif token.type == tokenize.COMMENT:
                 if token.start[1] == 0:
                     return self.Status(token, 0, buffer, False, pythonable)
+
             elif is_newline(token):
                 self.queriable, newline = True, True
                 buffer += "\n"
@@ -441,7 +442,7 @@ class ParameterSyntax(Syntax):
         elif token_type == tokenize.DEDENT:
             if self.cur_indent > 0:
                 self.cur_indent -= 1
-        elif is_equal_sign(self.token) and not self.in_brackets:
+        elif is_equal_sign(self.token) and not self.in_brackets and not self.in_lambda:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
             cur_param.fully_processed = True

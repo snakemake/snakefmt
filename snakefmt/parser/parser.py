@@ -59,6 +59,7 @@ class Parser(ABC):
                 break
 
             keyword = status.token.string
+
             if self.vocab.recognises(keyword):
                 if status.indent > self.target_indent:
                     if self.syntax.from_python or status.pythonable:

@@ -95,9 +95,12 @@ class Formatter(Parser):
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
+
             code_indent = self.syntax.code_indent
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
+                if self.syntax.effective_indent == 0:
+                    self.syntax.code_indent = 0
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
@@ -134,6 +137,22 @@ class Formatter(Parser):
     def run_black_format_str(
         self, string: str, target_indent: int, extra_spacing: int = 0
     ) -> str:
+        # this initial section deals with comment indenting inside if-else statements
+        # that have had snakecode. Somehow the indenting after snakecode inside these
+        # nested statements gets messed up
+        inside_nested_statement = (
+            self.syntax.code_indent is not None and self.syntax.code_indent > 0
+        )
+        # this checks if we are inside snakecode, within a nested if-else statement
+        if inside_nested_statement and self.from_python and self.in_global_context:
+            # indent any comments and the first line
+            tmpstring = ""
+            for i, line in enumerate(string.splitlines(keepends=True)):
+                if comment_start(line) or i == 0:
+                    line = f"{TAB * self.syntax.code_indent}{line}"
+                tmpstring += line
+            string = textwrap.dedent(tmpstring)
+
         # reduce black target line length according to how indented the code is
         current_line_length = target_indent * len(TAB)
         black_mode = copy(self.black_mode)
@@ -143,9 +162,29 @@ class Formatter(Parser):
         try:
             fmted = black.format_str(string, mode=black_mode)
         except black.InvalidInput as e:
-            raise InvalidPython(
-                f"Got error:\n```\n{str(e)}\n```\n" f"while formatting code with black."
-            ) from None
+            err_msg = ""
+            # Not clear whether all Black errors start with 'Cannot parse' - it seems to
+            # in the tests I ran
+            match = re.search(r"(Cannot parse: )(?P<line>\d+)(.*)", str(e))
+            try:
+                next_token = next(self.snakefile)
+                self.snakefile.denext(next_token)
+            except StopIteration:
+                next_token = None
+            if match and next_token is not None:
+                # this is the line number within the piece of code that was passed to
+                # black, not necessarily the line number within the Snakefile
+                line_num = int(match.group("line"))
+                context_line_num = next_token.start[0] - len(string.splitlines())
+                total_line_num = context_line_num + line_num - 1
+                err_msg = match.group(1) + str(total_line_num) + match.group(3)
+            else:
+                err_msg = str(e) + (
+                    "\n\n(Note reported line number may be incorrect, as"
+                    " snakefmt could not determine the true line number)"
+                )
+            err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
+            raise InvalidPython(err_msg) from None
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:

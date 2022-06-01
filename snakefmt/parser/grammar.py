@@ -49,6 +49,7 @@ rule_properties = dict(
     cache=Context(None, InlineSingleParam),
     handover=Context(None, InlineSingleParam),
     default_target=Context(None, InlineSingleParam),
+    retries=Context(None, InlineSingleParam),
 )
 
 

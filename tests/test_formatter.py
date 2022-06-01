@@ -208,6 +208,18 @@ class TestComplexParamFormatting:
         actual = formatter.get_formatted()
         assert actual == snakecode
 
+    def test_lambda_function_with_keyword_arg(self):
+        snakecode = (
+            f"rule a:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"foo.txt",\n'
+            f"{TAB * 1}resources:\n"
+            f"{TAB * 2}mem_mb=lambda wildcards, attempt, mem=1000: attempt * mem,\n"
+        )
+        formatter = setup_formatter(snakecode)
+        actual = formatter.get_formatted()
+        assert actual == snakecode
+
     def test_lambda_function_with_input_keyword_and_nested_parentheses(self):
         """
         We need to ignore 'input:' as a recognised keyword and ',' inside brackets
@@ -477,6 +489,66 @@ class TestComplexPythonFormatting:
             f'# include: "module_b.smk"\n\n\n'
             f'if config["c"]:\n\n'
             f'{TAB * 1}include: "module_c.smk"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_nested_if_statements_with_comments_and_snakecode_inside(self):
+        """https://github.com/snakemake/snakefmt/issues/126"""
+        snakecode = (
+            "# first standalone comment\n"
+            "if True:\n"
+            f"{TAB * 1}if True:\n\n"
+            f"{TAB * 2}ruleorder: __a_ruleorder_and__  # inline comment\n"
+            "\n\n"
+            f"{TAB * 1}# second standalone comment\n"
+            f'{TAB * 1}var = "anything really"\n'
+            "\n\n"
+            f"else:\n\n"
+            f"{TAB * 1}# third standalone comment\n"
+            f"{TAB * 1}ruleorder: some_other_order\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_nested_if_statements_with_comments_and_snakecode_inside2(self):
+        """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}ruleorder: A > B\n"
+            "\n\n"
+            f"{TAB * 1}mylist = []  # inline comment\n"
+            f'{TAB * 1}mystr = "a"  # inline comment\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_nested_if_statements_with_comments_and_snakecode_inside3(self):
+        """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1132845522"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}rule with_run_directive:\n"
+            f"{TAB * 2}output:\n"
+            f'{TAB * 3}"test.txt",\n'
+            f"{TAB * 2}run:\n"
+            f"{TAB * 3}if True:\n"
+            f'{TAB * 4}print("this line is in the error")\n'
+            "\n\n"
+            f'{TAB * 1}print("the indenting on this line matters")\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_nested_if_statements_with_function_and_snakecode_inside(self):
+        """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}ruleorder: A > B\n"
+            "\n\n"
+            f"{TAB * 1}def myfunc():\n"
+            f"{TAB * 2}pass\n"
+            "\n\n"
+            f"{TAB * 1}mylist = []\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
