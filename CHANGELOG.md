@@ -5,16 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0](https://www.github.com/snakemake/snakefmt/compare/v0.5.0...v0.6.0) (2022-03-03)
-
-
-### Features
-
-* add template_engine keyword from Snakemake 7.0 ([1502504](https://www.github.com/snakemake/snakefmt/commit/1502504e4b4b96a600bc6c49734b00f2d00a9e00))
 
 ## [unreleased]
 
-## [0.6.1]
+## [0.6.1](https://www.github.com/snakemake/snakefmt/compare/v0.6.0...v0.6.1) (2022-06-13)
 
 ### Added
 * Support for `retries` keyword [[#145][145]] - thanks [@maarten-k](https://github.com/maarten-k)
@@ -24,7 +18,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 * Improve reported line number in Snakefile when black fails to parse [[#127][127]]
 * Better handling of snakemake code inside nested if-else statements with comments at differing indentation levels [[#126][126]] - a HUGE thank you to [@siebrenf](https://github.com/siebrenf) for testing
 
-## [0.6.0] (2022-03-03)
+## [0.6.0](https://www.github.com/snakemake/snakefmt/compare/v0.5.0...v0.6.0) (2022-03-03)
 
 ### Added
 
