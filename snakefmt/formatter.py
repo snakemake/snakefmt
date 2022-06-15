@@ -200,10 +200,15 @@ class Formatter(Parser):
             all_lines = match_slice.splitlines(keepends=True)
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
             indented += first
+
+            is_r_string = re.match(r"r['\"]", first.lstrip())
             if len(all_lines) > 2:
-                middle = textwrap.indent(
-                    textwrap.dedent("".join(all_lines[1:-1])), used_indent
-                )
+                if is_r_string:
+                    middle = "".join(all_lines[1:-1])
+                else:
+                    middle = textwrap.indent(
+                        textwrap.dedent("".join(all_lines[1:-1])), used_indent
+                    )
                 indented += middle
             if len(all_lines) > 1:
                 last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
