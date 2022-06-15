@@ -653,6 +653,24 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
+    def test_tpq_alignment_and_keep_relative_indenting_for_r_string(self):
+        snakecode = '''rule one:
+    output:
+        out_file="out.txt",
+    shell:
+        r"""
+cat <<'EOF'> tmp.txt
+
+touch {output}
+
+EOF
+bash tmp.txt
+        """
+'''
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
+
     def test_single_quoted_multiline_string_proper_tabbing(self):
         snakecode = f"""
 rule a:
