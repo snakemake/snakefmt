@@ -1079,6 +1079,19 @@ rule all:
 """
         assert actual == expected
 
+    def test_spacing_in_python_code_after_keywrod_not_altered(self):
+        """https://github.com/snakemake/snakefmt/issues/149"""
+        snakecode = (
+            "if not config:\n\n"
+            f'{TAB * 1}configfile: "config.yaml"\n\n\n'
+            'build_dir = "results"\n\n'
+            'auspice_dir = "auspice"\n'
+        )
+
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
+
 
 class TestLineWrapping:
     def test_long_line_within_rule_indentation_taken_into_account(self):
