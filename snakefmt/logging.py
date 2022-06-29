@@ -6,7 +6,7 @@ class LogConfig:
     log_template = "[%(levelname)s]{0} %(message)s"
 
     @classmethod
-    def init(cls, log_level):
+    def init(cls, log_level: int):
         cls.logger = logging.getLogger("snakefmt")
         cls.handler = logging.StreamHandler()
         cls.logger.addHandler(cls.handler)

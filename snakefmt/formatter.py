@@ -201,9 +201,11 @@ class Formatter(Parser):
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
             indented += first
 
-            is_r_string = re.match(r"r['\"]", first.lstrip())
+            is_multiline_string = re.match(
+                r"[bfru]?\"\"\"|'''", first.lstrip(), flags=re.IGNORECASE
+            )
             if len(all_lines) > 2:
-                if is_r_string:
+                if is_multiline_string:
                     middle = "".join(all_lines[1:-1])
                 else:
                     middle = textwrap.indent(

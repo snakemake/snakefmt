@@ -646,9 +646,9 @@ rule a:
 rule a:
 {TAB * 1}shell:
 {TAB * 2}"""Starts here
-{TAB * 2}Hello
-{TAB * 2}  World
-{TAB * 4}Tabbed
+{TAB * 0}  Hello
+{TAB * 1}World
+{TAB * 2}  Tabbed
 {TAB * 2}"""
 '''
         assert formatter.get_formatted() == expected
@@ -670,6 +670,28 @@ bash tmp.txt
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
+
+    def test_tpq_alignment_and_keep_relative_indenting_for_multiline_string(self):
+        snakecode = (
+            "rule a:\n"
+            f'{TAB * 1}shell: """\n'
+            f'{TAB * 2}python -c "\n'
+            f"{TAB * 0}if True:\n"
+            f"{TAB * 1}print('Hello, world!')\n"
+            f'{TAB * 2}"""'
+        )
+        formatter = setup_formatter(snakecode)
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f'{TAB * 2}python -c "\n'
+            f"{TAB * 0}if True:\n"
+            f"{TAB * 1}print('Hello, world!')\n"
+            f'{TAB * 2}"""\n'
+        )
+
+        assert formatter.get_formatted() == expected
 
     def test_single_quoted_multiline_string_proper_tabbing(self):
         snakecode = f"""
