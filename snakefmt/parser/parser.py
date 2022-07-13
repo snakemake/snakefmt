@@ -46,6 +46,7 @@ class Parser(ABC):
         self.snakefile: TokenIterator = snakefile
         self.from_python: bool = False
         self.last_recognised_keyword: str = ""
+        self.last_line_is_snakecode = False
 
         status = self.syntax.get_next_queriable(self.snakefile)
         self.buffer = status.buffer
@@ -75,6 +76,7 @@ class Parser(ABC):
                 )
                 self.syntax.code_indent = None
                 status = self.process_keyword(status, self.from_python)
+                self.last_line_is_snakecode = True
             else:
                 if not self.syntax.accepts_python_code and not comment_start(keyword):
                     raise SyntaxError(
@@ -89,13 +91,18 @@ class Parser(ABC):
                         self.syntax.code_indent = status.indent
                     status = self.syntax.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
-                    if self.from_python and status.indent == 0:
+                    if (
+                        self.from_python
+                        and status.indent == 0
+                        and not self.last_line_is_snakecode
+                    ):
                         # This flushes any nested python code following a
                         # nested snakemake keyword
                         self.flush_buffer(
                             from_python=True, in_global_context=self.in_global_context
                         )
                         self.from_python = False
+                self.last_line_is_snakecode = False
             self.syntax.cur_indent = status.indent
         self.flush_buffer(
             from_python=self.from_python,
