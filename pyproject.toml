@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "snakefmt"
-version = "0.6.1"
+version = "0.6.2"
 description = "The uncompromising Snakemake code formatter"
 authors = ["Michael Hall <michael@mbh.sh>", "Brice Letcher <bletcher@ebi.ac.uk>"]
 license = "MIT"
