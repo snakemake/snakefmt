@@ -246,7 +246,7 @@ class KeywordSyntax(Syntax):
         identifier = r"[a-zA-Z_]\S*"
         use_syntax_regexp = (
             r"use rule (?:(?:{id})|\*)"
-            r"(?: from {id})?(?: exclude {id}( *, *{id})*)?"
+            r"(?: from {id})?(?: exclude {id}(?:,\s*{id})*)?"
             r"(?: as {id})?( with[ ]?:)?$"
         ).format(id=identifier)
         use_ebnf_syntax = (

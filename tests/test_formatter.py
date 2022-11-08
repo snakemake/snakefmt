@@ -139,6 +139,24 @@ class TestUseRuleFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_use_rule_with_exclude(self):
+        snakecode = """from snakemake.utils import min_version
+
+
+min_version("6.0")
+
+
+module other_workflow:
+    snakefile:
+        # here is a comment
+        "other_workflow/Snakefile"
+
+
+use rule * from other_workflow exclude ruleC as other_*
+"""
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_use_rule_no_with_two_line_indented(self):
         snakecode = 'include: "file.txt"\n\n\n' "use rule * from module as module_*\n"
         formatter = setup_formatter(snakecode)
