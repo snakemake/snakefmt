@@ -752,7 +752,7 @@ rule a:
     run:
         if True:
             shell(
-                """ 
+                """
             cutadapt \
                 -m 30 \
                 {input} \
