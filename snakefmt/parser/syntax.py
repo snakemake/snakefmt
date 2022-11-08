@@ -246,7 +246,7 @@ class KeywordSyntax(Syntax):
         identifier = r"[a-zA-Z_]\S*"
         use_syntax_regexp = (
             r"use rule (?:(?:{id})|\*)"
-            r"(?: from {id})?(?: exclude {id}(?:,\s*{id})*)?"
+            r"(?: from {id})?(?: exclude {id}(?:\s*,\s*{id})*)?"
             r"(?: as {id})?( with[ ]?:)?$"
         ).format(id=identifier)
         use_ebnf_syntax = (
@@ -259,7 +259,7 @@ class KeywordSyntax(Syntax):
             if self.token.type == tokenize.COMMENT:
                 break
             # Tokenizing splits up '<identifier>*' into two tokens
-            if self.token.string != "*":
+            if self.token.string not in ("*", ","):
                 self.keyword_line += " "
             self.keyword_line += self.token.string
             try:
