@@ -649,7 +649,7 @@ rule a:
 {TAB * 0}  Hello
 {TAB * 1}World
 {TAB * 2}  Tabbed
-{TAB * 2}"""
+{TAB * 1}"""
 '''
         assert formatter.get_formatted() == expected
 
@@ -737,11 +737,40 @@ rule a:
 
 rule a:
 {TAB * 1}"""The rule a
-{TAB * 1}"""
+{TAB * 0}"""
 {TAB * 1}message:
 {TAB * 2}"a"
 '''
         assert formatter.get_formatted() == expected
+
+    def test_tpq_inside_run_block(self):
+        snakecode = '''rule cutadapt:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+    run:
+        if True:
+            shell(
+                """ 
+            cutadapt \
+                -m 30 \
+                {input} \
+                -o {output}
+            """
+            )
+        else:
+            shell(
+                """
+            cutadapt \
+                {input} \
+                -o {output}
+            """
+            )
+'''
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
 
 
 class TestReformatting_SMK_BREAK:
