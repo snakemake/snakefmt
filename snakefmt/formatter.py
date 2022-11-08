@@ -199,14 +199,24 @@ class Formatter(Parser):
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
+            is_multiline_string = re.match(
+                r"[bfru]?\"\"\"|'''", first.lstrip(), flags=re.IGNORECASE
+            )
             indented += first
+
             if len(all_lines) > 2:
-                middle = textwrap.indent(
-                    textwrap.dedent("".join(all_lines[1:-1])), used_indent
-                )
+                if is_multiline_string:
+                    middle = "".join(all_lines[1:-1])
+                else:
+                    middle = textwrap.indent(
+                        textwrap.dedent("".join(all_lines[1:-1])), used_indent
+                    )
                 indented += middle
             if len(all_lines) > 1:
-                last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
+                if is_multiline_string:
+                    last = all_lines[-1]
+                else:
+                    last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
                 indented += last
             pos = match.end()
         indented += textwrap.indent(string[pos:], used_indent)

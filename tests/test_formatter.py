@@ -646,11 +646,51 @@ rule a:
 rule a:
 {TAB * 1}shell:
 {TAB * 2}"""Starts here
-{TAB * 2}Hello
-{TAB * 2}  World
-{TAB * 4}Tabbed
-{TAB * 2}"""
+{TAB * 0}  Hello
+{TAB * 1}World
+{TAB * 2}  Tabbed
+{TAB * 1}"""
 '''
+        assert formatter.get_formatted() == expected
+
+    def test_tpq_alignment_and_keep_relative_indenting_for_r_string(self):
+        snakecode = '''rule one:
+    output:
+        out_file="out.txt",
+    shell:
+        r"""
+cat <<'EOF'> tmp.txt
+
+touch {output}
+
+EOF
+bash tmp.txt
+        """
+'''
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
+
+    def test_tpq_alignment_and_keep_relative_indenting_for_multiline_string(self):
+        snakecode = (
+            "rule a:\n"
+            f'{TAB * 1}shell: """\n'
+            f'{TAB * 2}python -c "\n'
+            f"{TAB * 0}if True:\n"
+            f"{TAB * 1}print('Hello, world!')\n"
+            f'{TAB * 2}"""'
+        )
+        formatter = setup_formatter(snakecode)
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f'{TAB * 2}python -c "\n'
+            f"{TAB * 0}if True:\n"
+            f"{TAB * 1}print('Hello, world!')\n"
+            f'{TAB * 2}"""\n'
+        )
+
         assert formatter.get_formatted() == expected
 
     def test_single_quoted_multiline_string_proper_tabbing(self):
@@ -697,11 +737,40 @@ rule a:
 
 rule a:
 {TAB * 1}"""The rule a
-{TAB * 1}"""
+{TAB * 0}"""
 {TAB * 1}message:
 {TAB * 2}"a"
 '''
         assert formatter.get_formatted() == expected
+
+    def test_tpq_inside_run_block(self):
+        snakecode = '''rule cutadapt:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+    run:
+        if True:
+            shell(
+                """
+            cutadapt \
+                -m 30 \
+                {input} \
+                -o {output}
+            """
+            )
+        else:
+            shell(
+                """
+            cutadapt \
+                {input} \
+                -o {output}
+            """
+            )
+'''
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
 
 
 class TestReformatting_SMK_BREAK:
@@ -1038,6 +1107,19 @@ rule all:
 # Comment
 """
         assert actual == expected
+
+    def test_spacing_in_python_code_after_keywrod_not_altered(self):
+        """https://github.com/snakemake/snakefmt/issues/149"""
+        snakecode = (
+            "if not config:\n\n"
+            f'{TAB * 1}configfile: "config.yaml"\n\n\n'
+            'build_dir = "results"\n\n'
+            'auspice_dir = "auspice"\n'
+        )
+
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
 
 
 class TestLineWrapping:
