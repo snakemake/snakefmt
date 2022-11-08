@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.0](https://www.github.com/snakemake/snakefmt/compare/v0.6.1...v0.7.0) (2022-11-08)
+
+
+### Features
+
+* add support for new exclude expressions in use rule statements ([9f03019](https://www.github.com/snakemake/snakefmt/commit/9f0301994b5ea97a82d8ad88f9ce2fc18793815d))
+
+
+### Bug Fixes
+
+* do not align the inside of multiline strings [[#123](https://www.github.com/snakemake/snakefmt/issues/123)]] ([bb4aabf](https://www.github.com/snakemake/snakefmt/commit/bb4aabf801504483886c53e0e84011dd7aafe684))
+* don't format r-strings [[#123](https://www.github.com/snakemake/snakefmt/issues/123)] ([bcc5371](https://www.github.com/snakemake/snakefmt/commit/bcc53716aa2b1e4576f0e34396d8620094660126))
+* formatting of triple quoted strings [[#152](https://www.github.com/snakemake/snakefmt/issues/152)] ([764e11d](https://www.github.com/snakemake/snakefmt/commit/764e11df2055689776e5ab4db181d48374c022cc))
+* line spacing after snakemake keyword ([beca978](https://www.github.com/snakemake/snakefmt/commit/beca9789de9457682337e6771875eae883f6f3c4))
+
 ## [unreleased]
 
 ## [0.6.1](https://www.github.com/snakemake/snakefmt/compare/v0.6.0...v0.6.1) (2022-06-13)
