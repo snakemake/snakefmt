@@ -139,7 +139,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "dpath"
-version = "2.1.0"
+version = "2.1.1"
 description = "Filesystem-like pathing and searching for dictionaries"
 category = "dev"
 optional = false
@@ -203,7 +203,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "importlib-metadata"
-version = "5.1.0"
+version = "4.13.0"
 description = "Read metadata from Python packages"
 category = "main"
 optional = false
@@ -743,7 +743,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.0"
-content-hash = "a30b4a64b882b87fd72be2dedccd258fa1e2ffd2b0f2c4dd15291f1a58b3b06b"
+content-hash = "f3ea79f18f28c786575a7137a66c231bb3220e752835540f217aa7f220ffe7fe"
 
 [metadata.files]
 appdirs = [
@@ -887,8 +887,8 @@ docutils = [
     {file = "docutils-0.19.tar.gz", hash = "sha256:33995a6753c30b7f577febfc2c50411fec6aac7f7ffeb7c4cfe5991072dcf9e6"},
 ]
 dpath = [
-    {file = "dpath-2.1.0-py3-none-any.whl", hash = "sha256:f3e595579aa62aa96ab64e339936a08e8fc46d37703d30102b1a272514c31094"},
-    {file = "dpath-2.1.0.tar.gz", hash = "sha256:ccc3528bc043abcebd1ecb20c9c6dc81edf4df80066da868f723608a7987d75f"},
+    {file = "dpath-2.1.1-py3-none-any.whl", hash = "sha256:5e33b5717070fe6b7450945aa22c0a6af22bb39d371fd06e71eb49a5d2a6a0ec"},
+    {file = "dpath-2.1.1.tar.gz", hash = "sha256:01d97387cb4165ca4053497318c068a8e6bbdbd289d180330ab8e03c4dede08c"},
 ]
 fastjsonschema = [
     {file = "fastjsonschema-2.16.2-py3-none-any.whl", hash = "sha256:21f918e8d9a1a4ba9c22e09574ba72267a6762d47822db9add95f6454e51cc1c"},
@@ -911,8 +911,8 @@ idna = [
     {file = "idna-3.4.tar.gz", hash = "sha256:814f528e8dead7d329833b91c5faa87d60bf71824cd12a7530b5526063d02cb4"},
 ]
 importlib-metadata = [
-    {file = "importlib_metadata-5.1.0-py3-none-any.whl", hash = "sha256:d84d17e21670ec07990e1044a99efe8d615d860fd176fc29ef5c306068fda313"},
-    {file = "importlib_metadata-5.1.0.tar.gz", hash = "sha256:d5059f9f1e8e41f80e9c56c2ee58811450c31984dfa625329ffd7c0dad88a73b"},
+    {file = "importlib_metadata-4.13.0-py3-none-any.whl", hash = "sha256:8a8a81bcf996e74fee46f0d16bd3eaa382a7eb20fd82445c3ad11f4090334116"},
+    {file = "importlib_metadata-4.13.0.tar.gz", hash = "sha256:dd0173e8f150d6815e098fd354f6414b0f079af4644ddfe90c71e2fc6174346d"},
 ]
 importlib-resources = [
     {file = "importlib_resources-5.10.0-py3-none-any.whl", hash = "sha256:ee17ec648f85480d523596ce49eae8ead87d5631ae1551f913c0100b5edd3437"},
