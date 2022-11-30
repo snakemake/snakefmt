@@ -113,4 +113,5 @@ class SnakeGlobal(Vocabulary):
         scattergather=Context(None, ParamList),
         module=Context(SnakeModule, KeywordSyntax),
         use=Context(SnakeUseRule, KeywordSyntax),
+        resource_scopes=Context(None, KeywordSyntax),
     )
