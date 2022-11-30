@@ -1207,3 +1207,20 @@ class TestLineWrapping:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
+
+    def test_indenting_long_param_lines(self):
+        """https://github.com/snakemake/snakefmt/issues/124"""
+        snakecode = (
+            "rule a:\n"
+            f"{TAB*1}output:\n"
+            f'{TAB*2}"foo",\n'
+            f"{TAB*1}params:\n"
+            f"{TAB*2}datasources=(\n"
+            f'{TAB*3}"-s {{}}".format(" ".join(config["annotations"]["dgidb"]["datasources"]))\n'
+            f'{TAB*3}if config["annotations"]["dgidb"].get("datasources", "")\n'
+            f'{TAB*3}else ""\n'
+            f"{TAB*2}),\n"
+        )
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
