@@ -63,6 +63,7 @@ class Formatter(Parser):
             self.buffer = ""
             return
 
+        code_indent = self.syntax.code_indent
         if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.target_indent)
             if self.target_indent > 0:
@@ -84,7 +85,7 @@ class Formatter(Parser):
                 to_format = (
                     f"{re_match.group(1)}{test_substitute}" f"{re_match.group(4)}pass"
                 )
-                formatted = self.run_black_format_str(to_format, self.target_indent)
+                formatted = self.run_black_format_str(to_format, code_indent)
                 re_rematch = contextual_matcher.match(formatted)
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
@@ -94,9 +95,8 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                formatted = self.run_black_format_str(self.buffer, self.target_indent)
+                formatted = self.run_black_format_str(self.buffer, code_indent)
 
-            code_indent = self.syntax.code_indent
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
                 if self.syntax.effective_indent == 0:
@@ -110,7 +110,7 @@ class Formatter(Parser):
         buffer_is_all_comments = all(map(comment_start, self.buffer.splitlines()))
         if not buffer_is_all_comments:
             self.last_recognised_keyword = ""
-        self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
+        self.add_newlines(code_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
 
     def process_keyword_context(self, in_global_context: bool):
@@ -196,6 +196,10 @@ class Formatter(Parser):
         indented = ""
         for match in re.finditer(full_string_matcher, string):
             indented += textwrap.indent(string[pos : match.start(1)], used_indent)
+            lagging_spaces = len(indented) - len(indented.rstrip(" "))
+            lagging_indent = (
+                TAB * int(lagging_spaces / 4) if lagging_spaces % 4 == 0 else ""
+            )
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
@@ -209,14 +213,17 @@ class Formatter(Parser):
                     middle = "".join(all_lines[1:-1])
                 else:
                     middle = textwrap.indent(
-                        textwrap.dedent("".join(all_lines[1:-1])), used_indent
+                        textwrap.dedent("".join(all_lines[1:-1])),
+                        used_indent + lagging_indent,
                     )
                 indented += middle
             if len(all_lines) > 1:
                 if is_multiline_string:
                     last = all_lines[-1]
                 else:
-                    last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
+                    last = textwrap.indent(
+                        textwrap.dedent(all_lines[-1]), used_indent + lagging_indent
+                    )
                 indented += last
             pos = match.end()
         indented += textwrap.indent(string[pos:], used_indent)

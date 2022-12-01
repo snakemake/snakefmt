@@ -63,7 +63,8 @@ class Parser(ABC):
 
             if self.vocab.recognises(keyword):
                 if status.indent > self.target_indent:
-                    if self.syntax.from_python or status.pythonable:
+                    in_if_else = self.buffer.startswith(("if", "else", "elif"))
+                    if self.syntax.from_python or status.pythonable or in_if_else:
                         self.from_python = True
                     else:  # Over-indented context gets reset
                         self.syntax.cur_indent = max(self.target_indent - 1, 0)

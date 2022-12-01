@@ -1224,3 +1224,21 @@ class TestLineWrapping:
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
+
+    def test_indented_block_with_functions_and_rule(self):
+        """https://github.com/snakemake/snakefmt/issues/124#issuecomment-986845398"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB*1}def func1():\n"
+            f'''{TAB*2}"""docstring"""\n'''
+            f"{TAB*2}pass\n\n"
+            f"{TAB*1}rule foo:\n"
+            f"{TAB*2}shell:\n"
+            f'{TAB*3}"echo bar"\n\n'
+            f"{TAB*1}def func2():\n"
+            f'''{TAB*2}"""this function should stay indented"""\n'''
+            f"{TAB*2}pass\n"
+        )
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
