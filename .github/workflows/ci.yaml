@@ -35,8 +35,7 @@ jobs:
               covg_report="$(pwd)/coverage.xml"
               poetry run pytest --cov=snakefmt --cov-report=xml:$covg_report --cov-branch tests/
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
         with:
-          file:             ./coverage.xml
+          files:             ./coverage.xml
           flags:            unittests
-          fail_ci_if_error: true
