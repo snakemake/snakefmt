@@ -536,10 +536,9 @@ class TestComplexPythonFormatting:
             "if True:\n"
             f"{TAB * 1}if True:\n\n"
             f"{TAB * 2}ruleorder: __a_ruleorder_and__  # inline comment\n"
-            "\n\n"
+            "\n"
             f"{TAB * 1}# second standalone comment\n"
-            f'{TAB * 1}var = "anything really"\n'
-            "\n\n"
+            f'{TAB * 1}var = "anything really"\n\n'
             f"else:\n\n"
             f"{TAB * 1}# third standalone comment\n"
             f"{TAB * 1}ruleorder: some_other_order\n"
@@ -552,7 +551,7 @@ class TestComplexPythonFormatting:
         snakecode = (
             "if True:\n\n"
             f"{TAB * 1}ruleorder: A > B\n"
-            "\n\n"
+            "\n"
             f"{TAB * 1}mylist = []  # inline comment\n"
             f'{TAB * 1}mystr = "a"  # inline comment\n'
         )
@@ -569,7 +568,7 @@ class TestComplexPythonFormatting:
             f"{TAB * 2}run:\n"
             f"{TAB * 3}if True:\n"
             f'{TAB * 4}print("this line is in the error")\n'
-            "\n\n"
+            "\n"
             f'{TAB * 1}print("the indenting on this line matters")\n'
         )
         formatter = setup_formatter(snakecode)
@@ -583,7 +582,7 @@ class TestComplexPythonFormatting:
             "\n\n"
             f"{TAB * 1}def myfunc():\n"
             f"{TAB * 2}pass\n"
-            "\n\n"
+            "\n"
             f"{TAB * 1}mylist = []\n"
         )
         formatter = setup_formatter(snakecode)
@@ -592,10 +591,10 @@ class TestComplexPythonFormatting:
     def test_nested_ifelse_statements(self):
         snakecode = (
             'if config["a"] is None:\n\n'
-            f'{TAB * 1}include: "module_a_none.smk"\n\n\n'
+            f'{TAB * 1}include: "module_a_none.smk"\n\n'
             f"else:\n"
             f'{TAB * 1}if config["b"] is None:\n\n'
-            f'{TAB * 2}include: "module_b.smk"\n\n\n'
+            f'{TAB * 2}include: "module_b.smk"\n\n'
             f"{TAB * 1}else:\n\n"
             f'{TAB * 2}include: "module_c.smk"\n'
         )
@@ -606,10 +605,10 @@ class TestComplexPythonFormatting:
         snakecode = (
             'if config["a"] is None:\n'
             f"{TAB * 1}a = 1\n\n"
-            f'{TAB * 1}include: "module_a_none.smk"\n\n\n'
+            f'{TAB * 1}include: "module_a_none.smk"\n\n'
             f"else:\n"
             f'{TAB * 1}if config["b"] is None:\n\n'
-            f'{TAB * 2}include: "module_b.smk"\n\n\n'
+            f'{TAB * 2}include: "module_b.smk"\n\n'
             f"{TAB * 1}else:\n"
             f"{TAB * 2}b = 0\n\n"
             f'{TAB * 2}include: "module_c.smk"\n'
