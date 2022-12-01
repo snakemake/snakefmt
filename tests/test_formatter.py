@@ -1216,7 +1216,7 @@ class TestLineWrapping:
             f'{TAB*2}"foo",\n'
             f"{TAB*1}params:\n"
             f"{TAB*2}datasources=(\n"
-            f'{TAB*3}"-s {{}}".format(" ".join(config["annotations"]["dgidb"]["datasources"]))\n'
+            f'{TAB*3}"-s {{}}".format(" ".join(config["annotations"]["dgidb"]["datasources"]))\n'  # noqa: E501
             f'{TAB*3}if config["annotations"]["dgidb"].get("datasources", "")\n'
             f'{TAB*3}else ""\n'
             f"{TAB*2}),\n"
