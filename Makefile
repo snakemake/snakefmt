@@ -19,6 +19,7 @@ install-ci:
 	python -m pip install --upgrade pip
 	python -m pip install poetry
 	poetry install --no-interaction
+	poetry run snakefmt --version
 
 # TIDY #################################################################
 .PHONY: fmt
