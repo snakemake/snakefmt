@@ -158,7 +158,7 @@ class Formatter(Parser):
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
         # reduce black target line length according to how indented the code is
-        current_line_length = target_indent * len(TAB)
+        current_line_length = (target_indent or 0) * len(TAB)
         black_mode = copy(self.black_mode)
         black_mode.line_length = max(
             0, black_mode.line_length - current_line_length + extra_spacing
