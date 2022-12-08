@@ -823,14 +823,6 @@ class TestReformatting_SMK_BREAK:
         )
         assert formatter.get_formatted() == expected
 
-    def test_rule_re_indenting(self):
-        """Indented rule gets dendented"""
-        formatter = setup_formatter(
-            f"{TAB * 1}rule a:\n" f"{TAB * 2}wrapper:\n" f'{TAB * 3}"a"\n'
-        )
-        expected = f"rule a:\n" f"{TAB * 1}wrapper:\n" f'{TAB * 2}"a"\n'
-        assert formatter.get_formatted() == expected
-
 
 class TestCommentTreatment:
     def test_comment_after_parameter_keyword_twonewlines(self):
