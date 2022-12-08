@@ -399,7 +399,7 @@ class TestComplexPythonFormatting:
             f"{TAB * 1}rule a:\n"
             f"{TAB * 2}input:\n"
             f'{TAB * 3}"a",\n'
-            f'{TAB * 3}"b",\n\n\n'
+            f'{TAB * 3}"b",\n\n'
             "else:\n\n"
             f"{TAB * 1}rule b:\n"
             f"{TAB * 2}script:\n"
@@ -452,9 +452,9 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         expected = (
             'if c["a"] is None:\n\n'
-            f'{TAB * 1}include: "a"\n\n\n'
+            f'{TAB * 1}include: "a"\n\n'
             'elif myobj.attr == "b":\n\n'
-            f'{TAB * 1}include: "b"\n\n\n'
+            f'{TAB * 1}include: "b"\n\n'
             'elif len(c["c"]) == 3:\n\n'
             f'{TAB * 1}include: "c"\n'
         )
@@ -472,7 +472,7 @@ class TestComplexPythonFormatting:
             'if c["a"] is None:\n\n'
             f"{TAB * 1}rule a:\n"
             f"{TAB * 2}shell:\n"
-            f'{TAB * 3}""\n\n\n'
+            f'{TAB * 3}""\n\n'
             "else:\n"  # All python from here
             f'{TAB * 1}var = "b"\n'
         )
@@ -510,7 +510,7 @@ class TestComplexPythonFormatting:
     def test_spaced_out_consecutive_dedented_directive(self):
         snakecode = (
             'if config["load"]:\n\n'
-            f'{TAB * 1}include: "module_a.smk"\n\n\n'
+            f'{TAB * 1}include: "module_a.smk"\n\n'
             f"else:\n\n"
             f'{TAB * 1}include: "module_b.smk"\n\n\n'
             f'include: "other.smk"\n'
@@ -578,8 +578,7 @@ class TestComplexPythonFormatting:
         """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
         snakecode = (
             "if True:\n\n"
-            f"{TAB * 1}ruleorder: A > B\n"
-            "\n\n"
+            f"{TAB * 1}ruleorder: A > B\n\n"
             f"{TAB * 1}def myfunc():\n"
             f"{TAB * 2}pass\n"
             "\n"

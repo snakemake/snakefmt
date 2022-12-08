@@ -153,6 +153,10 @@ class Formatter(Parser):
                 tmpstring += line
             string = textwrap.dedent(tmpstring)
 
+        needs_artifical_nest = inside_nested_statement and not string.startswith("if")
+        if needs_artifical_nest:
+            string = f"if x:\n{textwrap.indent(string, TAB)}"
+
         # reduce black target line length according to how indented the code is
         current_line_length = target_indent * len(TAB)
         black_mode = copy(self.black_mode)
@@ -185,6 +189,11 @@ class Formatter(Parser):
                 )
             err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
             raise InvalidPython(err_msg) from None
+
+        if needs_artifical_nest:
+            lines = fmted.splitlines(keepends=True)[1:]
+            s = "".join(lines).lstrip("\n")
+            fmted = textwrap.dedent(s)
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:
@@ -341,9 +350,14 @@ class Formatter(Parser):
                 and issubclass(context.__class__, SingleParam)
             )
             if not self.no_formatting_yet and not collate_same_singleparamkeyword:
-                if cur_indent == 0:
+                after_if_statement = self.buffer.startswith(("elif", "else"))
+                if (
+                    cur_indent in (0, None)
+                    and not after_if_statement
+                    and not self.is_docstring_for_rule()
+                ):
                     self.result += "\n\n"
-                elif in_global_context:
+                elif in_global_context or after_if_statement:
                     self.result += "\n"
         if in_global_context:  # Deal with comments
             if self.lagging_comments != "":
@@ -363,3 +377,11 @@ class Formatter(Parser):
         if self.no_formatting_yet:
             if comment_break > 0:
                 self.no_formatting_yet = False
+
+    def is_docstring_for_rule(self) -> bool:
+        result_lines = self.result.splitlines()
+        if not result_lines:
+            return False
+        return result_lines[-1].startswith("rule ") and self.buffer.startswith(
+            ('"""', "'''")
+        )
