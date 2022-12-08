@@ -964,6 +964,19 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_snakecode_after_indented_comment_does_not_get_unindented(self):
+        """https://github.com/snakemake/snakefmt/issues/159#issue-1441174995"""
+        snakecode = (
+            'if config.get("s3_dst"):\n\n'
+            f'{TAB * 1}include: "workflow/rule1.smk"\n'
+            f'{TAB * 1}include: "workflow/rule2.smk"\n\n'
+            f"{TAB * 1}# a comment\n"
+            f"{TAB * 1}# further comment\n"
+            f'{TAB * 1}include: "workflow/rule3.smk"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestNewlineSpacing:
     def test_parameter_keyword_spacing_above(self):
