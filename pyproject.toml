@@ -26,6 +26,7 @@ pytest-cov = "^2.8.1"
 flake8 = "^3.7.9"
 snakemake = "^7.11"
 isort = "^5.1.0"
+pynvim = "~0.4.3"
 
 [tool.poetry.urls]
 "Snakemake Documentation" = "https://snakemake.readthedocs.io/"
