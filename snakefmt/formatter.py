@@ -29,6 +29,7 @@ full_string_matcher = re.compile(
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
+after_if_keywords = ("elif", "else")
 
 
 class Formatter(Parser):
@@ -75,7 +76,7 @@ class Formatter(Parser):
             if re_match is not None:
                 callback_keyword = re_match.group(2)
                 used_keyword = (
-                    "if" if callback_keyword in {"elif", "else"} else callback_keyword
+                    "if" if callback_keyword in after_if_keywords else callback_keyword
                 )
                 condition = re_match.group(3)
                 if condition != "":
@@ -85,7 +86,7 @@ class Formatter(Parser):
                 to_format = (
                     f"{re_match.group(1)}{test_substitute}" f"{re_match.group(4)}pass"
                 )
-                formatted = self.run_black_format_str(to_format, code_indent)
+                formatted = self.run_black_format_str(to_format, self.target_indent)
                 re_rematch = contextual_matcher.match(formatted)
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
@@ -95,7 +96,7 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                formatted = self.run_black_format_str(self.buffer, code_indent)
+                formatted = self.run_black_format_str(self.buffer, self.target_indent)
 
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
@@ -207,7 +208,9 @@ class Formatter(Parser):
             indented += textwrap.indent(string[pos : match.start(1)], used_indent)
             lagging_spaces = len(indented) - len(indented.rstrip(" "))
             lagging_indent = (
-                TAB * int(lagging_spaces / 4) if lagging_spaces % 4 == 0 else ""
+                TAB * int(lagging_spaces / len(TAB))
+                if lagging_spaces % len(TAB) == 0
+                else ""
             )
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)
@@ -350,7 +353,7 @@ class Formatter(Parser):
                 and issubclass(context.__class__, SingleParam)
             )
             if not self.no_formatting_yet and not collate_same_singleparamkeyword:
-                after_if_statement = self.buffer.startswith(("elif", "else"))
+                after_if_statement = self.buffer.startswith(after_if_keywords)
                 if (
                     cur_indent in (0, None)
                     and not after_if_statement
