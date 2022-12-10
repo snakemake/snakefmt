@@ -16,7 +16,7 @@ from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
 from snakefmt.parser.parser import Snakefile
 
-# sys.tracebacklimit = 0  # Disable exceptions tracebacks
+sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
 PathLike = Union[Path, str]
 DEFAULT_EXCLUDES = (

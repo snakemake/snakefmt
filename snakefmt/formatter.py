@@ -139,6 +139,7 @@ class Formatter(Parser):
             self.from_python
             and not string.startswith("if")
             and not is_all_comments(string)
+            and len(string.strip().splitlines()) > 1
         )
         if needs_artifical_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"

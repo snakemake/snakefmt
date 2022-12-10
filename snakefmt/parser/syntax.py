@@ -28,7 +28,6 @@ from snakefmt.types import (
 )
 
 # ___Token parsing___#
-QUOTES = {'"', "'"}
 BRACKETS_OPEN = {"(", "[", "{"}
 BRACKETS_CLOSE = {")", "]", "}"}
 
