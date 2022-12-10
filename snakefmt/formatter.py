@@ -136,6 +136,7 @@ class Formatter(Parser):
         self, string: str, target_indent: int, extra_spacing: int = 0
     ) -> str:
         needs_artifical_nest = self.from_python and not string.startswith("if")
+        needs_artifical_nest = False
         if needs_artifical_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 

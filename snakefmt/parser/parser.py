@@ -50,6 +50,7 @@ class Status(NamedTuple):
     """Communicates the result of parsing a chunk of code"""
 
     token: Token
+    block_indent: int  # indent of the start of the parsed block
     cur_indent: int  # indent of the end of the parsed block
     buffer: str
     eof: bool
@@ -65,7 +66,7 @@ class Parser(ABC):
         self.snakefile: TokenIterator = snakefile
         self.from_python: bool = False
         self.last_recognised_keyword: str = ""
-        self.last_line_is_snakecode = False
+        self.last_block_was_snakecode = False
         self.block_indent = 0
         self.queriable = True
 
@@ -98,7 +99,7 @@ class Parser(ABC):
                 )
                 status = self.process_keyword(status, self.from_python)
                 self.block_indent = status.cur_indent
-                self.last_line_is_snakecode = True
+                self.last_block_was_snakecode = True
             else:
                 if not self.syntax.accepts_python_code and not comment_start(keyword):
                     raise SyntaxError(
@@ -108,12 +109,14 @@ class Parser(ABC):
                 else:
                     self.buffer += f"{keyword}"
                     status = self.get_next_queriable(self.snakefile)
-                    self.block_indent = min(self.block_indent, status.cur_indent)
+                    if self.last_block_was_snakecode and not comment_start(keyword):
+                        self.block_indent = status.block_indent
+                        self.last_block_was_snakecode = False
                     self.buffer += status.buffer
                     if (
                         self.from_python
                         and status.cur_indent == 0
-                        and not self.last_line_is_snakecode
+                        and not self.last_block_was_snakecode
                     ):
                         # This flushes any nested python code following a
                         # nested snakemake keyword
@@ -121,7 +124,7 @@ class Parser(ABC):
                             from_python=True, in_global_context=self.in_global_context
                         )
                         self.from_python = False
-                self.last_line_is_snakecode = False
+                        self.block_indent = status.cur_indent
             self.syntax.cur_indent = status.cur_indent
         self.flush_buffer(
             from_python=self.from_python,
@@ -203,6 +206,7 @@ class Parser(ABC):
             else:
                 self.context = saved_context
 
+            self.queriable = True
             status = self.get_next_queriable(self.snakefile)
             # lstrip forces the formatter deal with newlines
             self.buffer += status.buffer.lstrip()
@@ -216,6 +220,7 @@ class Parser(ABC):
             self.syntax.add_processed_keyword(status.token, status.token.string)
             return Status(
                 param_context.token,
+                param_context.cur_indent,
                 param_context.cur_indent,
                 status.buffer,
                 param_context.eof,
@@ -247,6 +252,7 @@ class Parser(ABC):
         buffer = ""
         newline = False
         pythonable = False
+        block_indent = self.cur_indent
         prev_token: Optional[Token] = Token(tokenize.NAME)
         while True:
             token = next(snakefile)
@@ -260,10 +266,10 @@ class Parser(ABC):
                 prev_token = None
                 continue
             elif token.type == tokenize.ENDMARKER:
-                return Status(token, self.cur_indent, buffer, True, pythonable)
+                return Status(token, block_indent, self.cur_indent, buffer, True, pythonable)
             elif token.type == tokenize.COMMENT:
                 if token.start[1] == 0:
-                    return Status(token, 0, buffer, False, pythonable)
+                    return Status(token, block_indent, 0, buffer, False, pythonable)
 
             elif is_newline(token):
                 self.queriable, newline = True, True
@@ -277,7 +283,7 @@ class Parser(ABC):
 
             if token.type == tokenize.NAME and self.queriable:
                 self.queriable = False
-                return Status(token, self.cur_indent, buffer, False, pythonable)
+                return Status(token, block_indent, self.cur_indent, buffer, False, pythonable)
 
             if add_token_space(prev_token, token):
                 buffer += " "
