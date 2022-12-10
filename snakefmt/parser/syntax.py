@@ -4,7 +4,7 @@ Code in charge of parsing and validating Snakemake syntax
 import tokenize
 from abc import ABC, abstractmethod
 from re import match as re_match
-from typing import NamedTuple, Optional
+from typing import Optional
 
 from snakefmt.exceptions import (
     ColonError,
@@ -173,14 +173,6 @@ class Syntax(ABC):
     Classes derived from it raise syntax errors when snakemake syntax is not respected
     """
 
-    class Status(NamedTuple):
-        """Communicates the result of parsing a chunk of code"""
-
-        token: Token
-        cur_indent: int  # indent of the end of the parsed block
-        buffer: str
-        eof: bool
-        pythonable: bool
 
     def __init__(
         self, keyword_name: str, keyword_indent: int, snakefile: TokenIterator = None
@@ -190,7 +182,6 @@ class Syntax(ABC):
         assert keyword_indent >= 0
         self.keyword_indent = keyword_indent
         self.cur_indent = max(self.keyword_indent - 1, 0)
-        self.block_indent = None
         self.comment = ""
         self.token = None
 
@@ -225,7 +216,6 @@ class KeywordSyntax(Syntax):
         super().__init__(keyword_name, keyword_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
-        self.queriable = True
         self.from_python = from_python
 
         if incident_syntax is not None:
@@ -299,60 +289,6 @@ class KeywordSyntax(Syntax):
             raise EmptyContextError(
                 f"{self.line_nb}{self.keyword_name} has no keywords attached to it."
             )
-
-    @property
-    def effective_indent(self) -> int:
-        return max(0, self.cur_indent - self.keyword_indent)
-
-    def get_next_queriable(self, snakefile: TokenIterator) -> Syntax.Status:
-        """Produces the next word that could be a snakemake keyword,
-        and additional information in a :Syntax.Status:
-        """
-        buffer = ""
-        newline = False
-        pythonable = False
-        self.block_indent = self.cur_indent
-        prev_token: Optional[Token] = Token(tokenize.NAME)
-        while True:
-            token = next(snakefile)
-            if token.type == tokenize.INDENT:
-                self.cur_indent += 1
-                prev_token = None
-                continue
-            elif token.type == tokenize.DEDENT:
-                if self.cur_indent > 0:
-                    self.cur_indent -= 1
-                prev_token = None
-                continue
-            elif token.type == tokenize.ENDMARKER:
-                return self.Status(token, self.cur_indent, buffer, True, pythonable)
-            elif token.type == tokenize.COMMENT:
-                if token.start[1] == 0:
-                    return self.Status(token, 0, buffer, False, pythonable)
-
-            elif is_newline(token):
-                self.queriable, newline = True, True
-                buffer += "\n"
-                prev_token = None
-                continue
-
-            # Records relative tabbing, used for python code formatting
-            if newline and not token.type == tokenize.COMMENT:
-                buffer += TAB * self.effective_indent
-
-            if token.type == tokenize.NAME and self.queriable:
-                self.queriable = False
-                return self.Status(token, self.cur_indent, buffer, False, pythonable)
-
-            if add_token_space(prev_token, token):
-                buffer += " "
-            prev_token = token
-            if newline:
-                newline = False
-            if not pythonable and token.type != tokenize.COMMENT:
-                pythonable = True
-            buffer += token.string
-
 
 class ParameterSyntax(Syntax):
     """Parses snakemake keywords that do not accept other keywords, eg 'input'"""

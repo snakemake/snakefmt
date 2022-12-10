@@ -99,8 +99,6 @@ class Formatter(Parser):
 
             if self.syntax is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * self.block_indent}")
-                if self.syntax.effective_indent == 0:
-                    self.syntax.block_indent = 0
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
@@ -137,23 +135,7 @@ class Formatter(Parser):
     def run_black_format_str(
         self, string: str, target_indent: int, extra_spacing: int = 0
     ) -> str:
-        # this initial section deals with comment indenting inside if-else statements
-        # that have had snakecode. Somehow the indenting after snakecode inside these
-        # nested statements gets messed up
-        inside_nested_statement = (
-            self.block_indent is not None and self.block_indent > 0
-        )
-        # this checks if we are inside snakecode, within a nested if-else statement
-        if inside_nested_statement and self.from_python and self.in_global_context:
-            # indent any comments and the first line
-            tmpstring = ""
-            for i, line in enumerate(string.splitlines(keepends=True)):
-                if comment_start(line) or i == 0:
-                    line = f"{TAB * self.block_indent}{line}"
-                tmpstring += line
-            string = textwrap.dedent(tmpstring)
-
-        needs_artifical_nest = inside_nested_statement and not string.startswith("if")
+        needs_artifical_nest = self.from_python and not string.startswith("if")
         if needs_artifical_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 

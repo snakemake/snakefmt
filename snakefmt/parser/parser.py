@@ -1,9 +1,18 @@
 import tokenize
 from abc import ABC, abstractmethod
+from typing import NamedTuple
 
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import Context, PythonCode, SnakeGlobal
-from snakefmt.parser.syntax import KeywordSyntax, ParameterSyntax, Syntax, Vocabulary
+from snakefmt.parser.syntax import (
+    TAB,
+    is_newline,
+    add_token_space,
+    KeywordSyntax,
+    ParameterSyntax,
+    Syntax,
+    Vocabulary,
+)
 from snakefmt.types import Token, TokenIterator
 
 
@@ -37,6 +46,16 @@ def comment_start(string: str) -> bool:
     return string.lstrip().startswith("#")
 
 
+class Status(NamedTuple):
+    """Communicates the result of parsing a chunk of code"""
+
+    token: Token
+    cur_indent: int  # indent of the end of the parsed block
+    buffer: str
+    eof: bool
+    pythonable: bool
+
+
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
         self.context = Context(
@@ -47,8 +66,10 @@ class Parser(ABC):
         self.from_python: bool = False
         self.last_recognised_keyword: str = ""
         self.last_line_is_snakecode = False
+        self.block_indent = 0
+        self.queriable = True
 
-        status = self.syntax.get_next_queriable(self.snakefile)
+        status = self.get_next_queriable(self.snakefile)
         self.buffer = status.buffer
 
         # Parse the full snakemake file
@@ -76,6 +97,7 @@ class Parser(ABC):
                     in_global_context=self.in_global_context,
                 )
                 status = self.process_keyword(status, self.from_python)
+                self.block_indent = status.cur_indent
                 self.last_line_is_snakecode = True
             else:
                 if not self.syntax.accepts_python_code and not comment_start(keyword):
@@ -84,8 +106,9 @@ class Parser(ABC):
                         f"in {self.syntax.keyword_name} definition"
                     )
                 else:
-                    self.buffer += keyword
-                    status = self.syntax.get_next_queriable(self.snakefile)
+                    self.buffer += f"{keyword}"
+                    status = self.get_next_queriable(self.snakefile)
+                    self.block_indent = min(self.block_indent, status.cur_indent)
                     self.buffer += status.buffer
                     if (
                         self.from_python
@@ -119,12 +142,16 @@ class Parser(ABC):
         return self.syntax.keyword_indent
 
     @property
-    def block_indent(self) -> int:
-        return self.syntax.block_indent
+    def cur_indent(self) -> int:
+        return self.syntax.cur_indent
 
     @property
     def in_global_context(self) -> bool:
         return self.vocab.__class__ is SnakeGlobal
+
+    @property
+    def effective_indent(self) -> int:
+        return max(0, self.cur_indent - self.block_indent)
 
     @abstractmethod
     def flush_buffer(
@@ -145,9 +172,7 @@ class Parser(ABC):
     ):
         """Initialises parsing a keyword parameter, eg a 'input:'"""
 
-    def process_keyword(
-        self, status: Syntax.Status, from_python: bool = False
-    ) -> Syntax.Status:
+    def process_keyword(self, status: Status, from_python: bool = False) -> Status:
         """Called when a snakemake keyword has been found.
 
         The function dispatches to processing class for either:
@@ -178,7 +203,7 @@ class Parser(ABC):
             else:
                 self.context = saved_context
 
-            status = self.syntax.get_next_queriable(self.snakefile)
+            status = self.get_next_queriable(self.snakefile)
             # lstrip forces the formatter deal with newlines
             self.buffer += status.buffer.lstrip()
             return status
@@ -189,7 +214,7 @@ class Parser(ABC):
             )
             self.process_keyword_param(param_context, self.in_global_context)
             self.syntax.add_processed_keyword(status.token, status.token.string)
-            return Syntax.Status(
+            return Status(
                 param_context.token,
                 param_context.cur_indent,
                 status.buffer,
@@ -200,7 +225,7 @@ class Parser(ABC):
         else:
             raise UnsupportedSyntax()
 
-    def context_exit(self, status: Syntax.Status) -> None:
+    def context_exit(self, status: Status) -> None:
         """Parser leaves a keyword context, for eg from 'rule:' to python code"""
         while self.keyword_indent > status.cur_indent:
             callback_context: Context = self.context_stack.pop()
@@ -213,4 +238,52 @@ class Parser(ABC):
         self.syntax.from_python = callback_context.syntax.from_python
         self.syntax.cur_indent = status.cur_indent
         if self.keyword_indent > 0:
-            self.syntax.keyword_indent = status.cur_iodent + 1
+            self.syntax.keyword_indent = status.cur_indent + 1
+
+    def get_next_queriable(self, snakefile: TokenIterator) -> Status:
+        """Produces the next word that could be a snakemake keyword,
+        and additional information in a :Status:
+        """
+        buffer = ""
+        newline = False
+        pythonable = False
+        prev_token: Optional[Token] = Token(tokenize.NAME)
+        while True:
+            token = next(snakefile)
+            if token.type == tokenize.INDENT:
+                self.syntax.cur_indent += 1
+                prev_token = None
+                continue
+            elif token.type == tokenize.DEDENT:
+                if self.cur_indent > 0:
+                    self.syntax.cur_indent -= 1
+                prev_token = None
+                continue
+            elif token.type == tokenize.ENDMARKER:
+                return Status(token, self.cur_indent, buffer, True, pythonable)
+            elif token.type == tokenize.COMMENT:
+                if token.start[1] == 0:
+                    return Status(token, 0, buffer, False, pythonable)
+
+            elif is_newline(token):
+                self.queriable, newline = True, True
+                buffer += "\n"
+                prev_token = None
+                continue
+
+            # Records relative tabbing, used for python code formatting
+            if newline and not token.type == tokenize.COMMENT:
+                buffer += TAB * self.effective_indent
+
+            if token.type == tokenize.NAME and self.queriable:
+                self.queriable = False
+                return Status(token, self.cur_indent, buffer, False, pythonable)
+
+            if add_token_space(prev_token, token):
+                buffer += " "
+            prev_token = token
+            if newline:
+                newline = False
+            if not pythonable and token.type != tokenize.COMMENT:
+                pythonable = True
+            buffer += token.string
