@@ -64,11 +64,10 @@ class Formatter(Parser):
             self.buffer = ""
             return
 
-        code_indent = self.syntax.code_indent
         if not from_python:
-            formatted = self.run_black_format_str(self.buffer, self.target_indent)
-            if self.target_indent > 0:
-                formatted = self.align_strings(formatted, self.target_indent)
+            formatted = self.run_black_format_str(self.buffer, self.keyword_indent)
+            if self.keyword_indent > 0:
+                formatted = self.align_strings(formatted, self.keyword_indent)
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
@@ -86,7 +85,7 @@ class Formatter(Parser):
                 to_format = (
                     f"{re_match.group(1)}{test_substitute}" f"{re_match.group(4)}pass"
                 )
-                formatted = self.run_black_format_str(to_format, self.target_indent)
+                formatted = self.run_black_format_str(to_format, self.keyword_indent)
                 re_rematch = contextual_matcher.match(formatted)
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
@@ -96,12 +95,12 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                formatted = self.run_black_format_str(self.buffer, self.target_indent)
+                formatted = self.run_black_format_str(self.buffer, self.keyword_indent)
 
-            if code_indent is not None:
-                formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
+            if self.syntax is not None:
+                formatted = textwrap.indent(formatted, f"{TAB * self.block_indent}")
                 if self.syntax.effective_indent == 0:
-                    self.syntax.code_indent = 0
+                    self.syntax.block_indent = 0
 
         # Re-add newline removed by black for proper parsing of comments
         if self.buffer.endswith("\n\n"):
@@ -111,7 +110,7 @@ class Formatter(Parser):
         buffer_is_all_comments = all(map(comment_start, self.buffer.splitlines()))
         if not buffer_is_all_comments:
             self.last_recognised_keyword = ""
-        self.add_newlines(code_indent, formatted, final_flush, in_global_context)
+        self.add_newlines(self.block_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
 
     def process_keyword_context(self, in_global_context: bool):
@@ -128,7 +127,7 @@ class Formatter(Parser):
         self, param_context: ParameterSyntax, in_global_context: bool
     ):
         self.add_newlines(
-            param_context.target_indent - 1,
+            param_context.keyword_indent - 1,
             in_global_context=in_global_context,
             context=param_context,
         )
@@ -142,7 +141,7 @@ class Formatter(Parser):
         # that have had snakecode. Somehow the indenting after snakecode inside these
         # nested statements gets messed up
         inside_nested_statement = (
-            self.syntax.code_indent is not None and self.syntax.code_indent > 0
+            self.block_indent is not None and self.block_indent > 0
         )
         # this checks if we are inside snakecode, within a nested if-else statement
         if inside_nested_statement and self.from_python and self.in_global_context:
@@ -150,7 +149,7 @@ class Formatter(Parser):
             tmpstring = ""
             for i, line in enumerate(string.splitlines(keepends=True)):
                 if comment_start(line) or i == 0:
-                    line = f"{TAB * self.syntax.code_indent}{line}"
+                    line = f"{TAB * self.block_indent}{line}"
                 tmpstring += line
             string = textwrap.dedent(tmpstring)
 
@@ -292,7 +291,7 @@ class Formatter(Parser):
         return result
 
     def format_params(self, parameters: ParameterSyntax) -> str:
-        target_indent = parameters.target_indent
+        target_indent = parameters.keyword_indent
         used_indent = TAB * (target_indent - 1)
 
         p_class = parameters.__class__

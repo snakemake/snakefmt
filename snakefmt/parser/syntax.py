@@ -177,20 +177,20 @@ class Syntax(ABC):
         """Communicates the result of parsing a chunk of code"""
 
         token: Token
-        indent: int
+        cur_indent: int  # indent of the end of the parsed block
         buffer: str
         eof: bool
         pythonable: bool
 
     def __init__(
-        self, keyword_name: str, target_indent: int, snakefile: TokenIterator = None
+        self, keyword_name: str, keyword_indent: int, snakefile: TokenIterator = None
     ):
         self.keyword_name = keyword_name
         self.keyword_line = keyword_name
-        assert target_indent >= 0
-        self.target_indent = target_indent
-        self.cur_indent = max(self.target_indent - 1, 0)
-        self.code_indent = None
+        assert keyword_indent >= 0
+        self.keyword_indent = keyword_indent
+        self.cur_indent = max(self.keyword_indent - 1, 0)
+        self.block_indent = None
         self.comment = ""
         self.token = None
 
@@ -215,14 +215,14 @@ class KeywordSyntax(Syntax):
     def __init__(
         self,
         keyword_name: str,
-        target_indent: int,
+        keyword_indent: int,
         snakefile: TokenIterator = None,
         incident_syntax: "KeywordSyntax" = None,
         from_python: bool = False,
         accepts_py: bool = False,
     ):
         self.enter_context = True
-        super().__init__(keyword_name, target_indent, snakefile)
+        super().__init__(keyword_name, keyword_indent, snakefile)
         self.processed_keywords = set()
         self.accepts_python_code = accepts_py
         self.queriable = True
@@ -302,7 +302,7 @@ class KeywordSyntax(Syntax):
 
     @property
     def effective_indent(self) -> int:
-        return max(0, self.cur_indent - self.target_indent)
+        return max(0, self.cur_indent - self.keyword_indent)
 
     def get_next_queriable(self, snakefile: TokenIterator) -> Syntax.Status:
         """Produces the next word that could be a snakemake keyword,
@@ -311,6 +311,7 @@ class KeywordSyntax(Syntax):
         buffer = ""
         newline = False
         pythonable = False
+        self.block_indent = self.cur_indent
         prev_token: Optional[Token] = Token(tokenize.NAME)
         while True:
             token = next(snakefile)
@@ -359,11 +360,11 @@ class ParameterSyntax(Syntax):
     def __init__(
         self,
         keyword_name: str,
-        target_indent: int,
+        keyword_indent: int,
         incident_vocab: Vocabulary,
         snakefile: TokenIterator,
     ):
-        super().__init__(keyword_name, target_indent, snakefile)
+        super().__init__(keyword_name, keyword_indent, snakefile)
         self.positional_params, self.keyword_params = list(), list()
         self.eof = False
         self.incident_vocab = incident_vocab
@@ -417,7 +418,7 @@ class ParameterSyntax(Syntax):
                 if not cur_param.is_empty() and col_nb(self.token) < cur_param.col_nb:
                     exit = True
             else:
-                exit = self.cur_indent < self.target_indent
+                exit = self.cur_indent < self.keyword_indent
             if exit:
                 self.flush_param(cur_param, skip_empty=True)
         return exit
@@ -426,7 +427,7 @@ class ParameterSyntax(Syntax):
         token_type = self.token.type
         # Eager treatment of comments: tag them onto params
         if token_type == tokenize.COMMENT and not self.in_brackets:
-            cur_param.add_comment(self.token.string, self.target_indent)
+            cur_param.add_comment(self.token.string, self.keyword_indent)
             return cur_param
         if is_newline(self.token):  # Special treatment for inline comments
             if not cur_param.is_empty():

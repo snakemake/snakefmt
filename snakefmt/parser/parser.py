@@ -40,7 +40,7 @@ def comment_start(string: str) -> bool:
 class Parser(ABC):
     def __init__(self, snakefile: TokenIterator):
         self.context = Context(
-            SnakeGlobal(), KeywordSyntax("Global", target_indent=0, accepts_py=True)
+            SnakeGlobal(), KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
         )
         self.context_stack = [self.context]
         self.snakefile: TokenIterator = snakefile
@@ -53,7 +53,7 @@ class Parser(ABC):
 
         # Parse the full snakemake file
         while True:
-            if status.indent < self.target_indent:
+            if status.cur_indent < self.keyword_indent:
                 self.context_exit(status)
 
             if status.eof:
@@ -62,12 +62,12 @@ class Parser(ABC):
             keyword = status.token.string
 
             if self.vocab.recognises(keyword):
-                if status.indent > self.target_indent:
+                if status.cur_indent > self.keyword_indent:
                     in_if_else = self.buffer.startswith(("if", "else", "elif"))
                     if self.syntax.from_python or status.pythonable or in_if_else:
                         self.from_python = True
                     else:  # Over-indented context gets reset
-                        self.syntax.cur_indent = max(self.target_indent - 1, 0)
+                        self.syntax.cur_indent = max(self.keyword_indent - 1, 0)
                 elif self.from_python:
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
@@ -75,7 +75,6 @@ class Parser(ABC):
                     from_python=self.from_python,
                     in_global_context=self.in_global_context,
                 )
-                self.syntax.code_indent = None
                 status = self.process_keyword(status, self.from_python)
                 self.last_line_is_snakecode = True
             else:
@@ -86,15 +85,11 @@ class Parser(ABC):
                     )
                 else:
                     self.buffer += keyword
-                    if self.syntax.code_indent is None and not comment_start(keyword):
-                        # This allows python code after a nested snakemake keyword
-                        # to be properly indented
-                        self.syntax.code_indent = status.indent
                     status = self.syntax.get_next_queriable(self.snakefile)
                     self.buffer += status.buffer
                     if (
                         self.from_python
-                        and status.indent == 0
+                        and status.cur_indent == 0
                         and not self.last_line_is_snakecode
                     ):
                         # This flushes any nested python code following a
@@ -104,7 +99,7 @@ class Parser(ABC):
                         )
                         self.from_python = False
                 self.last_line_is_snakecode = False
-            self.syntax.cur_indent = status.indent
+            self.syntax.cur_indent = status.cur_indent
         self.flush_buffer(
             from_python=self.from_python,
             final_flush=True,
@@ -120,8 +115,12 @@ class Parser(ABC):
         return self.context.syntax
 
     @property
-    def target_indent(self) -> int:
-        return self.syntax.target_indent
+    def keyword_indent(self) -> int:
+        return self.syntax.keyword_indent
+
+    @property
+    def block_indent(self) -> int:
+        return self.syntax.block_indent
 
     @property
     def in_global_context(self) -> bool:
@@ -203,7 +202,7 @@ class Parser(ABC):
 
     def context_exit(self, status: Syntax.Status) -> None:
         """Parser leaves a keyword context, for eg from 'rule:' to python code"""
-        while self.target_indent > status.indent:
+        while self.keyword_indent > status.cur_indent:
             callback_context: Context = self.context_stack.pop()
             if callback_context.syntax.accepts_python_code:
                 self.flush_buffer()  # Flushes any code inside 'run' directive
@@ -212,6 +211,6 @@ class Parser(ABC):
             self.context = self.context_stack[-1]
 
         self.syntax.from_python = callback_context.syntax.from_python
-        self.syntax.cur_indent = status.indent
-        if self.target_indent > 0:
-            self.syntax.target_indent = status.indent + 1
+        self.syntax.cur_indent = status.cur_indent
+        if self.keyword_indent > 0:
+            self.syntax.keyword_indent = status.cur_iodent + 1
