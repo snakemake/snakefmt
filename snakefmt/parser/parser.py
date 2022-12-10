@@ -58,6 +58,12 @@ class Status(NamedTuple):
 
 
 class Parser(ABC):
+    """
+    The parser alternates between parsing blocks of python code (`pycode`) and 
+    blocks of snakemake code (`snakecode`).
+    The indentation of these code blocks is memorised in :`self.block_indent`,
+    and the alternation in `:self.last_block_was_snakecode`.
+    """
     def __init__(self, snakefile: TokenIterator):
         self.context = Context(
             SnakeGlobal(), KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
