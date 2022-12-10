@@ -88,8 +88,6 @@ class Parser(ABC):
                     in_if_else = self.buffer.startswith(("if", "else", "elif"))
                     if self.syntax.from_python or status.pythonable or in_if_else:
                         self.from_python = True
-                    else:  # Over-indented context gets reset
-                        self.syntax.cur_indent = max(self.keyword_indent - 1, 0)
                 elif self.from_python:
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
@@ -117,6 +115,7 @@ class Parser(ABC):
                         self.from_python
                         and status.cur_indent == 0
                         and not self.last_block_was_snakecode
+                        and self.block_indent > 0
                     ):
                         # This flushes any nested python code following a
                         # nested snakemake keyword

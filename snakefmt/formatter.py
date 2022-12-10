@@ -30,6 +30,7 @@ contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
 after_if_keywords = ("elif", "else")
+is_all_comments = lambda string: all(map(comment_start, string.splitlines()))
 
 
 class Formatter(Parser):
@@ -105,8 +106,7 @@ class Formatter(Parser):
             if comment_start(self.buffer.rstrip().splitlines()[-1]):
                 formatted += "\n"
         # Only stick together separated single-parm keywords when separated by comments
-        buffer_is_all_comments = all(map(comment_start, self.buffer.splitlines()))
-        if not buffer_is_all_comments:
+        if not is_all_comments(self.buffer):
             self.last_recognised_keyword = ""
         self.add_newlines(self.block_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
@@ -135,8 +135,11 @@ class Formatter(Parser):
     def run_black_format_str(
         self, string: str, target_indent: int, extra_spacing: int = 0
     ) -> str:
-        needs_artifical_nest = self.from_python and not string.startswith("if")
-        needs_artifical_nest = False
+        needs_artifical_nest = (
+            self.from_python
+            and not string.startswith("if")
+            and not is_all_comments(string)
+        )
         if needs_artifical_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
