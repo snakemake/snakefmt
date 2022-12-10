@@ -399,7 +399,7 @@ class TestComplexPythonFormatting:
             f"{TAB * 1}rule a:\n"
             f"{TAB * 2}input:\n"
             f'{TAB * 3}"a",\n'
-            f'{TAB * 3}"b",\n\n\n'
+            f'{TAB * 3}"b",\n\n'
             "else:\n\n"
             f"{TAB * 1}rule b:\n"
             f"{TAB * 2}script:\n"
@@ -452,9 +452,9 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         expected = (
             'if c["a"] is None:\n\n'
-            f'{TAB * 1}include: "a"\n\n\n'
+            f'{TAB * 1}include: "a"\n\n'
             'elif myobj.attr == "b":\n\n'
-            f'{TAB * 1}include: "b"\n\n\n'
+            f'{TAB * 1}include: "b"\n\n'
             'elif len(c["c"]) == 3:\n\n'
             f'{TAB * 1}include: "c"\n'
         )
@@ -472,7 +472,7 @@ class TestComplexPythonFormatting:
             'if c["a"] is None:\n\n'
             f"{TAB * 1}rule a:\n"
             f"{TAB * 2}shell:\n"
-            f'{TAB * 3}""\n\n\n'
+            f'{TAB * 3}""\n\n'
             "else:\n"  # All python from here
             f'{TAB * 1}var = "b"\n'
         )
@@ -510,7 +510,7 @@ class TestComplexPythonFormatting:
     def test_spaced_out_consecutive_dedented_directive(self):
         snakecode = (
             'if config["load"]:\n\n'
-            f'{TAB * 1}include: "module_a.smk"\n\n\n'
+            f'{TAB * 1}include: "module_a.smk"\n\n'
             f"else:\n\n"
             f'{TAB * 1}include: "module_b.smk"\n\n\n'
             f'include: "other.smk"\n'
@@ -536,10 +536,9 @@ class TestComplexPythonFormatting:
             "if True:\n"
             f"{TAB * 1}if True:\n\n"
             f"{TAB * 2}ruleorder: __a_ruleorder_and__  # inline comment\n"
-            "\n\n"
+            "\n"
             f"{TAB * 1}# second standalone comment\n"
-            f'{TAB * 1}var = "anything really"\n'
-            "\n\n"
+            f'{TAB * 1}var = "anything really"\n\n'
             f"else:\n\n"
             f"{TAB * 1}# third standalone comment\n"
             f"{TAB * 1}ruleorder: some_other_order\n"
@@ -552,7 +551,7 @@ class TestComplexPythonFormatting:
         snakecode = (
             "if True:\n\n"
             f"{TAB * 1}ruleorder: A > B\n"
-            "\n\n"
+            "\n"
             f"{TAB * 1}mylist = []  # inline comment\n"
             f'{TAB * 1}mystr = "a"  # inline comment\n'
         )
@@ -569,7 +568,7 @@ class TestComplexPythonFormatting:
             f"{TAB * 2}run:\n"
             f"{TAB * 3}if True:\n"
             f'{TAB * 4}print("this line is in the error")\n'
-            "\n\n"
+            "\n"
             f'{TAB * 1}print("the indenting on this line matters")\n'
         )
         formatter = setup_formatter(snakecode)
@@ -579,11 +578,10 @@ class TestComplexPythonFormatting:
         """https://github.com/snakemake/snakefmt/pull/136#issuecomment-1125130038"""
         snakecode = (
             "if True:\n\n"
-            f"{TAB * 1}ruleorder: A > B\n"
-            "\n\n"
+            f"{TAB * 1}ruleorder: A > B\n\n"
             f"{TAB * 1}def myfunc():\n"
             f"{TAB * 2}pass\n"
-            "\n\n"
+            "\n"
             f"{TAB * 1}mylist = []\n"
         )
         formatter = setup_formatter(snakecode)
@@ -592,10 +590,10 @@ class TestComplexPythonFormatting:
     def test_nested_ifelse_statements(self):
         snakecode = (
             'if config["a"] is None:\n\n'
-            f'{TAB * 1}include: "module_a_none.smk"\n\n\n'
+            f'{TAB * 1}include: "module_a_none.smk"\n\n'
             f"else:\n"
             f'{TAB * 1}if config["b"] is None:\n\n'
-            f'{TAB * 2}include: "module_b.smk"\n\n\n'
+            f'{TAB * 2}include: "module_b.smk"\n\n'
             f"{TAB * 1}else:\n\n"
             f'{TAB * 2}include: "module_c.smk"\n'
         )
@@ -606,10 +604,10 @@ class TestComplexPythonFormatting:
         snakecode = (
             'if config["a"] is None:\n'
             f"{TAB * 1}a = 1\n\n"
-            f'{TAB * 1}include: "module_a_none.smk"\n\n\n'
+            f'{TAB * 1}include: "module_a_none.smk"\n\n'
             f"else:\n"
             f'{TAB * 1}if config["b"] is None:\n\n'
-            f'{TAB * 2}include: "module_b.smk"\n\n\n'
+            f'{TAB * 2}include: "module_b.smk"\n\n'
             f"{TAB * 1}else:\n"
             f"{TAB * 2}b = 0\n\n"
             f'{TAB * 2}include: "module_c.smk"\n'
@@ -1207,3 +1205,38 @@ class TestLineWrapping:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
+
+    def test_indenting_long_param_lines(self):
+        """https://github.com/snakemake/snakefmt/issues/124"""
+        snakecode = (
+            "rule a:\n"
+            f"{TAB*1}output:\n"
+            f'{TAB*2}"foo",\n'
+            f"{TAB*1}params:\n"
+            f"{TAB*2}datasources=(\n"
+            f'{TAB*3}"-s {{}}".format(" ".join(config["annotations"]["dgidb"]["datasources"]))\n'  # noqa: E501
+            f'{TAB*3}if config["annotations"]["dgidb"].get("datasources", "")\n'
+            f'{TAB*3}else ""\n'
+            f"{TAB*2}),\n"
+        )
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode
+
+    def test_indented_block_with_functions_and_rule(self):
+        """https://github.com/snakemake/snakefmt/issues/124#issuecomment-986845398"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB*1}def func1():\n"
+            f'''{TAB*2}"""docstring"""\n'''
+            f"{TAB*2}pass\n\n"
+            f"{TAB*1}rule foo:\n"
+            f"{TAB*2}shell:\n"
+            f'{TAB*3}"echo bar"\n\n'
+            f"{TAB*1}def func2():\n"
+            f'''{TAB*2}"""this function should stay indented"""\n'''
+            f"{TAB*2}pass\n"
+        )
+        formatter = setup_formatter(snakecode)
+
+        assert formatter.get_formatted() == snakecode

@@ -29,6 +29,7 @@ full_string_matcher = re.compile(
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
+after_if_keywords = ("elif", "else")
 
 
 class Formatter(Parser):
@@ -63,6 +64,7 @@ class Formatter(Parser):
             self.buffer = ""
             return
 
+        code_indent = self.syntax.code_indent
         if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.target_indent)
             if self.target_indent > 0:
@@ -74,7 +76,7 @@ class Formatter(Parser):
             if re_match is not None:
                 callback_keyword = re_match.group(2)
                 used_keyword = (
-                    "if" if callback_keyword in {"elif", "else"} else callback_keyword
+                    "if" if callback_keyword in after_if_keywords else callback_keyword
                 )
                 condition = re_match.group(3)
                 if condition != "":
@@ -96,7 +98,6 @@ class Formatter(Parser):
             else:
                 formatted = self.run_black_format_str(self.buffer, self.target_indent)
 
-            code_indent = self.syntax.code_indent
             if code_indent is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * code_indent}")
                 if self.syntax.effective_indent == 0:
@@ -110,7 +111,7 @@ class Formatter(Parser):
         buffer_is_all_comments = all(map(comment_start, self.buffer.splitlines()))
         if not buffer_is_all_comments:
             self.last_recognised_keyword = ""
-        self.add_newlines(self.target_indent, formatted, final_flush, in_global_context)
+        self.add_newlines(code_indent, formatted, final_flush, in_global_context)
         self.buffer = ""
 
     def process_keyword_context(self, in_global_context: bool):
@@ -153,8 +154,12 @@ class Formatter(Parser):
                 tmpstring += line
             string = textwrap.dedent(tmpstring)
 
+        needs_artifical_nest = inside_nested_statement and not string.startswith("if")
+        if needs_artifical_nest:
+            string = f"if x:\n{textwrap.indent(string, TAB)}"
+
         # reduce black target line length according to how indented the code is
-        current_line_length = target_indent * len(TAB)
+        current_line_length = (target_indent or 0) * len(TAB)
         black_mode = copy(self.black_mode)
         black_mode.line_length = max(
             0, black_mode.line_length - current_line_length + extra_spacing
@@ -185,6 +190,11 @@ class Formatter(Parser):
                 )
             err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
             raise InvalidPython(err_msg) from None
+
+        if needs_artifical_nest:
+            lines = fmted.splitlines(keepends=True)[1:]
+            s = "".join(lines).lstrip("\n")
+            fmted = textwrap.dedent(s)
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:
@@ -196,6 +206,12 @@ class Formatter(Parser):
         indented = ""
         for match in re.finditer(full_string_matcher, string):
             indented += textwrap.indent(string[pos : match.start(1)], used_indent)
+            lagging_spaces = len(indented) - len(indented.rstrip(" "))
+            lagging_indent = (
+                TAB * int(lagging_spaces / len(TAB))
+                if lagging_spaces % len(TAB) == 0
+                else ""
+            )
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
@@ -209,14 +225,17 @@ class Formatter(Parser):
                     middle = "".join(all_lines[1:-1])
                 else:
                     middle = textwrap.indent(
-                        textwrap.dedent("".join(all_lines[1:-1])), used_indent
+                        textwrap.dedent("".join(all_lines[1:-1])),
+                        used_indent + lagging_indent,
                     )
                 indented += middle
             if len(all_lines) > 1:
                 if is_multiline_string:
                     last = all_lines[-1]
                 else:
-                    last = textwrap.indent(textwrap.dedent(all_lines[-1]), used_indent)
+                    last = textwrap.indent(
+                        textwrap.dedent(all_lines[-1]), used_indent + lagging_indent
+                    )
                 indented += last
             pos = match.end()
         indented += textwrap.indent(string[pos:], used_indent)
@@ -334,9 +353,14 @@ class Formatter(Parser):
                 and issubclass(context.__class__, SingleParam)
             )
             if not self.no_formatting_yet and not collate_same_singleparamkeyword:
-                if cur_indent == 0:
+                after_if_statement = self.buffer.startswith(after_if_keywords)
+                if (
+                    cur_indent in (0, None)
+                    and not after_if_statement
+                    and not self.is_docstring_for_rule()
+                ):
                     self.result += "\n\n"
-                elif in_global_context:
+                elif in_global_context or after_if_statement:
                     self.result += "\n"
         if in_global_context:  # Deal with comments
             if self.lagging_comments != "":
@@ -356,3 +380,11 @@ class Formatter(Parser):
         if self.no_formatting_yet:
             if comment_break > 0:
                 self.no_formatting_yet = False
+
+    def is_docstring_for_rule(self) -> bool:
+        result_lines = self.result.splitlines()
+        if not result_lines:
+            return False
+        return result_lines[-1].startswith("rule ") and self.buffer.startswith(
+            ('"""', "'''")
+        )
