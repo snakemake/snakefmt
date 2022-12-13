@@ -265,7 +265,7 @@ class Parser(ABC):
         """Produces the next word that could be a snakemake keyword,
         and additional information in a :Status:
 
-        Note: comments are annoying, as when preceded by indents/dedents, 
+        Note: comments are annoying, as when preceded by indents/dedents,
         they are output by the tokenizer before those indents/dedents.
         """
         buffer = ""
@@ -303,7 +303,7 @@ class Parser(ABC):
             # Records relative tabbing, used for python code formatting
             if newline:
                 if token.type == tokenize.COMMENT:
-                    # Because comment indent level is not knowable from indent/dedent 
+                    # Because comment indent level is not knowable from indent/dedent
                     # tokens, just use its input whitespace level.
                     buffer += " " * col_nb(token)
                 else:

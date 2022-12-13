@@ -25,11 +25,11 @@ install-ci:
 .PHONY: fmt
 fmt:
 	poetry run isort .
-	poetry run black .
+	poetry run black . --exclude venv
 
 .PHONY: lint
 lint:
-	poetry run flake8 .
+	poetry run flake8 . --exclude venv
 
 .PHONY: check-fmt
 check-fmt:
