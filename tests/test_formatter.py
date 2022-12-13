@@ -386,6 +386,19 @@ class TestComplexPythonFormatting:
     code and keywords, and two between keyword and code.
     """
 
+    def test_if_statement_with_snakecode_2comments_snakecode_inside(self):
+        """https://github.com/snakemake/snakefmt/issues/159"""
+        snakecode = (
+            "if True:\n\n"
+            f"{TAB * 1}ruleorder: a > b\n"
+            "\n"
+            f"# comment\n"
+            f"# comment\n"
+            f"{TAB * 1}ruleorder: c > d\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_snakemake_code_inside_python_code(self):
         formatter = setup_formatter(
             "if condition:\n"
