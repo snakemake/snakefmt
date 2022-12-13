@@ -12,7 +12,6 @@ from snakefmt.logging import Warnings
 from snakefmt.parser.parser import Parser, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
-    TAB,
     InlineSingleParam,
     Parameter,
     ParameterSyntax,
@@ -20,7 +19,7 @@ from snakefmt.parser.syntax import (
     SingleParam,
     Syntax,
 )
-from snakefmt.types import TokenIterator
+from snakefmt.types import TAB, TokenIterator
 
 # This regex matches any number of consecutive strings; each can span multiple lines.
 full_string_matcher = re.compile(
@@ -30,7 +29,10 @@ contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
 after_if_keywords = ("elif", "else")
-is_all_comments = lambda string: all(map(comment_start, string.splitlines()))
+
+
+def is_all_comments(string):
+    return all(map(comment_start, string.splitlines()))
 
 
 class Formatter(Parser):
@@ -66,7 +68,7 @@ class Formatter(Parser):
             return
 
         if not from_python:
-            formatted = self.run_black_format_str(self.buffer, self.keyword_indent)
+            formatted = self.run_black_format_str(self.buffer, self.block_indent)
             if self.keyword_indent > 0:
                 formatted = self.align_strings(formatted, self.keyword_indent)
         else:
@@ -86,7 +88,7 @@ class Formatter(Parser):
                 to_format = (
                     f"{re_match.group(1)}{test_substitute}" f"{re_match.group(4)}pass"
                 )
-                formatted = self.run_black_format_str(to_format, self.keyword_indent)
+                formatted = self.run_black_format_str(to_format, self.block_indent)
                 re_rematch = contextual_matcher.match(formatted)
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
@@ -96,7 +98,7 @@ class Formatter(Parser):
                 formatted_lines = formatted.splitlines(keepends=True)
                 formatted = "".join(formatted_lines[:-1])  # Remove the 'pass' line
             else:
-                formatted = self.run_black_format_str(self.buffer, self.keyword_indent)
+                formatted = self.run_black_format_str(self.buffer, self.block_indent)
 
             if self.syntax is not None:
                 formatted = textwrap.indent(formatted, f"{TAB * self.block_indent}")
@@ -133,15 +135,27 @@ class Formatter(Parser):
         self.last_recognised_keyword = param_context.keyword_name
 
     def run_black_format_str(
-        self, string: str, target_indent: int, extra_spacing: int = 0
+        self,
+        string: str,
+        target_indent: int,
+        extra_spacing: int = 0,
+        no_nesting: bool = False,
     ) -> str:
-        needs_artifical_nest = (
+        """
+        `no_nesting`: black uses one line skips between code blocks, instead of two,
+        for nested code (e.g. inside 'if'). We emulate this by putting nested code
+        inside an artificial 'if' statement. Setting `no_nesting` to True means the code
+        will always be formatted with two line skips.
+        """
+        artificial_nest = (
             self.from_python
-            and not string.startswith("if")
+            and target_indent > 0
             and not is_all_comments(string)
             and len(string.strip().splitlines()) > 1
+            and not no_nesting
         )
-        if needs_artifical_nest:
+
+        if artificial_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
         # reduce black target line length according to how indented the code is
@@ -177,7 +191,7 @@ class Formatter(Parser):
             err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
             raise InvalidPython(err_msg) from None
 
-        if needs_artifical_nest:
+        if artificial_nest:
             lines = fmted.splitlines(keepends=True)[1:]
             s = "".join(lines).lstrip("\n")
             fmted = textwrap.dedent(s)
@@ -254,7 +268,9 @@ class Formatter(Parser):
         if param_list:
             val = f"f({val})"
             extra_spacing = 3
-        val = self.run_black_format_str(val, target_indent, extra_spacing)
+        val = self.run_black_format_str(
+            val, target_indent, extra_spacing, no_nesting=True
+        )
         if param_list:
             match_equal = re.match(r"f\((.*)\)", val, re.DOTALL)
             val = match_equal.group(1)
@@ -340,11 +356,7 @@ class Formatter(Parser):
             )
             if not self.no_formatting_yet and not collate_same_singleparamkeyword:
                 after_if_statement = self.buffer.startswith(after_if_keywords)
-                if (
-                    cur_indent in (0, None)
-                    and not after_if_statement
-                    and not self.is_docstring_for_rule()
-                ):
+                if cur_indent in (0, None) and not after_if_statement:
                     self.result += "\n\n"
                 elif in_global_context or after_if_statement:
                     self.result += "\n"
@@ -366,11 +378,3 @@ class Formatter(Parser):
         if self.no_formatting_yet:
             if comment_break > 0:
                 self.no_formatting_yet = False
-
-    def is_docstring_for_rule(self) -> bool:
-        result_lines = self.result.splitlines()
-        if not result_lines:
-            return False
-        return result_lines[-1].startswith("rule ") and self.buffer.startswith(
-            ('"""', "'''")
-        )

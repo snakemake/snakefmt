@@ -1,19 +1,27 @@
 import tokenize
 from abc import ABC, abstractmethod
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import Context, PythonCode, SnakeGlobal
 from snakefmt.parser.syntax import (
-    TAB,
-    is_newline,
-    add_token_space,
     KeywordSyntax,
     ParameterSyntax,
-    Syntax,
     Vocabulary,
+    add_token_space,
+    is_newline,
 )
-from snakefmt.types import Token, TokenIterator
+from snakefmt.types import TAB, Token, TokenIterator, col_nb
+
+
+def not_a_comment_related_token(token):
+    return not (
+        token.type == tokenize.COMMENT
+        or token.type == tokenize.NEWLINE
+        or token.type == tokenize.NL
+        or token.type == tokenize.INDENT
+        or token.type == tokenize.DEDENT
+    )
 
 
 class Snakefile:
@@ -59,11 +67,12 @@ class Status(NamedTuple):
 
 class Parser(ABC):
     """
-    The parser alternates between parsing blocks of python code (`pycode`) and 
+    The parser alternates between parsing blocks of python code (`pycode`) and
     blocks of snakemake code (`snakecode`).
     The indentation of these code blocks is memorised in :`self.block_indent`,
     and the alternation in `:self.last_block_was_snakecode`.
     """
+
     def __init__(self, snakefile: TokenIterator):
         self.context = Context(
             SnakeGlobal(), KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
@@ -85,6 +94,7 @@ class Parser(ABC):
                 self.context_exit(status)
 
             if status.eof:
+                self.block_indent = self.cur_indent
                 break
 
             keyword = status.token.string
@@ -113,7 +123,7 @@ class Parser(ABC):
                 else:
                     self.buffer += f"{keyword}"
                     status = self.get_next_queriable(self.snakefile)
-                    if self.last_block_was_snakecode and not comment_start(keyword):
+                    if self.last_block_was_snakecode:
                         self.block_indent = status.block_indent
                         self.last_block_was_snakecode = False
                     self.buffer += status.buffer
@@ -247,20 +257,26 @@ class Parser(ABC):
 
         self.syntax.from_python = callback_context.syntax.from_python
         self.syntax.cur_indent = status.cur_indent
+        self.block_indent = self.cur_indent
         if self.keyword_indent > 0:
             self.syntax.keyword_indent = status.cur_indent + 1
 
     def get_next_queriable(self, snakefile: TokenIterator) -> Status:
         """Produces the next word that could be a snakemake keyword,
         and additional information in a :Status:
+
+        Note: comments are annoying, as when preceded by indents/dedents, 
+        they are output by the tokenizer before those indents/dedents.
         """
         buffer = ""
         newline = False
         pythonable = False
-        block_indent = self.cur_indent
+        block_indent = -1
         prev_token: Optional[Token] = Token(tokenize.NAME)
         while True:
             token = next(snakefile)
+            if block_indent == -1 and not_a_comment_related_token(token):
+                block_indent = self.cur_indent
             if token.type == tokenize.INDENT:
                 self.syntax.cur_indent += 1
                 prev_token = None
@@ -271,9 +287,11 @@ class Parser(ABC):
                 prev_token = None
                 continue
             elif token.type == tokenize.ENDMARKER:
-                return Status(token, block_indent, self.cur_indent, buffer, True, pythonable)
+                return Status(
+                    token, block_indent, self.cur_indent, buffer, True, pythonable
+                )
             elif token.type == tokenize.COMMENT:
-                if token.start[1] == 0:
+                if col_nb(token) == 0:
                     return Status(token, block_indent, 0, buffer, False, pythonable)
 
             elif is_newline(token):
@@ -283,12 +301,19 @@ class Parser(ABC):
                 continue
 
             # Records relative tabbing, used for python code formatting
-            if newline and not token.type == tokenize.COMMENT:
-                buffer += TAB * self.effective_indent
+            if newline:
+                if token.type == tokenize.COMMENT:
+                    # Because comment indent level is not knowable from indent/dedent 
+                    # tokens, just use its input whitespace level.
+                    buffer += " " * col_nb(token)
+                else:
+                    buffer += TAB * self.effective_indent
 
             if token.type == tokenize.NAME and self.queriable:
                 self.queriable = False
-                return Status(token, block_indent, self.cur_indent, buffer, False, pythonable)
+                return Status(
+                    token, block_indent, self.cur_indent, buffer, False, pythonable
+                )
 
             if add_token_space(prev_token, token):
                 buffer += " "

@@ -9,7 +9,8 @@ from unittest import mock
 import pytest
 
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
-from snakefmt.parser.syntax import COMMENT_SPACING, TAB
+from snakefmt.parser.syntax import COMMENT_SPACING
+from snakefmt.types import TAB
 from tests import Formatter, Snakefile, setup_formatter
 
 
@@ -415,7 +416,7 @@ class TestComplexPythonFormatting:
             mock_m.return_value = "if condition:\n"
             setup_formatter(snakecode)
             assert mock_m.call_count == 3
-            assert mock_m.call_args_list[1] == mock.call('"a"', 0, 0)
+            assert mock_m.call_args_list[1] == mock.call('"a"', 0, 0, no_nesting=True)
             assert mock_m.call_args_list[2] == mock.call("b = 2\n", 0)
 
         formatter = setup_formatter(snakecode)

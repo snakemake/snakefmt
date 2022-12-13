@@ -4,7 +4,6 @@ Code in charge of parsing and validating Snakemake syntax
 import tokenize
 from abc import ABC, abstractmethod
 from re import match as re_match
-from typing import Optional
 
 from snakefmt.exceptions import (
     ColonError,
@@ -19,7 +18,6 @@ from snakefmt.exceptions import (
 )
 from snakefmt.types import (
     COMMENT_SPACING,
-    TAB,
     Token,
     TokenIterator,
     col_nb,
@@ -172,7 +170,6 @@ class Syntax(ABC):
     Classes derived from it raise syntax errors when snakemake syntax is not respected
     """
 
-
     def __init__(
         self, keyword_name: str, keyword_indent: int, snakefile: TokenIterator = None
     ):
@@ -288,6 +285,7 @@ class KeywordSyntax(Syntax):
             raise EmptyContextError(
                 f"{self.line_nb}{self.keyword_name} has no keywords attached to it."
             )
+
 
 class ParameterSyntax(Syntax):
     """Parses snakemake keywords that do not accept other keywords, eg 'input'"""
