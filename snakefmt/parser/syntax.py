@@ -377,8 +377,7 @@ class ParameterSyntax(Syntax):
         if token_type == tokenize.INDENT:
             self.cur_indent += 1
         elif token_type == tokenize.DEDENT:
-            if self.cur_indent > 0:
-                self.cur_indent -= 1
+            self.cur_indent = max(self.cur_indent - 1, 0)
         elif is_equal_sign(self.token) and not self.in_brackets and not self.in_lambda:
             cur_param.to_key_val_mode(self.token)
         elif is_comma_sign(self.token) and not self.in_brackets and not self.in_lambda:
