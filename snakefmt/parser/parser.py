@@ -140,7 +140,8 @@ class Parser(ABC):
                         )
                         self.from_python = False
                         self.block_indent = status.cur_indent
-            self.syntax.cur_indent = status.cur_indent
+            if not comment_start(keyword):
+                self.syntax.cur_indent = status.cur_indent
         self.flush_buffer(
             from_python=self.from_python,
             final_flush=True,
