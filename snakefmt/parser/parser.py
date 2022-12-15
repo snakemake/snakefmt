@@ -94,7 +94,6 @@ class Parser(ABC):
                 self.context_exit(status)
 
             if status.eof:
-                self.block_indent = self.cur_indent
                 break
 
             keyword = status.token.string
@@ -123,7 +122,7 @@ class Parser(ABC):
                 else:
                     self.buffer += f"{keyword}"
                     status = self.get_next_queriable(self.snakefile)
-                    if self.last_block_was_snakecode:
+                    if self.last_block_was_snakecode and not status.eof:
                         self.block_indent = status.block_indent
                         self.last_block_was_snakecode = False
                     self.buffer += status.buffer

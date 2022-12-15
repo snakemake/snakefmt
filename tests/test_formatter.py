@@ -983,6 +983,17 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_comments_after_params_maintain_indentation(self):
+        """https://github.com/snakemake/snakefmt/issues/160"""
+        snakecode = (
+            "if True:\n\n"
+            f'{TAB * 1}include: "workflow.smk"\n'
+            "\n"
+            f"{TAB * 1}# indented comment\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestNewlineSpacing:
     def test_parameter_keyword_spacing_above(self):
