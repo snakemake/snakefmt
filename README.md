@@ -1,6 +1,6 @@
 # Snakefmt
 
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/snakemake/snakefmt/python_poetry_package)](https://github.com/snakemake/snakefmt/actions)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/snakemake/snakefmt/ci.yaml?branch=master)
 [![codecov](https://codecov.io/gh/snakemake/snakefmt/branch/master/graph/badge.svg)](https://codecov.io/gh/snakemake/snakefmt)
 [![PyPI](https://img.shields.io/pypi/v/snakefmt)](https://pypi.org/project/snakefmt/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snakefmt)
