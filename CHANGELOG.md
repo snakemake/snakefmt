@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.8.0](https://www.github.com/snakemake/snakefmt/compare/v0.7.0...v0.8.0) (2022-12-19)
+
+
+### Features
+
+* add support for resource_scopes directive ([67fb11b](https://www.github.com/snakemake/snakefmt/commit/67fb11b40cb6ea5e3e6d89fcf8a367e4fbe17ada))
+* add support for resource_scopes directive ([514192a](https://www.github.com/snakemake/snakefmt/commit/514192afabbf60edf3f2a800b390590c385679c8))
+
+
+### Bug Fixes
+
+* 159 ([1423e6b](https://www.github.com/snakemake/snakefmt/commit/1423e6b35377ef2431aa7400155ac69b10afb12e))
+* indentation issues from [#124](https://www.github.com/snakemake/snakefmt/issues/124) ([399ec55](https://www.github.com/snakemake/snakefmt/commit/399ec55c76b2c3b7d664c90f9e8a604e47d07ee9))
+* relax importlib_metadata version pin [[#162](https://www.github.com/snakemake/snakefmt/issues/162)] ([49b4f02](https://www.github.com/snakemake/snakefmt/commit/49b4f02dce21dd0964c1248a2f3114c3507831e1))
+* relax importlib_metadata version pin [[#162](https://www.github.com/snakemake/snakefmt/issues/162)] ([ab91f9f](https://www.github.com/snakemake/snakefmt/commit/ab91f9f226cccf7a16a374254dc14b3e7b50ba53))
+
 ## [0.7.0](https://www.github.com/snakemake/snakefmt/compare/v0.6.1...v0.7.0) (2022-11-08)
 
 
