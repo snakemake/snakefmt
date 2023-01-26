@@ -4,13 +4,14 @@ The tests implicitly assume that the input syntax is correct ie that no parsing-
 errors arise, as tested in test_parser.py.
 """
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING, TAB
-from tests import Formatter, Snakefile, setup_formatter
+from tests import Formatter, Snakefile, setup_formatter, TestBase
 
 
 def test_emptyInput_emptyOutput():
@@ -860,3 +861,8 @@ class TestLineWrapping:
         )
 
         assert actual == expected
+
+
+class TestIncludeSpacing(TestBase):
+    def test_include_after_if(self):
+        self.do_test("include_after_if")
