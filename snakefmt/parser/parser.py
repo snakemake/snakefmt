@@ -169,7 +169,7 @@ class Parser(ABC):
 
     @property
     def effective_indent(self) -> int:
-        return max(0, self.cur_indent - self.block_indent)
+        return max(0, self.cur_indent - max(0, self.block_indent))
 
     @abstractmethod
     def flush_buffer(
