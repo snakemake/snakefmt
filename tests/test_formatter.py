@@ -520,13 +520,15 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_spaced_out_consecutive_dedented_directive(self):
+    def test_spaced_out_consecutive_dedented_directive_dedented_stays_collated(self):
+        """https://github.com/snakemake/snakefmt/pull/172"""
         snakecode = (
             'if config["load"]:\n\n'
             f'{TAB * 1}include: "module_a.smk"\n\n'
             f"else:\n\n"
             f'{TAB * 1}include: "module_b.smk"\n\n\n'
-            f'include: "other.smk"\n'
+            'include: "other.smk"\n'
+            'include: "other2.smk"\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode

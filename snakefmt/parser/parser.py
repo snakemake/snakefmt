@@ -106,6 +106,7 @@ class Parser(ABC):
                 elif self.from_python:
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
+                    self.from_python = self.syntax.from_python
                 self.flush_buffer(
                     from_python=self.from_python,
                     in_global_context=self.in_global_context,
