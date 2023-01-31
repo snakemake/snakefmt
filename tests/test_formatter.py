@@ -1322,3 +1322,23 @@ class TestLineWrapping:
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
+
+    def test_wrap_line_in_run_directive(self):
+        """https://github.com/snakemake/snakefmt/issues/171"""
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}if x:\n"
+            f"{TAB * 3}for x in xs:\n"
+            f"{TAB * 4}if True:\n"
+            f'{TAB * 5}record_type, name, sequence, *__ = line.strip("\\n").split(\n'
+            f'{TAB * 6}"\\t", maxsplit=3\n'
+            f"{TAB * 5})\n"
+            f"{TAB * 5}new_line = (\n"
+            f'{TAB * 6}"\\t".join([record_type, name, "*", f"LN:i:{{len(sequence)}}"])\n'  # noqa: E501
+            f'{TAB * 6}+ "\\n"\n'
+            f"{TAB * 5})\n"
+        )
+
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode

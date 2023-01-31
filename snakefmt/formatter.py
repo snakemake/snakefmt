@@ -21,6 +21,7 @@ from snakefmt.parser.syntax import (
 )
 from snakefmt.types import TAB, TokenIterator
 
+TAB_SIZE = len(TAB)
 # This regex matches any number of consecutive strings; each can span multiple lines.
 full_string_matcher = re.compile(
     r"^\s*(\w?([\"']{3}.*?[\"']{3})|([\"']{1}.*?[\"']{1}))$", re.DOTALL | re.MULTILINE
@@ -170,7 +171,7 @@ class Formatter(Parser):
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
         # reduce black target line length according to how indented the code is
-        current_line_length = (target_indent or 0) * len(TAB)
+        current_line_length = (target_indent or 0) * TAB_SIZE
         black_mode = copy(self.black_mode)
         black_mode.line_length = max(
             0, black_mode.line_length - current_line_length + extra_spacing
@@ -219,8 +220,8 @@ class Formatter(Parser):
             indented += textwrap.indent(string[pos : match.start(1)], used_indent)
             lagging_spaces = len(indented) - len(indented.rstrip(" "))
             lagging_indent = (
-                TAB * int(lagging_spaces / len(TAB))
-                if lagging_spaces % len(TAB) == 0
+                TAB * int(lagging_spaces / TAB_SIZE)
+                if lagging_spaces % TAB_SIZE == 0
                 else ""
             )
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
@@ -235,9 +236,19 @@ class Formatter(Parser):
                 if is_multiline_string:
                     middle = "".join(all_lines[1:-1])
                 else:
+                    mid = "".join(all_lines[1:-1])
+                    dedent_mid = textwrap.dedent(mid)
+                    lagging_indent_lvl = lagging_spaces // TAB_SIZE
+                    if lagging_indent_lvl == 0:
+                        required_indent_lvl = target_indent
+                    else:
+                        current_indent_lvl = (len(mid) - len(mid.lstrip())) // TAB_SIZE
+                        required_indent_lvl = current_indent_lvl + target_indent
+
+                    required_indent = TAB * required_indent_lvl
                     middle = textwrap.indent(
-                        textwrap.dedent("".join(all_lines[1:-1])),
-                        used_indent + lagging_indent,
+                        dedent_mid,
+                        required_indent,
                     )
                 indented += middle
             if len(all_lines) > 1:
