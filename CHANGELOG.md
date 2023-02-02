@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.8.1](https://www.github.com/snakemake/snakefmt/compare/v0.8.0...v0.8.1) (2023-02-02)
+
+
+### Bug Fixes
+
+* collate consecutive directives after if block [[#172](https://www.github.com/snakemake/snakefmt/issues/172)] ([cbe88c7](https://www.github.com/snakemake/snakefmt/commit/cbe88c73de3dfee181da14cc0cfd4efad9f0c7a6))
+* comments causing indenting issues [[#169](https://www.github.com/snakemake/snakefmt/issues/169)] ([#5](https://www.github.com/snakemake/snakefmt/issues/5)) ([e736235](https://www.github.com/snakemake/snakefmt/commit/e736235e52c1de4588fb4336beec3b7f71bdba86))
+* indenation of line-wrapped code [[#171](https://www.github.com/snakemake/snakefmt/issues/171)] ([#7](https://www.github.com/snakemake/snakefmt/issues/7)) ([f524574](https://www.github.com/snakemake/snakefmt/commit/f5245745b0e5aae8162d9ab7b8df4f3a92ec8214))
+
 ## [0.8.0](https://www.github.com/snakemake/snakefmt/compare/v0.7.0...v0.8.0) (2022-12-19)
 
 
