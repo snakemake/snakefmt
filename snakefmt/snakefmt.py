@@ -271,9 +271,11 @@ def main(
         LogConfig.switch()
         if diff or compact_diff:
             filename = "stdin" if path_is_stdin else str(path)
-            click.echo(f"{'=' * 5}> Diff for {filename} <{'=' * 5}\n")
-            difference = differ.compare(original_content, formatted_content)
-            click.echo(difference)
+            is_changed = differ.is_changed(original_content, formatted_content)
+            if is_changed:
+                difference = differ.compare(original_content, formatted_content)
+                click.echo(f"{'=' * 5}> Diff for {filename} <{'=' * 5}\n")
+                click.echo(difference)
         elif not any([check, diff, compact_diff]):
             if path_is_stdin:
                 sys.stdout.write(formatted_content)
