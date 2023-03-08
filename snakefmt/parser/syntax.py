@@ -394,6 +394,12 @@ class ParameterSyntax(Syntax):
         return cur_param
 
     def flush_param(self, parameter: Parameter, skip_empty: bool = False) -> None:
+        if parameter.has_a_key() and not parameter.has_value():
+            raise NoParametersError(
+                f"{self.line_nb}In {self.keyword_name} definition, "
+                f"keyword {parameter.key}"
+            )
+
         if not parameter.has_value() and skip_empty:
             return
 
