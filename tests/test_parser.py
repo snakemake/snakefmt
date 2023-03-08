@@ -170,6 +170,17 @@ class TestParamSyntax:
         )
         setup_formatter(snake_code)
 
+    def test_key_value_no_value_fails(self):
+        """https://github.com/snakemake/snakefmt/issues/125"""
+        snakecode = (
+            "rule foo:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}bar="file.txt",\n'
+            f"{TAB * 2}baz=\n"
+        )
+        with pytest.raises(NoParametersError, match="baz"):
+            setup_formatter(snakecode)
+
 
 class TestIndentationErrors:
     def test_param_collating(self):
