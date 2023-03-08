@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.8.2](https://www.github.com/snakemake/snakefmt/compare/v0.8.1...v0.8.2) (2023-03-08)
+
+
+### Bug Fixes
+
+* add .template to default excludes ([610762f](https://www.github.com/snakemake/snakefmt/commit/610762f133c39f771ffbb93b64a50637d8f189f5))
+* dont raise NotAnIdentifier function ([#179](https://www.github.com/snakemake/snakefmt/issues/179)) ([932df73](https://www.github.com/snakemake/snakefmt/commit/932df73a175ab98ca6e179184feb98f1d5a6eeac))
+* only show diff for changed files ([7b35c16](https://www.github.com/snakemake/snakefmt/commit/7b35c1604a2cab67e6c2b12ca969bcd57a9834be))
+
 ### [0.8.1](https://www.github.com/snakemake/snakefmt/compare/v0.8.0...v0.8.1) (2023-02-02)
 
 
