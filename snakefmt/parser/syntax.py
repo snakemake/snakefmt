@@ -268,9 +268,7 @@ class KeywordSyntax(Syntax):
     def validate_rulelike_syntax(self, snakefile: TokenIterator):
         if not is_colon(self.token):
             if self.token.type != tokenize.NAME:
-                raise NotAnIdentifierError(
-                    self.line_nb, self.token.string, self.keyword_line
-                )
+                NotAnIdentifierError(self.line_nb, self.token.string, self.keyword_line)
             self.keyword_line += f" {self.token.string}"
             self.token = next(snakefile)
         if not is_colon(self.token):
