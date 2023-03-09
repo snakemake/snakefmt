@@ -310,7 +310,7 @@ class Parser(ABC):
                 else:
                     buffer += TAB * self.effective_indent
 
-            if token.type == tokenize.NAME and self.queriable:
+            if (token.type == tokenize.NAME or token.string == "@") and self.queriable:
                 self.queriable = False
                 return Status(
                     token, block_indent, self.cur_indent, buffer, False, pythonable

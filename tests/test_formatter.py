@@ -377,6 +377,22 @@ class TestSimplePythonFormatting:
 
         assert actual == expected
 
+    def test_decorator_is_handled_correctly(self):
+        """https://github.com/snakemake/snakefmt/issues/144"""
+        snakecode = (
+            "# comment\n"
+            "rule foo:\n"
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}print("")\n\n\n'
+            "@contextlib.contextmanager\n"
+            "def f(wildcards):\n"
+            f"{TAB * 1}pass\n"
+        )
+        formatter = setup_formatter(snakecode)
+
+        actual = formatter.get_formatted()
+        assert actual == snakecode
+
 
 class TestComplexPythonFormatting:
     """
