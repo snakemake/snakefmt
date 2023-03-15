@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.8.3](https://www.github.com/snakemake/snakefmt/compare/v0.8.2...v0.8.3) (2023-03-15)
+
+
+### Bug Fixes
+
+* handle decorators after snakecode ([#185](https://www.github.com/snakemake/snakefmt/issues/185)) ([32d6c53](https://www.github.com/snakemake/snakefmt/commit/32d6c537eb8698d55a1ae5b98da760bd79fa5bb4))
+* raise error on empty named param ([#183](https://www.github.com/snakemake/snakefmt/issues/183)) ([b5aa660](https://www.github.com/snakemake/snakefmt/commit/b5aa66052b90618c0c033c9c9e46987d4e8f1ed2))
+
 ### [0.8.2](https://www.github.com/snakemake/snakefmt/compare/v0.8.1...v0.8.2) (2023-03-08)
 
 
