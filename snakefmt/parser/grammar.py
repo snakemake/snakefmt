@@ -50,6 +50,7 @@ rule_properties = dict(
     handover=Context(None, InlineSingleParam),
     default_target=Context(None, InlineSingleParam),
     retries=Context(None, InlineSingleParam),
+    localrule=Context(None, InlineSingleParam),
 )
 
 
