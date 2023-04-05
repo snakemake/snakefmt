@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.8.4](https://www.github.com/snakemake/snakefmt/compare/v0.8.3...v0.8.4) (2023-04-04)
+
+
+### Bug Fixes
+
+* add localrule directive ([#187](https://www.github.com/snakemake/snakefmt/issues/187)) ([b5e25c5](https://www.github.com/snakemake/snakefmt/commit/b5e25c540bfe334c85b477376c58e39f7dd971c6))
+
 ### [0.8.3](https://www.github.com/snakemake/snakefmt/compare/v0.8.2...v0.8.3) (2023-03-15)
 
 
