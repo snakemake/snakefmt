@@ -1,0 +1,83 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: 'Snakefmt: the uncompromising Snakemake code formatter '
+message: >-
+  If you use this software, please cite both the article
+  from preferred-citation and the software itself.
+type: software
+authors:
+  - given-names: Michael
+    name-particle: B
+    family-names: Hall
+    email: michael@mbh.sh
+    affiliation: >-
+      European Molecular Biology Laboratory, European
+      Bioinformatics Institute, Wellcome Genome Campus,
+      Hinxton, UK
+    orcid: 'https://orcid.org/0000-0003-3683-6208'
+  - given-names: Brice
+    family-names: Letcher
+    affiliation: >-
+      European Molecular Biology Laboratory, European
+      Bioinformatics Institute, Wellcome Genome Campus,
+      Hinxton, UK
+    orcid: 'https://orcid.org/0000-0002-8921-6005'
+identifiers:
+  - type: doi
+    value: 10.12688/f1000research.29032.2
+    description: >-
+      The snakemake paper, which should also be cited if
+      using snakefmt
+repository-code: 'https://github.com/snakemake/snakefmt'
+url: 'https://github.com/snakemake/snakefmt'
+abstract: >-
+  Snakefmt formats Snakemake workflow files using the same
+  style as Black (https://github.com/psf/black).
+keywords:
+  - format
+  - snakemake
+  - code
+license: MIT
+commit: 05ae61d90ecf38f8d075eab10795bfa47bd41e04
+version: 0.8.4
+date-released: '2023-04-05'
+preferred-citation:
+    authors:
+        - family-names: Mölder
+          given-names: Felix
+        - family-names: Jablonski
+          given-names: Kim Philipp
+        - family-names: Letcher
+          given-names: Brice
+        - family-names: Hall
+          given-names: Michael
+          name-particle: B
+        - family-names: Tomkins-Tinch
+          given-names: Christopher
+          name-particle: H
+        - family-names: Sochat
+          given-names: Vanessa
+        - family-names: Forster
+          given-names: Jan
+        - family-names: Lee
+          given-names: Soohyun
+        - family-names: Twardziok
+          given-names: Sven
+          name-particle: O
+        - family-names: Kanitz
+          given-names: Alexander
+        - family-names: Wilm
+          given-names: Andreas
+        - family-names: Holtgrewe
+          given-names: Manuel
+        - family-names: Köster
+          given-names: Johannes
+    title: 'Sustainable data analysis with Snakemake'
+    type: article
+    year: 2021
+    identifiers:
+      - type: doi
+        value: 10.12688/f1000research.29032.2
+        
