@@ -20,8 +20,8 @@ sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
 PathLike = Union[Path, str]
 DEFAULT_EXCLUDES = (
-    r"(\.snakemake|\.eggs|\.git|\.hg|\.mypy_cache|\.nox|\.tox|\.venv|\.svn|_build|"
-    r"buck-out|build|dist|\.template)"
+    r"(\.snakemake/|\.eggs/|\.git/|\.hg/|\.mypy_cache/|\.nox/|\.tox/|\.venv/|\.svn/|"
+    r"_build/|buck-out/|/build/|/dist/|\.template/)"
 )
 DEFAULT_INCLUDES = r"(\.smk$|^Snakefile)"
 
