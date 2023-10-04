@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.8.5](https://www.github.com/snakemake/snakefmt/compare/v0.8.4...v0.8.5) (2023-10-04)
+
+
+### Bug Fixes
+
+* make default exclude regex more specific [[#202](https://www.github.com/snakemake/snakefmt/issues/202)] ([82ef2c4](https://www.github.com/snakemake/snakefmt/commit/82ef2c47e14142469893bce6bee726058360d2e1))
+
 ### [0.8.4](https://www.github.com/snakemake/snakefmt/compare/v0.8.3...v0.8.4) (2023-04-04)
 
 
