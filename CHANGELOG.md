@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0](https://www.github.com/snakemake/snakefmt/compare/v0.8.5...v1.0.0) (2024-01-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* update black, which bumps min. req. python
+
+### Bug Fixes
+
+* improve handling of indenting in shell directive [[#186](https://www.github.com/snakemake/snakefmt/issues/186)] ([105e856](https://www.github.com/snakemake/snakefmt/commit/105e8569cd405d088adbb300ff21846d93a655ce))
+
+
+### Build System
+
+* update black, which bumps min. req. python ([022d6ab](https://www.github.com/snakemake/snakefmt/commit/022d6abb9a6edb19821fa4dcc6da7c7753f1227f))
+
 ### [0.8.5](https://www.github.com/snakemake/snakefmt/compare/v0.8.4...v0.8.5) (2023-10-04)
 
 
