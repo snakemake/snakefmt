@@ -40,7 +40,7 @@ jobs:
               # have to do this as use of tmpdir in tests changes directory
               covg_report="$(pwd)/coverage.xml"
               poetry run pytest --cov=snakefmt --cov-report=xml:$covg_report --cov-branch tests/
-          
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
