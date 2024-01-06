@@ -14,30 +14,33 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [ 3.7, 3.8, 3.9, "3.10", "3.11" ]
+        python-version: [ 3.8, 3.9, "3.10", "3.11" ]
         os: [ ubuntu-latest, macos-latest ]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
-        with:
-          version: 1.3.1
+
       - name: Install dependencies
         run:  make install-ci
+
       - name: Check formatting with black and isort
         run:  make check-fmt
+
       - name: Lint with flake8
         run:  make lint
+
       - name: Test and generate coverage report with pytest
         run:  |
               # have to do this as use of tmpdir in tests changes directory
               covg_report="$(pwd)/coverage.xml"
               poetry run pytest --cov=snakefmt --cov-report=xml:$covg_report --cov-branch tests/
+          
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
