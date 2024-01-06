@@ -282,7 +282,7 @@ class TestCLIDiff:
 
         result = cli_runner.invoke(main, params, input=stdin)
 
-        assert type(result.exception) == SyntaxError
+        assert isinstance(result.exception, SyntaxError)
         assert result.exit_code != 0
         assert result.output == ""
 
