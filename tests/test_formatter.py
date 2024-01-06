@@ -1358,3 +1358,43 @@ class TestLineWrapping:
 
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+    def test_shell_indention_long_line(self):
+        """https://github.com/snakemake/snakefmt/issues/186
+        test this rule
+        rule test1:
+            input:
+                "...",
+            output:
+                "...",
+            shell:
+                myfunc(
+                    "param1",
+                    [
+                        "item1",
+                        f"very_long_item2_{very_long_function(other_param)}"
+                        if some_very_long_condition
+                        else "",
+                    ],
+                )
+
+        """
+        snakecode = (
+            "rule test1:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"...",\n'
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"...",\n'
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}myfunc(\n"
+            f'{TAB * 3}"param1",\n'
+            f"{TAB * 3}[\n"
+            f'{TAB * 4}"item1",\n'
+            f'{TAB * 4}f"very_long_item2_{{very_long_function(other_param)}}"\n'
+            f"{TAB * 4}if some_very_long_condition\n"
+            f'{TAB * 4}else "",\n'
+            f"{TAB * 3}],\n"
+            f"{TAB * 2})\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode

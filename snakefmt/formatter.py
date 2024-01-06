@@ -219,18 +219,19 @@ class Formatter(Parser):
         for match in re.finditer(full_string_matcher, string):
             indented += textwrap.indent(string[pos : match.start(1)], used_indent)
             lagging_spaces = len(indented) - len(indented.rstrip(" "))
-            lagging_indent = (
-                TAB * int(lagging_spaces / TAB_SIZE)
-                if lagging_spaces % TAB_SIZE == 0
-                else ""
-            )
+            lagging_indent_lvl = lagging_spaces // TAB_SIZE
             match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
             all_lines = match_slice.splitlines(keepends=True)
             first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
+            indented += first
+
             is_multiline_string = re.match(
                 r"[bfru]?\"\"\"|'''", first.lstrip(), flags=re.IGNORECASE
             )
-            indented += first
+            if not is_multiline_string:
+                # this check if string is a single-quoted multiline string
+                # e.g. https://github.com/snakemake/snakefmt/issues/121
+                is_multiline_string = "\\\n" in first
 
             if len(all_lines) > 2:
                 if is_multiline_string:
@@ -238,7 +239,7 @@ class Formatter(Parser):
                 else:
                     mid = "".join(all_lines[1:-1])
                     dedent_mid = textwrap.dedent(mid)
-                    lagging_indent_lvl = lagging_spaces // TAB_SIZE
+
                     if lagging_indent_lvl == 0:
                         required_indent_lvl = target_indent
                     else:
@@ -251,12 +252,17 @@ class Formatter(Parser):
                         required_indent,
                     )
                 indented += middle
+
             if len(all_lines) > 1:
                 if is_multiline_string:
                     last = all_lines[-1]
                 else:
+                    leading_spaces = len(all_lines[-1]) - len(
+                        textwrap.dedent(all_lines[-1])
+                    )
+                    leading_indent = leading_spaces // TAB_SIZE * TAB
                     last = textwrap.indent(
-                        textwrap.dedent(all_lines[-1]), used_indent + lagging_indent
+                        textwrap.dedent(all_lines[-1]), used_indent + leading_indent
                     )
                 indented += last
             pos = match.end()
