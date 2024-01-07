@@ -36,6 +36,10 @@ spacing_triggers = {
     tokenize.NUMBER: {tokenize.NAME, tokenize.OP},
     tokenize.OP: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
 }
+# add fstring start to spacing_triggers if python 3.12 or higher
+if hasattr(tokenize, "FSTRING_START"):
+    spacing_triggers[tokenize.NAME].add(tokenize.FSTRING_START)
+    spacing_triggers[tokenize.OP].add(tokenize.FSTRING_START)
 
 
 def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
