@@ -845,6 +845,23 @@ rule a:
 
         assert formatter.get_formatted() == snakecode
 
+    def test_f_string_with_double_braces_in_input(self):
+        """rule align:
+        input:
+            sequences="results/{build_name}/filtered.fasta",
+        params:
+            translation_template=lambda w: f"{w.build_name}/{{cds}}.fasta","""
+        snakecode = (
+            "rule align:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}sequences="results/{{build_name}}/filtered.fasta",\n'
+            f"{TAB * 1}params:\n"
+            f"{TAB * 2}"
+            + 'translation_template=lambda w: f"{w.build_name}/{{cds}}.fasta",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestReformatting_SMK_BREAK:
     """
