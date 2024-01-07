@@ -1,6 +1,7 @@
 """
 Code in charge of parsing and validating Snakemake syntax
 """
+import sys
 import tokenize
 from abc import ABC, abstractmethod
 from re import match as re_match
@@ -329,9 +330,17 @@ class ParameterSyntax(Syntax):
     def parse_params(self, snakefile: TokenIterator):
         cur_param = Parameter(self.token)
         prev_token = None
-
         while True:
             cur_param = self.process_token(cur_param, prev_token)
+            if (
+                self.token is not None
+                and sys.version_info >= (3, 12)
+                and self.token.type == tokenize.FSTRING_MIDDLE
+            ):
+                if self.token.string.endswith("}"):
+                    cur_param.value += "}"
+                elif self.token.string.endswith("{"):
+                    cur_param.value += "{"
             try:
                 prev_token = self.token
                 self.token = next(snakefile)
