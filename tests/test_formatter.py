@@ -846,11 +846,7 @@ rule a:
         assert formatter.get_formatted() == snakecode
 
     def test_f_string_with_double_braces_in_input(self):
-        """rule align:
-        input:
-            sequences="results/{build_name}/filtered.fasta",
-        params:
-            translation_template=lambda w: f"{w.build_name}/{{cds}}.fasta","""
+        """https://github.com/snakemake/snakefmt/issues/207"""
         snakecode = (
             "rule align:\n"
             f"{TAB * 1}input:\n"
