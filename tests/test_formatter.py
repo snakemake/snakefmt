@@ -393,6 +393,14 @@ class TestSimplePythonFormatting:
         actual = formatter.get_formatted()
         assert actual == snakecode
 
+    def test_f_strings(self):
+        """This is relevant for python3.12"""
+        snakecode = 'a = f"{1 + 2}" if 1 > 0 else f"{1 - 2}"\n'
+        formatter = setup_formatter(snakecode)
+
+        actual = formatter.get_formatted()
+        assert actual == snakecode
+
 
 class TestComplexPythonFormatting:
     """
