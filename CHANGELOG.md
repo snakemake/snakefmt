@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.9.0](https://www.github.com/snakemake/snakefmt/compare/v0.8.5...v0.9.0) (2024-01-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* update black, which bumps min. req. python
+
+### Bug Fixes
+
+* don't add space between string and comma [python3.12 f-string tokenize] ([18e9874](https://www.github.com/snakemake/snakefmt/commit/18e987482594bd5cb400b4ce9a54ab4fba27d956))
+* don't remove double braces in f-strings in rule directives [closes [#207](https://www.github.com/snakemake/snakefmt/issues/207)] ([8b47454](https://www.github.com/snakemake/snakefmt/commit/8b4745441b9d1e5cbe762330f832bed30b08a103))
+* handle python3.12 f-string tokenization [closes [#210](https://www.github.com/snakemake/snakefmt/issues/210)] ([b7e0e47](https://www.github.com/snakemake/snakefmt/commit/b7e0e47f8a76f1605d6416d35e4e0f99797ff8ec))
+* improve handling of indenting in shell directive [[#186](https://www.github.com/snakemake/snakefmt/issues/186)] ([105e856](https://www.github.com/snakemake/snakefmt/commit/105e8569cd405d088adbb300ff21846d93a655ce))
+
+
+### Build System
+
+* update black, which bumps min. req. python ([022d6ab](https://www.github.com/snakemake/snakefmt/commit/022d6abb9a6edb19821fa4dcc6da7c7753f1227f))
+
+
+### Continuous Integration
+
+* correct version for next release ([f28c08d](https://www.github.com/snakemake/snakefmt/commit/f28c08dae47e4f36a702681803085990d27d3b76))
+
 ### [0.8.5](https://www.github.com/snakemake/snakefmt/compare/v0.8.4...v0.8.5) (2023-10-04)
 
 
