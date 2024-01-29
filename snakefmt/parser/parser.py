@@ -1,3 +1,4 @@
+import sys
 import tokenize
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Optional
@@ -324,3 +325,12 @@ class Parser(ABC):
             if not pythonable and token.type != tokenize.COMMENT:
                 pythonable = True
             buffer += token.string
+            if (
+                token is not None
+                and sys.version_info >= (3, 12)
+                and token.type == tokenize.FSTRING_MIDDLE
+            ):
+                if token.string.endswith("}"):
+                    buffer += "}"
+                elif token.string.endswith("{"):
+                    buffer += "{"
