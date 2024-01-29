@@ -3,6 +3,7 @@
 The tests implicitly assume that the input syntax is correct ie that no parsing-related
 errors arise, as tested in test_parser.py.
 """
+
 from io import StringIO
 from unittest import mock
 
@@ -787,7 +788,6 @@ rule a:
         assert formatter.get_formatted() == expected
 
     def test_docstrings_get_retabbed_for_snakecode_only(self):
-        """Black only retabs the first tpq in a docstring."""
         snakecode = '''def f():
   """Does not do
   much
@@ -804,7 +804,8 @@ rule a:
         formatter = setup_formatter(snakecode)
         expected = f'''def f():
 {TAB * 1}"""Does not do
-    much"""
+{TAB * 1}much
+{TAB * 1}"""
 {TAB * 1}pass
 
 
@@ -1431,4 +1432,25 @@ class TestLineWrapping:
             f"{TAB * 2})\n"
         )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
+
+        expected = (
+            "rule test1:\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"...",\n'
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"...",\n'
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}myfunc(\n"
+            f'{TAB * 3}"param1",\n'
+            f"{TAB * 3}[\n"
+            f'{TAB * 4}"item1",\n'
+            f"{TAB * 4}(\n"
+            f'{TAB * 5}f"very_long_item2_{{very_long_function(other_param)}}"\n'
+            f"{TAB * 5}if some_very_long_condition\n"
+            f'{TAB * 5}else ""\n'
+            f"{TAB * 4}),\n"
+            f"{TAB * 3}],\n"
+            f"{TAB * 2})\n"
+        )
+
+        assert formatter.get_formatted() == expected

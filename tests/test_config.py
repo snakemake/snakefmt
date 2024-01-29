@@ -5,7 +5,7 @@ import black
 import click
 import pytest
 
-from snakefmt import DEFAULT_LINE_LENGTH
+from snakefmt import DEFAULT_LINE_LENGTH, DEFAULT_TARGET_VERSIONS
 from snakefmt.config import (
     find_pyproject_toml,
     inject_snakefmt_config,
@@ -191,7 +191,9 @@ class TestReadBlackConfig:
         formatter = setup_formatter("")
         path = tmp_path / "config.toml"
         path.touch()
-        expected = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
+        expected = black.FileMode(
+            line_length=DEFAULT_LINE_LENGTH, target_versions=DEFAULT_TARGET_VERSIONS
+        )
         assert formatter.black_mode == expected
 
     def test_read_black_config_settings(self, tmp_path):
@@ -200,7 +202,9 @@ class TestReadBlackConfig:
         path.write_text(f"[tool.black]\nline_length = {black_line_length}")
 
         actual = read_black_config(path)
-        expected = black.FileMode(line_length=black_line_length)
+        expected = black.FileMode(
+            line_length=black_line_length, target_versions=DEFAULT_TARGET_VERSIONS
+        )
 
         assert actual == expected
 
@@ -213,14 +217,18 @@ class TestReadBlackConfig:
         # show black gets parsed
         formatter = setup_formatter("", black_config_file=str(path))
 
-        expected = black.FileMode(line_length=black_line_length)
+        expected = black.FileMode(
+            line_length=black_line_length, target_versions=DEFAULT_TARGET_VERSIONS
+        )
         assert formatter.black_mode == expected
 
         # Now, add overriding snakefmt line length
         formatter = setup_formatter(
             "", line_length=snakefmt_line_length, black_config_file=str(path)
         )
-        expected = black.FileMode(line_length=snakefmt_line_length)
+        expected = black.FileMode(
+            line_length=snakefmt_line_length, target_versions=DEFAULT_TARGET_VERSIONS
+        )
         assert formatter.black_mode == expected
 
     def test_unrecognised_black_options_in_config_ignored_and_default_line_length_used(
@@ -232,7 +240,9 @@ class TestReadBlackConfig:
 
         read_black_config(path)
         actual = formatter.black_mode
-        expected = black.FileMode(line_length=DEFAULT_LINE_LENGTH)
+        expected = black.FileMode(
+            line_length=DEFAULT_LINE_LENGTH, target_versions=DEFAULT_TARGET_VERSIONS
+        )
 
         assert actual == expected
 
@@ -253,7 +263,9 @@ class TestReadBlackConfig:
         read_black_config(path)
         actual = formatter.black_mode
         expected = black.FileMode(
-            line_length=DEFAULT_LINE_LENGTH, string_normalization=True
+            line_length=DEFAULT_LINE_LENGTH,
+            string_normalization=True,
+            target_versions=DEFAULT_TARGET_VERSIONS,
         )
 
         assert actual == expected
@@ -266,7 +278,9 @@ class TestReadBlackConfig:
         read_black_config(path)
         actual = formatter.black_mode
         expected = black.FileMode(
-            line_length=DEFAULT_LINE_LENGTH, string_normalization=True
+            line_length=DEFAULT_LINE_LENGTH,
+            string_normalization=True,
+            target_versions=DEFAULT_TARGET_VERSIONS,
         )
 
         assert actual == expected
@@ -279,5 +293,9 @@ class TestReadBlackConfig:
             "", line_length=line_length, black_config_file=str(path)
         )
 
-        expected = black.FileMode(line_length=line_length, string_normalization=False)
+        expected = black.FileMode(
+            line_length=line_length,
+            string_normalization=False,
+            target_versions=DEFAULT_TARGET_VERSIONS,
+        )
         assert formatter.black_mode == expected

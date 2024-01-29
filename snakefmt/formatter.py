@@ -26,6 +26,10 @@ TAB_SIZE = len(TAB)
 full_string_matcher = re.compile(
     r"^\s*(\w?([\"']{3}.*?[\"']{3})|([\"']{1}.*?[\"']{1}))$", re.DOTALL | re.MULTILINE
 )
+# this regex matches any docstring; can span multiple lines
+docstring_matcher = re.compile(
+    r"\s*([rR]?[\"']{3}.*?[\"']{3})", re.DOTALL | re.MULTILINE
+)
 contextual_matcher = re.compile(
     r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
@@ -39,6 +43,17 @@ def is_all_comments(string):
             [s for s in string.splitlines(keepends=True) if s.strip(" \t")],
         )
     )
+
+
+def index_of_first_docstring(s: str) -> Optional[int]:
+    """
+    Returns the index (i.e., index of last quote character) of the first docstring in
+    a string, or None if there are no docstrings.
+    """
+    match = docstring_matcher.search(s)
+    if match is None:
+        return None
+    return match.end(1) - 1
 
 
 class Formatter(Parser):
@@ -296,9 +311,34 @@ class Formatter(Parser):
         if param_list:
             val = f"f({val})"
             extra_spacing = 3
+
+        # get the index of the last character of the first docstring, if any
+        docstring_index = index_of_first_docstring(val)
+        docstring_line_index = None
+        if docstring_index is not None:
+            docstring_line_index = val[:docstring_index].count("\n")
+        lines = val.splitlines()
+        if docstring_line_index is not None and docstring_line_index + 1 < len(lines):
+            docstring_has_extra_newline_after = (
+                lines[docstring_line_index + 1].strip() == ""
+            )
+        else:
+            docstring_has_extra_newline_after = False
+
         val = self.run_black_format_str(
             val, target_indent, extra_spacing, no_nesting=True
         )
+
+        # remove newline added after first docstring (black>=24.1)
+        if docstring_line_index is not None and not docstring_has_extra_newline_after:
+            lines = val.splitlines()
+            if docstring_line_index + 1 < len(lines):
+                line_after_docstring = lines[docstring_line_index + 1]
+                if line_after_docstring.strip() == "":
+                    # delete the newline
+                    lines.pop(docstring_line_index + 1)
+                    val = "\n".join(lines)
+
         if param_list:
             match_equal = re.match(r"f\((.*)\)", val, re.DOTALL)
             val = match_equal.group(1)
