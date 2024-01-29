@@ -1,6 +1,7 @@
 """
 Code in charge of parsing and validating Snakemake syntax
 """
+
 import sys
 import tokenize
 from abc import ABC, abstractmethod

@@ -288,7 +288,9 @@ def main(
 
     if check:
         if files_unchanged == len(files_to_format):
-            logger.info(f"All {len(files_to_format)} file(s) would be left unchanged 🎉")
+            logger.info(
+                f"All {len(files_to_format)} file(s) would be left unchanged 🎉"
+            )
             ctx.exit(ExitCode.NO_CHANGE.value)
         elif files_with_errors > 0:
             exit_value = ExitCode.ERROR.value
