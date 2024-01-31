@@ -10,6 +10,7 @@ from snakefmt.parser.syntax import (
     Vocabulary,
     add_token_space,
     is_newline,
+    re_add_curly_bracket_if_needed,
 )
 from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
@@ -324,3 +325,4 @@ class Parser(ABC):
             if not pythonable and token.type != tokenize.COMMENT:
                 pythonable = True
             buffer += token.string
+            buffer += re_add_curly_bracket_if_needed(token)

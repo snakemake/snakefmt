@@ -10,7 +10,7 @@ import click
 import toml
 from black import Mode, find_project_root
 
-from snakefmt import DEFAULT_LINE_LENGTH
+from snakefmt import DEFAULT_LINE_LENGTH, DEFAULT_TARGET_VERSIONS
 from snakefmt.exceptions import MalformattedToml
 
 PathLike = Union[Path, str]
@@ -57,7 +57,9 @@ def inject_snakefmt_config(
 
 def read_black_config(path: Optional[PathLike]) -> Mode:
     """Parse Black configuration from provided toml."""
-    black_mode = Mode(line_length=DEFAULT_LINE_LENGTH)
+    black_mode = Mode(
+        line_length=DEFAULT_LINE_LENGTH, target_versions=DEFAULT_TARGET_VERSIONS
+    )
     if path is None:
         return black_mode
     if not Path(path).is_file():

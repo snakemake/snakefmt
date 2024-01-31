@@ -3,6 +3,7 @@
 The tests implicitly assume that the input syntax is correct ie that no parsing-related
 errors arise, as tested in test_parser.py.
 """
+
 from io import StringIO
 from unittest import mock
 
@@ -787,7 +788,6 @@ rule a:
         assert formatter.get_formatted() == expected
 
     def test_docstrings_get_retabbed_for_snakecode_only(self):
-        """Black only retabs the first tpq in a docstring."""
         snakecode = '''def f():
   """Does not do
   much
@@ -804,7 +804,8 @@ rule a:
         formatter = setup_formatter(snakecode)
         expected = f'''def f():
 {TAB * 1}"""Does not do
-    much"""
+{TAB * 1}much
+{TAB * 1}"""
 {TAB * 1}pass
 
 
@@ -854,6 +855,19 @@ rule a:
             f"{TAB * 1}params:\n"
             f"{TAB * 2}"
             + 'translation_template=lambda w: f"{w.build_name}/{{cds}}.fasta",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_f_string_with_double_braces_in_python_code(self):
+        """https://github.com/snakemake/snakefmt/issues/215"""
+        """def get_test_regions(wildcards):
+    benchmark = config["variant-calls"][wildcards.callset]["benchmark"]
+    return f"resources/regions/{benchmark}/test-regions.cov-{{cov}}.bed"""
+        snakecode = (
+            "def get_test_regions(wildcards):\n"
+            f'{TAB * 1}benchmark = config["variant-calls"][wildcards.callset]["benchmark"]\n'  # noqa: E501
+            f'{TAB * 1}return f"resources/regions/{{benchmark}}/test-regions.cov-{{{{cov}}}}.bed"\n'  # noqa: E501
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -1382,7 +1396,7 @@ class TestLineWrapping:
 
     def test_shell_indention_long_line(self):
         """https://github.com/snakemake/snakefmt/issues/186
-        test this rule
+        # test this rule:
         rule test1:
             input:
                 "...",
@@ -1393,9 +1407,11 @@ class TestLineWrapping:
                     "param1",
                     [
                         "item1",
-                        f"very_long_item2_{very_long_function(other_param)}"
-                        if some_very_long_condition
-                        else "",
+                        (
+                            f"very_long_item2_{{very_long_function(other_param)}}"
+                            if some_very_long_condition
+                            else "",
+                        )
                     ],
                 )
 
@@ -1411,11 +1427,14 @@ class TestLineWrapping:
             f'{TAB * 3}"param1",\n'
             f"{TAB * 3}[\n"
             f'{TAB * 4}"item1",\n'
-            f'{TAB * 4}f"very_long_item2_{{very_long_function(other_param)}}"\n'
-            f"{TAB * 4}if some_very_long_condition\n"
-            f'{TAB * 4}else "",\n'
+            f"{TAB * 4}(\n"
+            f'{TAB * 5}f"very_long_item2_{{very_long_function(other_param)}}"\n'
+            f"{TAB * 5}if some_very_long_condition\n"
+            f'{TAB * 5}else ""\n'
+            f"{TAB * 4}),\n"
             f"{TAB * 3}],\n"
             f"{TAB * 2})\n"
         )
         formatter = setup_formatter(snakecode)
+
         assert formatter.get_formatted() == snakecode

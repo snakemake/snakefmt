@@ -2,6 +2,7 @@
 
 Examples where we raise errors but snakemake does not are listed as 'SMK_NOBREAK'
 """
+
 from io import StringIO
 
 import pytest
