@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.10.0](https://www.github.com/snakemake/snakefmt/compare/v0.9.0...v0.10.0) (2024-01-31)
+
+
+### Features
+
+* update to black v24 ([cbc6e2f](https://www.github.com/snakemake/snakefmt/commit/cbc6e2f98d97a0577219d94d75827a2eb077c771))
+
+
+### Bug Fixes
+
+* preserve double curly braces in python code [[#215](https://www.github.com/snakemake/snakefmt/issues/215)] ([1cbcfb1](https://www.github.com/snakemake/snakefmt/commit/1cbcfb1d22d7870c0e7c1201ac7cfa2e4424ec2e))
+
 ## [0.9.0](https://www.github.com/snakemake/snakefmt/compare/v0.8.5...v0.9.0) (2024-01-09)
 
 
