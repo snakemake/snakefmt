@@ -1,4 +1,3 @@
-import sys
 import tokenize
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Optional
@@ -11,6 +10,7 @@ from snakefmt.parser.syntax import (
     Vocabulary,
     add_token_space,
     is_newline,
+    re_add_curly_bracket_if_needed,
 )
 from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
@@ -325,12 +325,4 @@ class Parser(ABC):
             if not pythonable and token.type != tokenize.COMMENT:
                 pythonable = True
             buffer += token.string
-            if (
-                token is not None
-                and sys.version_info >= (3, 12)
-                and token.type == tokenize.FSTRING_MIDDLE
-            ):
-                if token.string.endswith("}"):
-                    buffer += "}"
-                elif token.string.endswith("{"):
-                    buffer += "{"
+            buffer += re_add_curly_bracket_if_needed(token)
