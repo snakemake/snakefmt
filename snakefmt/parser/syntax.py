@@ -1,6 +1,7 @@
 """
 Code in charge of parsing and validating Snakemake syntax
 """
+
 import sys
 import tokenize
 from abc import ABC, abstractmethod
@@ -41,6 +42,20 @@ spacing_triggers = {
 if hasattr(tokenize, "FSTRING_START"):
     spacing_triggers[tokenize.NAME].add(tokenize.FSTRING_START)
     spacing_triggers[tokenize.OP].add(tokenize.FSTRING_START)
+
+
+def re_add_curly_bracket_if_needed(token: Token) -> str:
+    result = ""
+    if (
+        token is not None
+        and sys.version_info >= (3, 12)
+        and token.type == tokenize.FSTRING_MIDDLE
+    ):
+        if token.string.endswith("}"):
+            result = "}"
+        elif token.string.endswith("{"):
+            result = "{"
+    return result
 
 
 def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
@@ -332,15 +347,7 @@ class ParameterSyntax(Syntax):
         prev_token = None
         while True:
             cur_param = self.process_token(cur_param, prev_token)
-            if (
-                self.token is not None
-                and sys.version_info >= (3, 12)
-                and self.token.type == tokenize.FSTRING_MIDDLE
-            ):
-                if self.token.string.endswith("}"):
-                    cur_param.value += "}"
-                elif self.token.string.endswith("{"):
-                    cur_param.value += "{"
+            cur_param.value += re_add_curly_bracket_if_needed(self.token)
             try:
                 prev_token = self.token
                 self.token = next(snakefile)
