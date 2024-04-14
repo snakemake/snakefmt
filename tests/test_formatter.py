@@ -861,14 +861,17 @@ rule a:
 
     def test_f_string_with_double_braces_in_python_code(self):
         """https://github.com/snakemake/snakefmt/issues/215"""
-        """def get_test_regions(wildcards):
-    benchmark = config["variant-calls"][wildcards.callset]["benchmark"]
-    return f"resources/regions/{benchmark}/test-regions.cov-{{cov}}.bed"""
         snakecode = (
             "def get_test_regions(wildcards):\n"
             f'{TAB * 1}benchmark = config["variant-calls"][wildcards.callset]["benchmark"]\n'  # noqa: E501
             f'{TAB * 1}return f"resources/regions/{{benchmark}}/test-regions.cov-{{{{cov}}}}.bed"\n'  # noqa: E501
         )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_f_string_spacing_of_consecutive_braces(self):
+        """https://github.com/snakemake/snakefmt/issues/222"""
+        snakecode = 'f"{var1}{var2}"\n'
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 

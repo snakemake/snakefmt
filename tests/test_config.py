@@ -25,7 +25,8 @@ def test_black_and_snakefmt_default_line_lengths_aligned():
 class TestFindPyprojectToml:
     def test_find_pyproject_toml_nested_directory(self, tmp_path):
         config_file = (tmp_path / "pyproject.toml").resolve()
-        config_file.touch()
+        # add [tool.black] to TOML to ensure black finds it (new in black v24.2.0)
+        config_file.write_text("[tool.black]\n")
         dir1 = Path(tmp_path / "dir1").resolve()
         dir1.mkdir()
         snakefile = dir1 / "Snakefile"

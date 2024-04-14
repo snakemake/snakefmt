@@ -72,6 +72,8 @@ def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
         return True
     elif prev_token.type == tokenize.STRING and token.string == ",":
         return True
+    elif prev_token.string == "}" and token.string == "{":  # issue #220
+        return True
     else:
         return False
 
