@@ -49,14 +49,12 @@ if fstring_tokeniser_in_use:
             tokenize.NAME,
             tokenize.STRING,
             tokenize.NUMBER,
-            tokenize.FSTRING_START,
         },
         tokenize.STRING: {tokenize.NAME, tokenize.OP},
         tokenize.NUMBER: {tokenize.NAME},
         tokenize.OP: {
             tokenize.NAME,
             tokenize.STRING,
-            tokenize.FSTRING_START,
         },
     }
 
