@@ -2,11 +2,12 @@
 Code in charge of parsing and validating Snakemake syntax
 """
 
-import sys
 import tokenize
 from abc import ABC, abstractmethod
 from re import match as re_match
+from typing import Optional
 
+from snakefmt import fstring_tokeniser_in_use
 from snakefmt.exceptions import (
     ColonError,
     EmptyContextError,
@@ -38,23 +39,55 @@ spacing_triggers = {
     tokenize.NUMBER: {tokenize.NAME, tokenize.OP},
     tokenize.OP: {tokenize.NAME, tokenize.STRING, tokenize.NUMBER, tokenize.OP},
 }
-# add fstring start to spacing_triggers if python 3.12 or higher
-if hasattr(tokenize, "FSTRING_START"):
+
+if fstring_tokeniser_in_use:
     spacing_triggers[tokenize.NAME].add(tokenize.FSTRING_START)
     spacing_triggers[tokenize.OP].add(tokenize.FSTRING_START)
+    # A more compact spacing syntax than the above.
+    fstring_spacing_triggers = {
+        tokenize.NAME: {
+            tokenize.NAME,
+            tokenize.STRING,
+            tokenize.NUMBER,
+            tokenize.FSTRING_START,
+        },
+        tokenize.STRING: {tokenize.NAME, tokenize.OP},
+        tokenize.NUMBER: {tokenize.NAME},
+        tokenize.OP: {
+            tokenize.NAME,
+            tokenize.STRING,
+            tokenize.FSTRING_START,
+        },
+    }
 
 
 def re_add_curly_bracket_if_needed(token: Token) -> str:
     result = ""
     if (
-        token is not None
-        and sys.version_info >= (3, 12)
+        fstring_tokeniser_in_use
+        and token is not None
         and token.type == tokenize.FSTRING_MIDDLE
     ):
         if token.string.endswith("}"):
             result = "}"
         elif token.string.endswith("{"):
             result = "{"
+    return result
+
+
+def fstring_processing(
+    token: Token, prev_token: Optional[Token], in_fstring: bool
+) -> bool:
+    """
+    Returns True if we are entering, or have already entered and not exited,
+    an f-string.
+    """
+    result = False
+    if fstring_tokeniser_in_use:
+        if prev_token is not None and prev_token.type == tokenize.FSTRING_START:
+            result = True
+        elif token.type != tokenize.FSTRING_END and in_fstring:
+            result = True
     return result
 
 
@@ -72,17 +105,18 @@ def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
         return True
     elif prev_token.type == tokenize.STRING and token.string == ",":
         return True
-    elif prev_token.string == "}" and token.string == "{":  # issue #220
-        return True
     else:
         return False
 
 
-def add_token_space(prev_token: Token, token: Token) -> bool:
+def add_token_space(prev_token: Token, token: Token, in_fstring: bool = False) -> bool:
     result = False
-    if prev_token is not None and prev_token.type in spacing_triggers:
+    if prev_token is not None:
         if not operator_skip_spacing(prev_token, token):
-            if token.type in spacing_triggers[prev_token.type]:
+            if not in_fstring:
+                if token.type in spacing_triggers.get(prev_token.type, {}):
+                    result = True
+            elif token.type in fstring_spacing_triggers.get(prev_token.type, {}):
                 result = True
     return result
 
@@ -150,8 +184,8 @@ class Parameter:
     def has_value(self) -> bool:
         return len(self.value) > 0
 
-    def add_elem(self, prev_token: Token, token: Token):
-        if add_token_space(prev_token, token) and len(self.value) > 0:
+    def add_elem(self, prev_token: Token, token: Token, in_fstring: bool = False):
+        if add_token_space(prev_token, token, in_fstring) and len(self.value) > 0:
             self.value += " "
 
         if self.is_empty():
@@ -324,6 +358,7 @@ class ParameterSyntax(Syntax):
         self.eof = False
         self.incident_vocab = incident_vocab
         self._brackets = list()
+        self.in_fstring = False
         self.in_lambda = False
         self.found_newline = False
 
@@ -380,6 +415,12 @@ class ParameterSyntax(Syntax):
 
     def process_token(self, cur_param: Parameter, prev_token: Token) -> Parameter:
         token_type = self.token.type
+        # f-string treatment (since python 3.12)
+        self.in_fstring = fstring_processing(self.token, prev_token, self.in_fstring)
+        if self.in_fstring:
+            cur_param.add_elem(prev_token, self.token, self.in_fstring)
+            return cur_param
+
         # Eager treatment of comments: tag them onto params
         if token_type == tokenize.COMMENT and not self.in_brackets:
             cur_param.add_comment(self.token.string, self.keyword_indent)

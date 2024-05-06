@@ -9,6 +9,7 @@ from snakefmt.parser.syntax import (
     ParameterSyntax,
     Vocabulary,
     add_token_space,
+    fstring_processing,
     is_newline,
     re_add_curly_bracket_if_needed,
 )
@@ -85,6 +86,7 @@ class Parser(ABC):
         self.last_block_was_snakecode = False
         self.block_indent = 0
         self.queriable = True
+        self.in_fstring = False
 
         status = self.get_next_queriable(self.snakefile)
         self.buffer = status.buffer
@@ -277,6 +279,7 @@ class Parser(ABC):
         prev_token: Optional[Token] = Token(tokenize.NAME)
         while True:
             token = next(snakefile)
+            self.in_fstring = fstring_processing(token, prev_token, self.in_fstring)
             if block_indent == -1 and not_a_comment_related_token(token):
                 block_indent = self.cur_indent
             if token.type == tokenize.INDENT:
@@ -317,7 +320,7 @@ class Parser(ABC):
                     token, block_indent, self.cur_indent, buffer, False, pythonable
                 )
 
-            if add_token_space(prev_token, token):
+            if add_token_space(prev_token, token, self.in_fstring):
                 buffer += " "
             prev_token = token
             if newline:
