@@ -394,9 +394,9 @@ class TestSimplePythonFormatting:
         actual = formatter.get_formatted()
         assert actual == snakecode
 
-    def test_f_strings(self):
+    def test_fstrings(self):
         """This is relevant for python3.12"""
-        snakecode = 'a = f"{1 + 2}" if 1 > 0 else f"{1 - 2}"\n'
+        snakecode = 'a = f"{1+2}" if 1 > 0 else f"{1-2}"\n'
         formatter = setup_formatter(snakecode)
 
         actual = formatter.get_formatted()
@@ -686,7 +686,7 @@ class TestStringFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_rf_string_tpq_supported(self):
+    def test_r_and_fstring_tpq_supported(self):
         """Deliberately tests for consecutive r/f strings and with
         single or double quotes"""
         for preceding in {"r", "f"}:
@@ -846,7 +846,7 @@ rule a:
 
         assert formatter.get_formatted() == snakecode
 
-    def test_f_string_with_double_braces_in_input(self):
+    def test_fstring_with_double_braces_in_input(self):
         """https://github.com/snakemake/snakefmt/issues/207"""
         snakecode = (
             "rule align:\n"
@@ -859,7 +859,7 @@ rule a:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_f_string_with_double_braces_in_python_code(self):
+    def test_fstring_with_double_braces_in_python_code(self):
         """https://github.com/snakemake/snakefmt/issues/215"""
         snakecode = (
             "def get_test_regions(wildcards):\n"
@@ -869,9 +869,25 @@ rule a:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_f_string_spacing_of_consecutive_braces(self):
+    def test_fstring_spacing_of_consecutive_braces(self):
         """https://github.com/snakemake/snakefmt/issues/222"""
         snakecode = 'f"{var1}{var2}"\n'
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_fstring_with_equal_sign_inside_function_call(self):
+        """https://github.com/snakemake/snakefmt/issues/220"""
+        snakecode = 'test = f"job_properties: {json.dumps(job_properties, indent=4)}"\n'
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_fstring_with_list_comprehension_inside_function_call(self):
+        """https://github.com/snakemake/snakefmt/issues/227"""
+        snakecode = (
+            "rule subsample:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}f\"{{' '.join([i for i in range(10)])}}\",\n"
+        )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
