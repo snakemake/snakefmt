@@ -15,6 +15,9 @@ else:
 
 __version__ = metadata.version("snakefmt")
 
+# New f-string tokenizing was introduced in python 3.12 - we have to deal with it, too.
+fstring_tokeniser_in_use = sys.version_info >= (3, 12)
+
 DEFAULT_LINE_LENGTH = 88
 DEFAULT_TARGET_VERSIONS = {
     TargetVersion.PY38,
