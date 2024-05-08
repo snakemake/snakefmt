@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.10.2](https://www.github.com/snakemake/snakefmt/compare/v0.10.1...v0.10.2) (2024-05-08)
+
+
+### Bug Fixes
+
+* Better f-string spacing (2) ([#230](https://www.github.com/snakemake/snakefmt/issues/230)) ([1805818](https://www.github.com/snakemake/snakefmt/commit/18058180ad78093868a81392ca47ced5d48c33f1))
+
 ### [0.10.1](https://www.github.com/snakemake/snakefmt/compare/v0.10.0...v0.10.1) (2024-04-15)
 
 
