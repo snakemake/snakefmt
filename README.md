@@ -297,7 +297,7 @@ To do so, create the file `.pre-commit-config.yaml` in the root of your project 
 ```yaml
 repos:
   - repo: https://github.com/snakemake/snakefmt
-    rev: 0.5.0 # Replace by any tag/version ≥0.2.4 : https://github.com/snakemake/snakefmt/releases
+    rev: v0.10.2 # Replace by any tag/version ≥v0.6 : https://github.com/snakemake/snakefmt/releases
     hooks:
       - id: snakefmt
 ```
