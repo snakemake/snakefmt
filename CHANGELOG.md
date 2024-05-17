@@ -144,7 +144,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 * Improve reported line number in Snakefile when black fails to parse [[#127][127]]
 * Better handling of snakemake code inside nested if-else statements with comments at differing indentation levels [[#126][126]] - a HUGE thank you to [@siebrenf](https://github.com/siebrenf) for testing
 
-## [0.6.0](https://www.github.com/snakemake/snakefmt/compare/v0.5.0...v0.6.0) (2022-03-03)
+## [0.6.0](https://www.github.com/snakemake/snakefmt/compare/0.5.0...v0.6.0) (2022-03-03)
 
 ### Added
 
