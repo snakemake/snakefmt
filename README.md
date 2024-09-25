@@ -325,10 +325,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Lint Code Base
-        uses: github/super-linter@v3
+        uses: github/super-linter@v4
         env:
           VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: master
