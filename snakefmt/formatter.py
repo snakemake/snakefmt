@@ -351,7 +351,7 @@ class Formatter(Parser):
             for comment in parameter.pre_comments:
                 result += f"{string_indent}{comment}\n"
         result += val.strip("\n")
-        if param_list:
+        if param_list and len(param_list) > 1:
             result += ","
         post_comment_iter = iter(parameter.post_comments)
         if parameter._has_inline_comment:
