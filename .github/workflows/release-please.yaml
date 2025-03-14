@@ -14,7 +14,6 @@ jobs:
         id: release
         with:
           release-type: python
-          bump-minor-pre-major: true
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
       - uses: actions/checkout@v4
