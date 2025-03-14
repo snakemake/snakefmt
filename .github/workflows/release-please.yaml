@@ -27,14 +27,6 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
 
-      - name: upload poetry error log as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: poetry-error-log
-          path: |
-            /home/runner/work/snakefmt/snakefmt/poetry-installer-error-*.log
-
       - name: Install dependencies
         if: ${{ steps.release.outputs.release_created }}
         run:  make install-ci
