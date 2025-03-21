@@ -4,8 +4,8 @@ The tests implicitly assume that the input syntax is correct ie that no parsing-
 errors arise, as tested in test_parser.py.
 """
 
-from io import StringIO
 import textwrap
+from io import StringIO
 from unittest import mock
 
 import pytest
