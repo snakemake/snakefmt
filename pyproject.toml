@@ -29,7 +29,7 @@ flake8 = "^7.0"
 # up-to-date with the latest Snakemake.
 # TODO: implement a bot action that auto-creates a bumping PR on every Snakemake
 # release.
-snakemake = ">=9.1"
+snakemake = ">=9.1.1"
 isort = "^5.1.0"
 pynvim = "~0.4.3"
 
