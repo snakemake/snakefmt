@@ -112,6 +112,8 @@ class SnakeGlobal(Vocabulary):
         container=Context(None, InlineSingleParam),
         containerized=Context(None, InlineSingleParam),
         scattergather=Context(None, ParamList),
+        inputflags=Context(None, NoKeyParamList),
+        outputflags=Context(None, NoKeyParamList),
         module=Context(SnakeModule, KeywordSyntax),
         use=Context(SnakeUseRule, KeywordSyntax),
         resource_scopes=Context(None, KeywordSyntax),
