@@ -5,6 +5,7 @@ errors arise, as tested in test_parser.py.
 """
 
 from io import StringIO
+import textwrap
 from unittest import mock
 
 import pytest
@@ -1457,3 +1458,17 @@ class TestLineWrapping:
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
+
+
+class TestStorage:
+    def test_storage(self):
+        code = textwrap.dedent(
+            """
+            storage http_local:
+                provider="http",
+                keep_local=True,
+            """
+        )
+        formatter = setup_formatter(code)
+
+        assert formatter.get_formatted() == code
