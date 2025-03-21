@@ -34,7 +34,6 @@ rule_properties = dict(
     threads=Context(None, InlineSingleParam),
     resources=Context(None, ParamList),
     priority=Context(None, InlineSingleParam),
-    version=Context(None, SingleParam),
     log=Context(None, ParamList),
     message=Context(None, SingleParam),
     benchmark=Context(None, SingleParam),
@@ -82,14 +81,6 @@ class SnakeModule(Vocabulary):
     )
 
 
-class SnakeSubworkflow(Vocabulary):
-    spec = dict(
-        snakefile=Context(None, SingleParam),
-        workdir=Context(None, SingleParam),
-        configfile=Context(None, SingleParam),
-    )
-
-
 class SnakeGlobal(Vocabulary):
     spec = dict(
         envvars=Context(None, NoKeyParamList),
@@ -102,7 +93,6 @@ class SnakeGlobal(Vocabulary):
         ruleorder=Context(None, InlineSingleParam),
         rule=Context(SnakeRule, KeywordSyntax),
         checkpoint=Context(SnakeRule, KeywordSyntax),
-        subworkflow=Context(SnakeSubworkflow, KeywordSyntax),
         localrules=Context(None, NoKeyParamList),
         onstart=Context(PythonCode, KeywordSyntax),
         onsuccess=Context(PythonCode, KeywordSyntax),
