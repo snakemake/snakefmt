@@ -365,6 +365,22 @@ class ParameterSyntax(Syntax):
     def validate_keyword_line(self, snakefile: TokenIterator):
         self.token = next(snakefile)
 
+        if self.keyword_name == "storage":
+            self.validate_named_keyword_line(snakefile)
+        else:
+            self.validate_anonymous_keyword_line(snakefile)
+
+    def validate_named_keyword_line(self, snakefile: TokenIterator):
+        if not is_colon(self.token):
+            if self.token.type != tokenize.NAME:
+                NotAnIdentifierError(self.line_nb, self.token.string, self.keyword_line)
+            self.keyword_line += f" {self.token.string}"
+            self.token = next(snakefile)
+        if not is_colon(self.token):
+            ColonError(self.line_nb, self.token.string, self.keyword_line)
+        self.token = next(snakefile)
+
+    def validate_anonymous_keyword_line(self, snakefile: TokenIterator):
         if not is_colon(self.token):
             ColonError(self.line_nb, self.token.string, self.keyword_line)
         self.token = next(snakefile)

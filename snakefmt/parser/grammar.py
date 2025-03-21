@@ -78,6 +78,7 @@ class SnakeModule(Vocabulary):
         meta_wrapper=Context(None, SingleParam),
         prefix=Context(None, SingleParam),
         replace_prefix=Context(None, SingleParam),
+        name=Context(None, InlineSingleParam),
     )
 
 
