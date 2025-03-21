@@ -24,7 +24,7 @@ importlib_metadata = {version = ">=1.7.0,<5.0", python = "<3.8"}
 pytest = "^7.4.4"
 pytest-cov = "^4.1.0"
 flake8 = "^7.0"
-snakemake = "<8.0"
+snakemake = "<10.0"
 isort = "^5.1.0"
 pynvim = "~0.4.3"
 
