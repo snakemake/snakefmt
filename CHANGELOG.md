@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.11.0](https://github.com/snakemake/snakefmt/compare/v0.10.3...v0.11.0) (2025-03-21)
+
+
+### Features
+
+* adapt to Snakemake 8 and 9 (add inputflags, outputflags, storage directive support, remove version and subworkflow directive support) ([4709fcf](https://github.com/snakemake/snakefmt/commit/4709fcf6c335eeaa41afea355c4c407098da3564))
+* add support for inputflags and outputflags ([dab68fa](https://github.com/snakemake/snakefmt/commit/dab68fa609b50c042c7050483d997827a60a4e6b))
+
 ## [0.10.3](https://github.com/snakemake/snakefmt/compare/v0.10.2...v0.10.3) (2025-03-14)
 
 
