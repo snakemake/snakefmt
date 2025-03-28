@@ -4,6 +4,7 @@ The tests implicitly assume that the input syntax is correct ie that no parsing-
 errors arise, as tested in test_parser.py.
 """
 
+import textwrap
 from io import StringIO
 from unittest import mock
 
@@ -1457,3 +1458,17 @@ class TestLineWrapping:
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
+
+
+class TestStorage:
+    def test_storage(self):
+        code = textwrap.dedent(
+            """
+            storage http_local:
+                provider="http",
+                keep_local=True,
+            """
+        )
+        formatter = setup_formatter(code)
+
+        assert formatter.get_formatted() == code

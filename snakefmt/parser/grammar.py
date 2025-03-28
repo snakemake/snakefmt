@@ -34,7 +34,6 @@ rule_properties = dict(
     threads=Context(None, InlineSingleParam),
     resources=Context(None, ParamList),
     priority=Context(None, InlineSingleParam),
-    version=Context(None, SingleParam),
     log=Context(None, ParamList),
     message=Context(None, SingleParam),
     benchmark=Context(None, SingleParam),
@@ -79,14 +78,7 @@ class SnakeModule(Vocabulary):
         meta_wrapper=Context(None, SingleParam),
         prefix=Context(None, SingleParam),
         replace_prefix=Context(None, SingleParam),
-    )
-
-
-class SnakeSubworkflow(Vocabulary):
-    spec = dict(
-        snakefile=Context(None, SingleParam),
-        workdir=Context(None, SingleParam),
-        configfile=Context(None, SingleParam),
+        name=Context(None, InlineSingleParam),
     )
 
 
@@ -102,7 +94,6 @@ class SnakeGlobal(Vocabulary):
         ruleorder=Context(None, InlineSingleParam),
         rule=Context(SnakeRule, KeywordSyntax),
         checkpoint=Context(SnakeRule, KeywordSyntax),
-        subworkflow=Context(SnakeSubworkflow, KeywordSyntax),
         localrules=Context(None, NoKeyParamList),
         onstart=Context(PythonCode, KeywordSyntax),
         onsuccess=Context(PythonCode, KeywordSyntax),
@@ -112,7 +103,11 @@ class SnakeGlobal(Vocabulary):
         container=Context(None, InlineSingleParam),
         containerized=Context(None, InlineSingleParam),
         scattergather=Context(None, ParamList),
+        inputflags=Context(None, NoKeyParamList),
+        outputflags=Context(None, NoKeyParamList),
         module=Context(SnakeModule, KeywordSyntax),
         use=Context(SnakeUseRule, KeywordSyntax),
         resource_scopes=Context(None, KeywordSyntax),
+        conda=Context(None, InlineSingleParam),
+        storage=Context(None, ParamList),
     )

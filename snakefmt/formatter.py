@@ -371,7 +371,7 @@ class Formatter(Parser):
         if p_class is InlineSingleParam:
             inline_fmting = True
 
-        result = f"{used_indent}{parameters.keyword_name}:"
+        result = f"{used_indent}{parameters.keyword_line}:"
         if inline_fmting:
             result += " "
             prepended_comments = ""

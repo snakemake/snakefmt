@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "snakefmt"
-version = "0.10.2"
+version = "0.11.0"
 description = "The uncompromising Snakemake code formatter"
 authors = ["Michael Hall <michael@mbh.sh>", "Brice Letcher <bletcher@ebi.ac.uk>"]
 license = "MIT"
@@ -14,7 +14,7 @@ keywords = ["python", "snakemake", "code", "formatter", "parser", "workflow", "m
 snakefmt = 'snakefmt.snakefmt:main'
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.11"
 click = "^8.0.0"
 black = "^24.3.0"
 toml = "^0.10.2"
@@ -24,7 +24,12 @@ importlib_metadata = {version = ">=1.7.0,<5.0", python = "<3.8"}
 pytest = "^7.4.4"
 pytest-cov = "^4.1.0"
 flake8 = "^7.0"
-snakemake = "<8.0"
+# Always set this to the latest Snakemake version with grammar changes.
+# This way, the testcases for grammar completeness ensure that the formatter is always
+# up-to-date with the latest Snakemake.
+# TODO: implement a bot action that auto-creates a bumping PR on every Snakemake
+# release.
+snakemake = ">=9.1.1"
 isort = "^5.1.0"
 pynvim = "~0.4.3"
 
