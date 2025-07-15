@@ -12,6 +12,7 @@ already.**
 - [PyCharm/JetBrains IDEA](#pycharmjetbrains-idea)
 - [Visual Studio Code](#visual-studio-code)
 - [Vim](#Vim)
+- [Emacs](#Emacs)
 
 
 ## PyCharm/JetBrains IDEA
@@ -107,3 +108,15 @@ Credit: plugin inspired by
 ### Troubleshooting
 
 Under certain circumstances, import errors can occur when using a virtual environment due to _Black_ dependency imports. See the [_Black_ Vim integration docs](https://black.readthedocs.io/en/stable/editor_integration.html#vim) for more details and a potential solution.
+
+## Emacs
+
+The [`format-all` package](https://github.com/lassik/emacs-format-all-the-code) supports use of `snakefmt` out of the box provided `snakefmt` is available on the `exec-path`; it should suffice to have `snakefmt` available on your `PATH`.
+
+`snakefmt` can be invoked in a buffer using `format-all` in the usual way with `format-all-buffer`, and also upon saving with the addition of a hook to your dotfile:
+```
+(add-hook 'prog-mode-hook 'format-all-mode)
+```
+Note that this hook will run the relevant formatter on files containing *any* programming language for which a formatter is available to `format-all`.
+
+See the [`format-all` repo](https://github.com/lassik/emacs-format-all-the-code) for more documentation.
