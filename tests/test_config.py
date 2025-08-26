@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest import mock
 
 import black
+import black.const
 import click
 import pytest
 
@@ -19,7 +20,7 @@ from tests import setup_formatter
 
 
 def test_black_and_snakefmt_default_line_lengths_aligned():
-    assert DEFAULT_LINE_LENGTH == black.DEFAULT_LINE_LENGTH
+    assert DEFAULT_LINE_LENGTH == black.const.DEFAULT_LINE_LENGTH
 
 
 class TestFindPyprojectToml:
@@ -49,23 +50,24 @@ class TestConfigAdherence:
         actual = cli_runner.invoke(main, params, input=stdin)
         assert actual.exit_code == 0
 
-        expected_output = """include: \"a\"
-
-
-list_of_lots_of_things = [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-]
-"""
-        assert actual.output == expected_output
+        expected_output = (
+            'include: "a"\n'
+            "\n"
+            "\n"
+            "list_of_lots_of_things = [\n"
+            "    1,\n"
+            "    2,\n"
+            "    3,\n"
+            "    4,\n"
+            "    5,\n"
+            "    6,\n"
+            "    7,\n"
+            "    8,\n"
+            "    9,\n"
+            "    10,\n"
+            "]\n"
+        )
+        assert actual.stdout == expected_output
 
     def test_config_adherence_for_code_inside_rules(self, cli_runner, tmp_path):
         stdin = (
@@ -82,9 +84,9 @@ list_of_lots_of_things = [
 
             assert actual.exit_code == 0
             if expect_same:
-                assert actual.output == stdin
+                assert actual.stdout == stdin
             else:
-                assert actual.output != stdin
+                assert actual.stdout != stdin
 
 
 class TestReadSnakefmtDefaultsFromPyprojectToml:
@@ -254,7 +256,7 @@ class TestReadBlackConfig:
         with pytest.raises(MalformattedToml) as error:
             read_black_config(path)
 
-        assert error.match("invalid character")
+        assert error.match("Invalid statement")
 
     def test_skip_string_normalisation_handled_with_snakecase(self, tmp_path):
         formatter = setup_formatter("")
