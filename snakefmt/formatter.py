@@ -4,12 +4,12 @@ from ast import parse as ast_parse
 from copy import copy
 from typing import Optional
 
-import black
+import black.parsing
 
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.logging import Warnings
-from snakefmt.parser.parser import Parser, comment_start
+from snakefmt.parser.parser import Parser, Snakefile, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
     InlineSingleParam,
@@ -18,14 +18,11 @@ from snakefmt.parser.syntax import (
     ParamList,
     SingleParam,
     Syntax,
+    split_code_string,
 )
-from snakefmt.types import TAB, TokenIterator
+from snakefmt.types import TAB
 
 TAB_SIZE = len(TAB)
-# This regex matches any number of consecutive strings; each can span multiple lines.
-full_string_matcher = re.compile(
-    r"^\s*(\w?([\"']{3}.*?[\"']{3})|([\"']{1}.*?[\"']{1}))$", re.DOTALL | re.MULTILINE
-)
 # this regex matches any docstring; can span multiple lines
 docstring_matcher = re.compile(
     r"\s*([rR]?[\"']{3}.*?[\"']{3})", re.DOTALL | re.MULTILINE
@@ -59,7 +56,7 @@ def index_of_first_docstring(s: str) -> Optional[int]:
 class Formatter(Parser):
     def __init__(
         self,
-        snakefile: TokenIterator,
+        snakefile: Snakefile,
         line_length: Optional[int] = None,
         black_config_file: Optional[PathLike] = None,
     ):
@@ -193,7 +190,7 @@ class Formatter(Parser):
         )
         try:
             fmted = black.format_str(string, mode=black_mode)
-        except black.InvalidInput as e:
+        except black.parsing.InvalidInput as e:
             err_msg = ""
             # Not clear whether all Black errors start with 'Cannot parse' - it seems to
             # in the tests I ran
@@ -228,61 +225,21 @@ class Formatter(Parser):
         """
         Takes an ensemble of strings and indents/reindents it
         """
-        pos = 0
         used_indent = TAB * target_indent
-        indented = ""
-        for match in re.finditer(full_string_matcher, string):
-            indented += textwrap.indent(string[pos : match.start(1)], used_indent)
-            lagging_spaces = len(indented) - len(indented.rstrip(" "))
-            lagging_indent_lvl = lagging_spaces // TAB_SIZE
-            match_slice = string[match.start(1) : match.end(1)].replace("\t", TAB)
-            all_lines = match_slice.splitlines(keepends=True)
-            first = textwrap.indent(textwrap.dedent(all_lines[0]), used_indent)
-            indented += first
-
-            is_multiline_string = re.match(
-                r"[bfru]?\"\"\"|'''", first.lstrip(), flags=re.IGNORECASE
-            )
-            if not is_multiline_string:
-                # this check if string is a single-quoted multiline string
-                # e.g. https://github.com/snakemake/snakefmt/issues/121
-                is_multiline_string = "\\\n" in first
-
-            if len(all_lines) > 2:
-                if is_multiline_string:
-                    middle = "".join(all_lines[1:-1])
-                else:
-                    mid = "".join(all_lines[1:-1])
-                    dedent_mid = textwrap.dedent(mid)
-
-                    if lagging_indent_lvl == 0:
-                        required_indent_lvl = target_indent
-                    else:
-                        current_indent_lvl = (len(mid) - len(mid.lstrip())) // TAB_SIZE
-                        required_indent_lvl = current_indent_lvl + target_indent
-
-                    required_indent = TAB * required_indent_lvl
-                    middle = textwrap.indent(
-                        dedent_mid,
-                        required_indent,
-                    )
-                indented += middle
-
-            if len(all_lines) > 1:
-                if is_multiline_string:
-                    last = all_lines[-1]
-                else:
-                    leading_spaces = len(all_lines[-1]) - len(
-                        textwrap.dedent(all_lines[-1])
-                    )
-                    leading_indent = leading_spaces // TAB_SIZE * TAB
-                    last = textwrap.indent(
-                        textwrap.dedent(all_lines[-1]), used_indent + leading_indent
-                    )
-                indented += last
-            pos = match.end()
-        indented += textwrap.indent(string[pos:], used_indent)
-
+        split_string = split_code_string(string)
+        if len(split_string) == 1:
+            return textwrap.indent(split_string[0], used_indent)
+        # First, masks all multi-line strings
+        fakewrap = textwrap.indent(
+            "".join('"""\n"""' if i % 2 else s for i, s in enumerate(split_string)),
+            used_indent,
+        )
+        split_code = fakewrap.split(textwrap.indent('"""\n"""', used_indent).strip())
+        # After indenting, we puts those strings back
+        indented = "".join(
+            s.replace("\t", TAB) if i % 2 else split_code[i // 2]
+            for i, s in enumerate(split_string)
+        )
         return indented
 
     def format_param(

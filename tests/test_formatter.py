@@ -5,7 +5,6 @@ errors arise, as tested in test_parser.py.
 """
 
 import textwrap
-from io import StringIO
 from unittest import mock
 
 import pytest
@@ -13,7 +12,7 @@ import pytest
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
-from tests import Formatter, Snakefile, setup_formatter
+from tests import setup_formatter
 
 
 def test_emptyInput_emptyOutput():
@@ -27,9 +26,8 @@ def test_emptyInput_emptyOutput():
 
 class TestSimpleParamFormatting:
     def test_simple_rule_one_input(self):
-        stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
+        stream = "rule a:\n" f'{TAB * 1}input: "foo.txt"'
+        formatter = setup_formatter(stream)
 
         actual = formatter.get_formatted()
         expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
@@ -208,16 +206,13 @@ class TestComplexParamFormatting:
     """
 
     def test_expand_as_param(self):
-        stream = StringIO(
+        formatter = setup_formatter(
             "rule a:\n"
             f"{TAB * 1}input: \n"
             f"{TAB * 2}"
             'expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
             f'{TAB * 1}output:"foo.txt","bar.txt"\n'
         )
-
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
         actual = formatter.get_formatted()
 
         expected = (
@@ -264,7 +259,7 @@ class TestComplexParamFormatting:
         We need to ignore 'input:' as a recognised keyword and ',' inside brackets
         Ie, the lambda needs to be parsed as a parameter.
         """
-        snakefile = (
+        snakecode = (
             f"rule a:\n"
             f"{TAB * 1}input:\n"
             f'{TAB * 2}"foo.txt",\n'
@@ -273,10 +268,10 @@ class TestComplexParamFormatting:
             'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get(w), input.obs)],\n'  # noqa: E501  due to readability of test
             f"{TAB * 2}p2=2,\n"
         )
-        formatter = setup_formatter(snakefile)
+        formatter = setup_formatter(snakecode)
 
         actual = formatter.get_formatted()
-        expected = snakefile
+        expected = snakecode
         assert actual == expected
 
     def test_arg_and_kwarg_unpacking(self):
@@ -293,6 +288,36 @@ class TestComplexParamFormatting:
         formatter = setup_formatter(snakecode)
         actual = formatter.get_formatted()
         assert actual == snakecode
+
+    def test_arg_very_looong(self):
+        """issue 190"""
+        snakecode = (
+            "if 1:\n"
+            "\n"
+            "    rule a:\n"
+            "        input:\n"
+            '            a="a",\n'
+            "        run:\n"
+            "            for i in range(3):\n"
+            "                a = list(\n"
+            '                    "a",\n'
+            '                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",\n'
+            "                )\n"
+            "                b = list(\n"
+            "                    ''.format(\n"
+            '                        "sssssssssssssssssssssssssssssssssssssssssssssssss",\n'
+            '                        b="b"\n'
+            "                    )\n"
+            "                )\n"
+            "\n"
+            "    rule b:\n"
+            "        shell:\n"
+            '            "echo 1"\n'
+            "\n"
+        )
+        formatter = setup_formatter(snakecode)
+        actual = formatter.get_formatted()
+        assert actual == setup_formatter(actual).get_formatted()
 
 
 class TestSimplePythonFormatting:
