@@ -319,6 +319,23 @@ class TestComplexParamFormatting:
         actual = formatter.get_formatted()
         assert actual == setup_formatter(actual).get_formatted()
 
+    def test_long_parenthesis(self):
+        """issue 240"""
+        snakecode = (
+            "rule call_variants:\n"
+            "    input:\n"
+            "        some_file\n"
+            "    threads:\n"
+            "        max(\n"
+            "            1,\n"
+            '            int(config["params"]["call_variants"]["threads"]) -\n'
+            '            int(config["params"]["call_variants"]["compress-threads"])\n'
+            "        )\n"
+        )
+        formatter = setup_formatter(snakecode)
+        actual = formatter.get_formatted()
+        assert actual == setup_formatter(actual).get_formatted()
+
 
 class TestSimplePythonFormatting:
     @mock.patch(
@@ -497,7 +514,7 @@ class TestComplexPythonFormatting:
         ) as mock_m:
             mock_m.return_value = "b=2\nif condition:\n"
             setup_formatter(snakecode)
-            assert mock_m.call_count == 2
+            assert mock_m.call_count == 3
 
         formatter = setup_formatter(snakecode)
         expected = "b = 2\n" "if condition:\n\n" f'{TAB * 1}include: "a"\n'

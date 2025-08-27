@@ -324,26 +324,31 @@ class Formatter(Parser):
 
         p_class = parameters.__class__
         param_list = issubclass(p_class, ParamList)
-        inline_fmting = False
-        if p_class is InlineSingleParam:
-            inline_fmting = True
+        inline_fmting = p_class is InlineSingleParam
 
         result = f"{used_indent}{parameters.keyword_line}:"
         if inline_fmting:
-            result += " "
+            # here, check if the value is too large to put in one line
+            param = next(iter(parameters.all_params))
+            param_result = self.format_param(
+                param, target_indent, inline_fmting, param_list
+            )
+            inline_fmting = param_result.count("\n") == 1
+        if inline_fmting:
             prepended_comments = ""
             if parameters.comment != "":
                 prepended_comments += f"{used_indent}{parameters.comment.lstrip()}\n"
-            param = next(iter(parameters.all_params))
             for comment in param.pre_comments:
                 prepended_comments += f"{used_indent}{comment}\n"
             if prepended_comments != "":
                 Warnings.comment_relocation(parameters.keyword_name, param.line_nb)
-            result = f"{prepended_comments}{result}"
+            result = f"{prepended_comments}{result} {param_result}"
         else:
-            result += f"{parameters.comment}\n"
-        for param in parameters.all_params:
-            result += self.format_param(param, target_indent, inline_fmting, param_list)
+            result = f"{result}{parameters.comment}\n"
+            for param in parameters.all_params:
+                result += self.format_param(
+                    param, target_indent, inline_fmting, param_list
+                )
         num_c = len(param.post_comments)
         if num_c > 1 or (not param._has_inline_comment and num_c == 1):
             Warnings.block_comment_below(parameters.keyword_name, param.line_nb)
