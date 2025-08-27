@@ -6,9 +6,9 @@ importlib fetches version from distribution metadata files
 (in dist-info or egg-info dirs).
 From Python 3.8, importlib_metadata is in standard library as importlib.metadata.
 """
-from black.mode import TargetVersion
-
 from importlib import metadata
+
+from black.mode import TargetVersion
 
 __version__ = metadata.version("snakefmt")
 

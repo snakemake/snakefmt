@@ -301,11 +301,11 @@ class TestComplexParamFormatting:
             "            for i in range(3):\n"
             "                a = list(\n"
             '                    "a",\n'
-            '                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",\n'
+            '                    "' + ("a" * 68) + '",\n'
             "                )\n"
             "                b = list(\n"
             "                    ''.format(\n"
-            '                        "sssssssssssssssssssssssssssssssssssssssssssssssss",\n'
+            '                        "' + ("b" * 117) + '",\n'
             '                        b="b"\n'
             "                    )\n"
             "                )\n"
