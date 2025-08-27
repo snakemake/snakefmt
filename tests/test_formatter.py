@@ -319,12 +319,15 @@ class TestComplexParamFormatting:
         actual = formatter.get_formatted()
         assert actual == setup_formatter(actual).get_formatted()
 
-    def test_long_parenthesis(self):
-        """issue 240"""
+    def test_param_inline_formatting(self):
+        """issue 240 and 242"""
         snakecode = (
             "rule call_variants:\n"
             "    input:\n"
-            "        some_file\n"
+            "        data=(\n"
+            "            # a comment on the below\n"
+            '            "input_1.txt"\n'
+            "        ),\n"
             "    threads:\n"
             "        max(\n"
             "            1,\n"

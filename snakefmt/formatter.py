@@ -261,12 +261,10 @@ class Formatter(Parser):
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
 
         if inline_formatting or param_list:
-            val = " ".join(
-                val.rstrip().split("\n")
-            )  # collapse strings on multiple lines
+            val = val.rstrip()
         extra_spacing = 0
         if param_list:
-            val = f"f({val})"
+            val = f"f({val}\n)"
             extra_spacing = 3
 
         # get the index of the last character of the first docstring, if any
