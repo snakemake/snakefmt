@@ -294,50 +294,71 @@ class TestComplexParamFormatting:
         snakecode = (
             "if 1:\n"
             "\n"
-            "    rule a:\n"
-            "        input:\n"
-            '            a="a",\n'
-            "        run:\n"
-            "            for i in range(3):\n"
-            "                a = list(\n"
-            '                    "a",\n'
-            '                    "' + ("a" * 68) + '",\n'
-            "                )\n"
-            "                b = list(\n"
-            "                    ''.format(\n"
-            '                        "' + ("b" * 117) + '",\n'
-            '                        b="b"\n'
-            "                    )\n"
-            "                )\n"
+            " rule a:\n"
+            "  input:\n"
+            '   a="a",\n'
+            "  run:\n"
+            "   for i in range(3):\n"
+            "    a = list(\n"
+            '     "a",\n'
+            '     "' + ("a" * 68) + '",\n'
+            "    )\n"
+            "    b = list(\n"
+            "     ''.format(\n"
+            '      "' + ("b" * 117) + '",\n'
+            '      b="b"\n'
+            "     )\n"
+            "    )\n"
             "\n"
-            "    rule b:\n"
-            "        shell:\n"
-            '            "echo 1"\n'
+            " rule b:\n"
+            "  shell:\n"
+            '   "echo 1"\n'
             "\n"
         )
-        formatter = setup_formatter(snakecode)
-        actual = formatter.get_formatted()
-        assert actual == setup_formatter(actual).get_formatted()
+        expected = (
+            f"if 1:\n"
+            f"\n"
+            f"{TAB * 1}rule a:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}a="a",\n'
+            f"{TAB * 2}run:\n"
+            f"{TAB * 3}for i in range(3):\n"
+            f"{TAB * 4}a = list(\n"
+            f'{TAB * 5}"a",\n'
+            f'{TAB * 5}"' + ("a" * 68) + '",\n'
+            f"{TAB * 4})\n"
+            f"{TAB * 4}b = list(\n"
+            f'{TAB * 5}"".format(\n'
+            f'{TAB * 6}"' + ("b" * 117) + '",\n'
+            f'{TAB * 6}b="b",\n'
+            f"{TAB * 5})\n"
+            f"{TAB * 4})\n"
+            f"\n"
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}shell:\n"
+            f'{TAB * 3}"echo 1"\n'
+        )
+        actual = setup_formatter(snakecode).get_formatted()
+        assert actual == expected
 
     def test_param_inline_formatting(self):
-        """issue 240 and 242"""
+        """issue 208, 240 and 242"""
         snakecode = (
-            "rule call_variants:\n"
-            "    input:\n"
-            "        data=(\n"
-            "            # a comment on the below\n"
-            '            "input_1.txt"\n'
-            "        ),\n"
-            "    threads:\n"
-            "        max(\n"
-            "            1,\n"
-            '            int(config["params"]["call_variants"]["threads"]) -\n'
-            '            int(config["params"]["call_variants"]["compress-threads"])\n'
-            "        )\n"
+            f"rule call_variants:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}data=(\n"
+            f"{TAB * 3}# a comment on the below\n"
+            f'{TAB * 3}"input_1.txt"\n'
+            f"{TAB * 2}),\n"
+            f"{TAB * 1}threads:\n"
+            f"{TAB * 2}max(\n"
+            f"{TAB * 3}1,\n"
+            f'{TAB * 3}int(config["params"]["call_variants"]["threads"])\n'
+            f'{TAB * 3}- int(config["params"]["call_variants"]["compress-threads"]),\n'
+            f"{TAB * 2})\n"
         )
-        formatter = setup_formatter(snakecode)
-        actual = formatter.get_formatted()
-        assert actual == setup_formatter(actual).get_formatted()
+        actual = setup_formatter(snakecode).get_formatted()
+        assert actual == snakecode
 
 
 class TestSimplePythonFormatting:
@@ -1197,7 +1218,7 @@ class TestNewlineSpacing:
             assert formatter.get_formatted() == replaced
 
     def test_repeated_parameter_keyword_comment_in_between_no_spacing(self):
-        snakecode = 'include: "a"\n# A comment\n # c2\ninclude: "b"\n'
+        snakecode = 'include: "a"\n# A comment\n' ' # c2\ninclude: "b"\n'
         expected = 'include: "a"\n# A comment\n# c2\ninclude: "b"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
