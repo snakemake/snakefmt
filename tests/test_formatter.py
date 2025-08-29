@@ -341,15 +341,25 @@ class TestComplexParamFormatting:
         actual = setup_formatter(snakecode).get_formatted()
         assert actual == expected
 
-    def test_param_inline_formatting(self):
-        """issue 208, 240 and 242"""
+    def test_param_comment_multiline(self):
+        """issue 208"""
         snakecode = (
             f"rule call_variants:\n"
             f"{TAB * 1}input:\n"
             f"{TAB * 2}data=(\n"
             f"{TAB * 3}# a comment on the below\n"
             f'{TAB * 3}"input_1.txt"\n'
+            f"{TAB * 3}if condition\n"
+            f'{TAB * 3}else "input_2.txt"\n'
             f"{TAB * 2}),\n"
+        )
+        actual = setup_formatter(snakecode).get_formatted()
+        assert actual == snakecode
+
+    def test_param_inline_formatting(self):
+        """issue 240 and 242"""
+        snakecode = (
+            f"rule call_variants:\n"
             f"{TAB * 1}threads:\n"
             f"{TAB * 2}max(\n"
             f"{TAB * 3}1,\n"
