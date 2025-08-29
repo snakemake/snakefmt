@@ -341,8 +341,36 @@ class TestComplexParamFormatting:
         actual = setup_formatter(snakecode).get_formatted()
         assert actual == expected
 
-    def test_param_comment_multiline(self):
+    def test_param_inline_formatting_long(self):
         """issue 208"""
+        snakecode = (
+            f"rule call_variants:\n"
+            f'{TAB * 1}output: "test"\n'
+            f"{TAB * 1}threads: lambda wildcards, input: get_number_of_COBS_threads"
+            "(wildcards, input, predefined_cobs_threads, streaming)\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}touch {{output}}\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            f"rule call_variants:\n"
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"test",\n'
+            f"{TAB * 1}threads:\n"
+            f"{TAB * 2}lambda wildcards, input: get_number_of_COBS_threads(\n"
+            f"{TAB * 3}wildcards, input, predefined_cobs_threads, streaming\n"
+            f"{TAB * 2})\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}touch {{output}}\n"
+            f'{TAB * 2}"""\n'
+        )
+        actual = setup_formatter(snakecode).get_formatted()
+        assert actual == expected
+
+    def test_param_comment_multiline(self):
+        """issue 240 and 242"""
         snakecode = (
             f"rule call_variants:\n"
             f"{TAB * 1}input:\n"
@@ -352,14 +380,6 @@ class TestComplexParamFormatting:
             f"{TAB * 3}if condition\n"
             f'{TAB * 3}else "input_2.txt"\n'
             f"{TAB * 2}),\n"
-        )
-        actual = setup_formatter(snakecode).get_formatted()
-        assert actual == snakecode
-
-    def test_param_inline_formatting(self):
-        """issue 240 and 242"""
-        snakecode = (
-            f"rule call_variants:\n"
             f"{TAB * 1}threads:\n"
             f"{TAB * 2}max(\n"
             f"{TAB * 3}1,\n"
