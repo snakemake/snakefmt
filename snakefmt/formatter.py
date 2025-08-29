@@ -230,11 +230,15 @@ class Formatter(Parser):
         if len(split_string) == 1:
             return textwrap.indent(split_string[0], used_indent)
         # First, masks all multi-line strings
+        mask_string = "`~!@#$%^&*|?"
+        while mask_string in string:
+            mask_string += mask_string
+        mask_string = f'"""{mask_string}"""'
         fakewrap = textwrap.indent(
-            "".join('"""\n"""' if i % 2 else s for i, s in enumerate(split_string)),
+            "".join(mask_string if i % 2 else s for i, s in enumerate(split_string)),
             used_indent,
         )
-        split_code = fakewrap.split(textwrap.indent('"""\n"""', used_indent).strip())
+        split_code = fakewrap.split(mask_string)
         # After indenting, we puts those strings back
         indented = "".join(
             s.replace("\t", TAB) if i % 2 else split_code[i // 2]
