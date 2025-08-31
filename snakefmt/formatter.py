@@ -331,7 +331,12 @@ class Formatter(Parser):
         result = f"{used_indent}{parameters.keyword_line}:"
         if inline_fmting:
             # here, check if the value is too large to put in one line
-            param = next(iter(parameters.all_params))
+            params_iter = iter(parameters.all_params)
+            try:
+                param = next(params_iter)
+            except StopIteration:
+                # No params; render just the keyword line and its comment.
+                return f"{result}{parameters.comment}\n"
             param_result = self.format_param(
                 param, target_indent, inline_fmting, param_list
             )
