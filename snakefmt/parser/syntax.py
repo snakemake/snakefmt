@@ -59,6 +59,56 @@ if fstring_tokeniser_in_use:
     }
 
 
+def split_code_string(string: str) -> list[str]:
+    """Splits a code string into individual lines, preserving leading whitespace.
+    >>> string = '''a = 1\nb = f\"\"\"\n{a}\n1\n2\n\"\"\"\nc=2'''
+    >>> split_code_string(string)
+    ['a = 1\nb = ', 'f\"\"\"\n{a}\n1\n2\n\"\"\"', '\nc=2']
+    """
+    lines = string.splitlines(keepends=True)
+    lineiter = iter(lines)
+    tokens = list(tokenize.generate_tokens(lambda: next(lineiter)))
+    string_areas = []
+    tokeniter = iter(tokens)
+    for token in tokeniter:
+        if token.type == tokenize.STRING:
+            if token.start[0] != token.end[0]:
+                string_areas.append((token.start, token.end))
+        if fstring_tokeniser_in_use and token.type == tokenize.FSTRING_START:
+            isin_fstring = 1
+            for t1 in tokeniter:
+                if t1.type == tokenize.FSTRING_START:
+                    isin_fstring += 1
+                elif t1.type == tokenize.FSTRING_END:
+                    isin_fstring -= 1
+                if isin_fstring == 0:
+                    break
+            if token.start[0] != t1.end[0]:
+                string_areas.append((token.start, t1.end))
+    code_str = [""]
+    last_area = (1, 0), (1, 0)
+    for area in string_areas:
+        code_str[-1] += _extract_line_mid(lines, last_area[-1], area[0])
+        code_str.append(_extract_line_mid(lines, area[0], area[1]))
+        code_str.append("")
+        last_area = area
+    code_str[-1] += _extract_line_mid(
+        lines, last_area[-1], (len(lines), len(lines[-1]))
+    )
+    return code_str
+
+
+def _extract_line_mid(
+    lines: list[str], start: tuple[int, int], end: tuple[int, int]
+) -> str:
+    s = "".join(lines[i] for i in range(start[0] - 1, end[0]))
+    t = s[start[1] :]
+    end_trim = end[1] - len(lines[end[0] - 1])
+    if end_trim != 0:
+        t = t[:end_trim]
+    return t
+
+
 def re_add_curly_bracket_if_needed(token: Token) -> str:
     result = ""
     if (
@@ -107,7 +157,9 @@ def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
         return False
 
 
-def add_token_space(prev_token: Token, token: Token, in_fstring: bool = False) -> bool:
+def add_token_space(
+    prev_token: Optional[Token], token: Token, in_fstring: bool = False
+) -> bool:
     result = False
     if prev_token is not None:
         if not operator_skip_spacing(prev_token, token):

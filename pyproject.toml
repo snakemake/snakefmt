@@ -17,8 +17,6 @@ snakefmt = 'snakefmt.snakefmt:main'
 python = "^3.11"
 click = "^8.0.0"
 black = "^24.3.0"
-toml = "^0.10.2"
-importlib_metadata = {version = ">=1.7.0,<5.0", python = "<3.8"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.4"

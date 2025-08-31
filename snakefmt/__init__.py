@@ -6,12 +6,9 @@ importlib fetches version from distribution metadata files
 (in dist-info or egg-info dirs).
 From Python 3.8, importlib_metadata is in standard library as importlib.metadata.
 """
-from black import TargetVersion
+from importlib import metadata
 
-if sys.version_info >= (3, 8):
-    from importlib import metadata
-else:
-    import importlib_metadata as metadata
+from black.mode import TargetVersion
 
 __version__ = metadata.version("snakefmt")
 
@@ -20,9 +17,7 @@ fstring_tokeniser_in_use = sys.version_info >= (3, 12)
 
 DEFAULT_LINE_LENGTH = 88
 DEFAULT_TARGET_VERSIONS = {
-    TargetVersion.PY38,
-    TargetVersion.PY39,
-    TargetVersion.PY310,
     TargetVersion.PY311,
     TargetVersion.PY312,
+    TargetVersion.PY313,
 }

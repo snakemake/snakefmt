@@ -5,7 +5,6 @@ errors arise, as tested in test_parser.py.
 """
 
 import textwrap
-from io import StringIO
 from unittest import mock
 
 import pytest
@@ -13,7 +12,7 @@ import pytest
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
-from tests import Formatter, Snakefile, setup_formatter
+from tests import setup_formatter
 
 
 def test_emptyInput_emptyOutput():
@@ -27,9 +26,8 @@ def test_emptyInput_emptyOutput():
 
 class TestSimpleParamFormatting:
     def test_simple_rule_one_input(self):
-        stream = StringIO("rule a:\n" f'{TAB * 1}input: "foo.txt"')
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
+        stream = "rule a:\n" f'{TAB * 1}input: "foo.txt"'
+        formatter = setup_formatter(stream)
 
         actual = formatter.get_formatted()
         expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
@@ -208,16 +206,13 @@ class TestComplexParamFormatting:
     """
 
     def test_expand_as_param(self):
-        stream = StringIO(
+        formatter = setup_formatter(
             "rule a:\n"
             f"{TAB * 1}input: \n"
             f"{TAB * 2}"
             'expand("{f}/{p}", f = [1, 2], p = ["1", "2"])\n'
             f'{TAB * 1}output:"foo.txt","bar.txt"\n'
         )
-
-        smk = Snakefile(stream)
-        formatter = Formatter(smk)
         actual = formatter.get_formatted()
 
         expected = (
@@ -264,7 +259,7 @@ class TestComplexParamFormatting:
         We need to ignore 'input:' as a recognised keyword and ',' inside brackets
         Ie, the lambda needs to be parsed as a parameter.
         """
-        snakefile = (
+        snakecode = (
             f"rule a:\n"
             f"{TAB * 1}input:\n"
             f'{TAB * 2}"foo.txt",\n'
@@ -273,10 +268,10 @@ class TestComplexParamFormatting:
             'obs=lambda w, input: ["{}={}".format(s, f) for s, f in zip(get(w), input.obs)],\n'  # noqa: E501  due to readability of test
             f"{TAB * 2}p2=2,\n"
         )
-        formatter = setup_formatter(snakefile)
+        formatter = setup_formatter(snakecode)
 
         actual = formatter.get_formatted()
-        expected = snakefile
+        expected = snakecode
         assert actual == expected
 
     def test_arg_and_kwarg_unpacking(self):
@@ -292,6 +287,107 @@ class TestComplexParamFormatting:
         )
         formatter = setup_formatter(snakecode)
         actual = formatter.get_formatted()
+        assert actual == snakecode
+
+    def test_arg_very_looong(self):
+        """issue 190"""
+        snakecode = (
+            "if 1:\n"
+            "\n"
+            " rule a:\n"
+            "  input:\n"
+            '   a="a",\n'
+            "  run:\n"
+            "   for i in range(3):\n"
+            "    a = list(\n"
+            '     "a",\n'
+            '     "' + ("a" * 68) + '",\n'
+            "    )\n"
+            "    b = list(\n"
+            "     ''.format(\n"
+            '      "' + ("b" * 117) + '",\n'
+            '      b="b"\n'
+            "     )\n"
+            "    )\n"
+            "\n"
+            " rule b:\n"
+            "  shell:\n"
+            '   "echo 1"\n'
+            "\n"
+        )
+        expected = (
+            f"if 1:\n"
+            f"\n"
+            f"{TAB * 1}rule a:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}a="a",\n'
+            f"{TAB * 2}run:\n"
+            f"{TAB * 3}for i in range(3):\n"
+            f"{TAB * 4}a = list(\n"
+            f'{TAB * 5}"a",\n'
+            f'{TAB * 5}"' + ("a" * 68) + '",\n'
+            f"{TAB * 4})\n"
+            f"{TAB * 4}b = list(\n"
+            f'{TAB * 5}"".format(\n'
+            f'{TAB * 6}"' + ("b" * 117) + '",\n'
+            f'{TAB * 6}b="b",\n'
+            f"{TAB * 5})\n"
+            f"{TAB * 4})\n"
+            f"\n"
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}shell:\n"
+            f'{TAB * 3}"echo 1"\n'
+        )
+        actual = setup_formatter(snakecode).get_formatted()
+        assert actual == expected
+
+    def test_param_inline_formatting_long(self):
+        """issue 208"""
+        snakecode = (
+            f"rule call_variants:\n"
+            f'{TAB * 1}output: "test"\n'
+            f"{TAB * 1}threads: lambda wildcards, input: get_number_of_COBS_threads"
+            "(wildcards, input, predefined_cobs_threads, streaming)\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}touch {{output}}\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            f"rule call_variants:\n"
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"test",\n'
+            f"{TAB * 1}threads:\n"
+            f"{TAB * 2}lambda wildcards, input: get_number_of_COBS_threads(\n"
+            f"{TAB * 3}wildcards, input, predefined_cobs_threads, streaming\n"
+            f"{TAB * 2})\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}touch {{output}}\n"
+            f'{TAB * 2}"""\n'
+        )
+        actual = setup_formatter(snakecode).get_formatted()
+        assert actual == expected
+
+    def test_param_comment_multiline(self):
+        """issue 240 and 242"""
+        snakecode = (
+            f"rule call_variants:\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}data=(\n"
+            f"{TAB * 3}# a comment on the below\n"
+            f'{TAB * 3}"input_1.txt"\n'
+            f"{TAB * 3}if condition\n"
+            f'{TAB * 3}else "input_2.txt"\n'
+            f"{TAB * 2}),\n"
+            f"{TAB * 1}threads:\n"
+            f"{TAB * 2}max(\n"
+            f"{TAB * 3}1,\n"
+            f'{TAB * 3}int(config["params"]["call_variants"]["threads"])\n'
+            f'{TAB * 3}- int(config["params"]["call_variants"]["compress-threads"]),\n'
+            f"{TAB * 2})\n"
+        )
+        actual = setup_formatter(snakecode).get_formatted()
         assert actual == snakecode
 
 
@@ -472,7 +568,7 @@ class TestComplexPythonFormatting:
         ) as mock_m:
             mock_m.return_value = "b=2\nif condition:\n"
             setup_formatter(snakecode)
-            assert mock_m.call_count == 2
+            assert mock_m.call_count == 3
 
         formatter = setup_formatter(snakecode)
         expected = "b = 2\n" "if condition:\n\n" f'{TAB * 1}include: "a"\n'
@@ -1152,7 +1248,7 @@ class TestNewlineSpacing:
             assert formatter.get_formatted() == replaced
 
     def test_repeated_parameter_keyword_comment_in_between_no_spacing(self):
-        snakecode = 'include: "a"\n# A comment\n # c2\ninclude: "b"\n'
+        snakecode = 'include: "a"\n# A comment\n' ' # c2\ninclude: "b"\n'
         expected = 'include: "a"\n# A comment\n# c2\ninclude: "b"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 

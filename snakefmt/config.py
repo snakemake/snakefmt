@@ -2,13 +2,13 @@
 Code for searching for and parsing snakefmt configuration files
 """
 
+import tomllib
 from dataclasses import fields
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Sequence, Tuple, Union
 
 import click
-import toml
 from black import Mode
 
 from snakefmt import DEFAULT_LINE_LENGTH, DEFAULT_TARGET_VERSIONS
@@ -79,11 +79,12 @@ def read_snakefmt_config(path: Optional[str]) -> Dict[str, str]:
     if path is None:
         return dict()
     try:
-        config_toml = toml.load(path)
+        with open(path, "rb") as f:
+            config_toml = tomllib.load(f)
         config = config_toml.get("tool", {}).get("snakefmt", {})
         config = {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
         return config
-    except (toml.TomlDecodeError, OSError) as error:
+    except (tomllib.TOMLDecodeError, OSError) as error:
         raise click.FileError(
             filename=path, hint=f"Error reading configuration file: {error}"
         )
@@ -118,9 +119,10 @@ def read_black_config(path: Optional[PathLike]) -> Mode:
         raise FileNotFoundError(f"{path} is not a file.")
 
     try:
-        pyproject_toml = toml.load(path)
+        with open(path, "rb") as f:
+            pyproject_toml = tomllib.load(f)
         config = pyproject_toml.get("tool", {}).get("black", {})
-    except toml.TomlDecodeError as error:
+    except tomllib.TOMLDecodeError as error:
         raise MalformattedToml(error)
 
     valid_black_filemode_params = sorted([field.name for field in fields(Mode)])
