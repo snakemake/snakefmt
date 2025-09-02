@@ -37,7 +37,7 @@ check-fmt:
 # TEST ########################################################################
 .PHONY: test
 test:
-	uv run pytest tests/
+	uv run pytest tests/ $(ARGS)
 
 .PHONY: coverage
 coverage:
