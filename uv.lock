@@ -965,7 +965,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "black", specifier = ">=24.3.0,<25" },
-    { name = "click", specifier = ">=8.0.0,<9" },
+    { name = "click", specifier = ">=8.2.0,<9" },
 ]
 
 [package.metadata.requires-dev]
