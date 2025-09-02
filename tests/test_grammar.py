@@ -1,6 +1,6 @@
 """
 Completeness tests: checks that the grammar used is a bijection of the snakemake grammar
-    To use the latest snakemake grammar, run `poetry update snakemake` from this repo
+    To use the latest snakemake grammar, run `uv update snakemake` from this repo
 """
 
 from snakemake import parser

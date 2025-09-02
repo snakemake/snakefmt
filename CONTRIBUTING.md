@@ -9,7 +9,7 @@ and there are no `flake8` warnings in accordance with [`.flake8`][flake8].
 
 ### Recommended development workflow
 
-Firstly, fork this repository. If you are using `poetry` most of the standard workflow
+Firstly, fork this repository. If you are using `uv` most of the standard workflow
 options are handled with rules in the `Makefile`. An example of how to install the
 project and run some common routines is below.
 
@@ -17,7 +17,7 @@ project and run some common routines is below.
 # clone your fork locally
 git clone https://github.com/<username>/snakefmt.git
 cd snakefmt
-# create and install a poetry environment - https://python-poetry.org
+# create and install a uv environment - https://docs.astral.sh/uv/
 make install
 # format all files
 make fmt

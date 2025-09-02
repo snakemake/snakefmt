@@ -84,16 +84,16 @@ $ singularity exec "docker://quay.io/biocontainers/snakefmt:<tag>" snakefmt --he
 
 ### Local
 
-These instructions include [installing `poetry`](https://python-poetry.org/docs/#installation).
+These instructions include [installing `uv`](https://docs.astral.sh/uv/getting-started/installation/).
 ```sh
-# install poetry
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3
+# install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 git clone https://github.com/snakemake/snakefmt && cd snakefmt
 # install snakefmt in a new environment
-poetry install
-# activate the environment so snakefmt is available on your PATH
-poetry shell
+make install
+# you can now run snakefmt with
+uv run snakefmt --help
 ```
 
 ## Example File
@@ -403,7 +403,6 @@ See [CONTRIBUTING.md][contributing].
 [black]: https://black.readthedocs.io/en/stable/
 [black-config]: https://github.com/psf/black#pyprojecttoml
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
-[poetry]: https://python-poetry.org
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md
 [doi-shield]: https://img.shields.io/badge/DOI-10.12688%2Ff1000research.29032.2-brightgreen.svg
