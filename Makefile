@@ -23,7 +23,7 @@ install-ci:
 .PHONY: fmt
 fmt:
 	uv run isort .
-	uv run black . --exclude venv
+	uv run black .
 
 .PHONY: lint
 lint:
