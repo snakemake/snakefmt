@@ -43,6 +43,11 @@ design and specifications of [Black][black].
 
 ### PyPi
 
+
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snakefmt)
+![PyPI - Version](https://img.shields.io/pypi/v/snakefmt)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/snakefmt)
+
 ```sh
 pip install snakefmt
 ```
@@ -51,6 +56,7 @@ pip install snakefmt
 
 [![Conda (channel only)](https://img.shields.io/conda/vn/bioconda/snakefmt)](https://anaconda.org/bioconda/snakefmt)
 [![bioconda version](https://anaconda.org/bioconda/snakefmt/badges/platforms.svg)](https://anaconda.org/bioconda/snakefmt)
+![Conda Downloads](https://img.shields.io/conda/dn/bioconda/snakefmt)
 
 ```sh
 conda install -c bioconda snakefmt
