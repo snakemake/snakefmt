@@ -24,8 +24,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install and configure Poetry
-        uses: snok/install-poetry@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
         if: ${{ steps.release.outputs.release_created }}
