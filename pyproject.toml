@@ -21,7 +21,7 @@ keywords = [
     "black",
 ]
 dependencies = [
-    "click>=8.0.0,<9",
+    "click>=8.2.0,<9",
     "black>=24.3.0,<25",
 ]
 
