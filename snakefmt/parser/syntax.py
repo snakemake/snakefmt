@@ -139,7 +139,19 @@ def fstring_processing(
     return result
 
 
-def operator_skip_spacing(prev_token: Token, token: Token) -> bool:
+def operator_skip_spacing(
+    prev_token: Token, token: Token, in_fstring: bool = False
+) -> bool:
+    # Check for f-string conversion specifiers: ! followed by r, s, or a
+    if (
+        in_fstring
+        and prev_token.type == tokenize.OP
+        and prev_token.string == "!"
+        and token.type == tokenize.NAME
+        and token.string in {"r", "s", "a"}
+    ):
+        return True
+
     if prev_token.type != tokenize.OP and token.type != tokenize.OP:
         return False
     if (
@@ -162,7 +174,7 @@ def add_token_space(
 ) -> bool:
     result = False
     if prev_token is not None:
-        if not operator_skip_spacing(prev_token, token):
+        if not operator_skip_spacing(prev_token, token, in_fstring):
             if not in_fstring:
                 if token.type in spacing_triggers.get(prev_token.type, {}):
                     result = True
