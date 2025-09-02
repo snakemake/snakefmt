@@ -499,6 +499,21 @@ class TestSimplePythonFormatting:
         actual = formatter.get_formatted()
         assert actual == snakecode
 
+    def test_fstring_repr_shorthand(self):
+        """Issue 262. Make sure no spacing added between !r"""
+        snakecode = (
+            'if config.get("treefix_root", "").startswith(ROOT_FLAG):\n'
+            f"{TAB*1}print(\n"
+            f"{TAB*2}f\"Removing the flag {{ROOT_FLAT!r}} from config['treefix_root'] ; \"\n"  # noqa: E501
+            f'{TAB*2}f"consider updating the config param in the config file.",\n'
+            f"{TAB*2}file=sys.stderr,\n"
+            f"{TAB*1})\n"
+        )
+        formatter = setup_formatter(snakecode)
+
+        actual = formatter.get_formatted()
+        assert actual == snakecode
+
 
 class TestComplexPythonFormatting:
     """

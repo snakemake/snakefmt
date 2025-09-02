@@ -27,7 +27,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	uv run flake8 . --exclude venv
+	uv run flake8 . --extend-exclude .venv
 
 .PHONY: check-fmt
 check-fmt:
