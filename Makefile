@@ -1,7 +1,7 @@
 PROJECT = snakefmt
 COVG_REPORT = htmlcov/index.html
 OS := $(shell uname -s)
-VERSION := $(shell poetry version -s)
+VERSION := $(shell uv version --short)
 BOLD := $(shell tput bold)
 NORMAL := $(shell tput sgr0)
 # MAIN #########################################################################
@@ -12,36 +12,36 @@ all: install
 # DEPENDENCIES #################################################################
 .PHONY: install
 install:
-	poetry install
+	uv sync
 
 .PHONY: install-ci
 install-ci:
-	poetry install --no-interaction
-	poetry run snakefmt --version
+	uv sync --frozen
+	uv run snakefmt --version
 
 # TIDY #################################################################
 .PHONY: fmt
 fmt:
-	poetry run isort .
-	poetry run black . --exclude venv
+	uv run isort .
+	uv run black . --exclude venv
 
 .PHONY: lint
 lint:
-	poetry run flake8 . --exclude venv
+	uv run flake8 . --exclude venv
 
 .PHONY: check-fmt
 check-fmt:
-	poetry run isort --check-only .
-	poetry run black --check .
+	uv run isort --check-only .
+	uv run black --check .
 
 # TEST ########################################################################
 .PHONY: test
 test:
-	poetry run pytest tests/
+	uv run pytest tests/
 
 .PHONY: coverage
 coverage:
-	poetry run pytest --cov-report term --cov-report html --cov=$(PROJECT) --cov-branch tests/
+	uv run pytest --cov-report term --cov-report html --cov=$(PROJECT) --cov-branch tests/
 ifeq ($(OS), Linux)
 	xdg-open $(COVG_REPORT)
 else ifeq ($(OS), Darwin)
@@ -58,7 +58,7 @@ precommit: fmt lint test
 # BUILD ########################################################################
 .PHONY: build
 build:
-	poetry build
+	uv build
 
 # TAG ########################################################################
 # prints out the commands to run to tag the release and push it
