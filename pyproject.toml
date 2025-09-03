@@ -4,7 +4,7 @@ version = "0.11.1"
 description = "The uncompromising Snakemake code formatter"
 authors = [
     { name = "Michael Hall", email = "mhaldini@icloud.com" },
-    { name = "Brice Letcher", email = "bletcher@ebi.ac.uk" },
+    { name = "Brice Letcher", email = "brice.letcher@ens-lyon.fr" },
 ]
 requires-python = ">=3.11,<4"
 readme = "README.md"
