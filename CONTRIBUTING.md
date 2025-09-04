@@ -32,6 +32,9 @@ make precommit
 You should be all set to go now!
 
 
+You can also upgrade depenencies in the lockfile with `uv lock -U`.
+
+
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [flake8]: https://github.com/snakemake/snakefmt/blob/master/.flake8
 
