@@ -50,6 +50,7 @@ rule_properties = dict(
     default_target=Context(None, InlineSingleParam),
     retries=Context(None, InlineSingleParam),
     localrule=Context(None, InlineSingleParam),
+    pathvars=Context(None, ParamList),
 )
 
 
@@ -79,6 +80,7 @@ class SnakeModule(Vocabulary):
         prefix=Context(None, SingleParam),
         replace_prefix=Context(None, SingleParam),
         name=Context(None, InlineSingleParam),
+        pathvars=Context(None, ParamList),
     )
 
 
@@ -110,4 +112,5 @@ class SnakeGlobal(Vocabulary):
         resource_scopes=Context(None, KeywordSyntax),
         conda=Context(None, InlineSingleParam),
         storage=Context(None, ParamList),
+        pathvars=Context(None, ParamList),
     )
