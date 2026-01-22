@@ -1,6 +1,6 @@
 [project]
 name = "snakefmt"
-version = "0.11.2"
+version = "0.11.3"
 description = "The uncompromising Snakemake code formatter"
 authors = [
     { name = "Michael Hall", email = "mhaldini@icloud.com" },
