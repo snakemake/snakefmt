@@ -109,7 +109,7 @@ class SnakeGlobal(Vocabulary):
         outputflags=Context(None, NoKeyParamList),
         module=Context(SnakeModule, KeywordSyntax),
         use=Context(SnakeUseRule, KeywordSyntax),
-        resource_scopes=Context(None, KeywordSyntax),
+        resource_scopes=Context(None, ParamList),
         conda=Context(None, InlineSingleParam),
         storage=Context(None, ParamList),
         pathvars=Context(None, ParamList),
