@@ -1621,3 +1621,17 @@ class TestStorage:
         formatter = setup_formatter(code)
 
         assert formatter.get_formatted() == code
+
+
+class TestRunBlockFormatting:
+    def test_issue_267_comment_indentation_in_run_block(self):
+        """https://github.com/snakemake/snakefmt/issues/267"""
+        snakecode = (
+            "rule fmt_bug_repro:\n"
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}if "something nested":\n'
+            f"{TAB * 3}pass\n"
+            f"{TAB * 2}# Comment gets indented\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
