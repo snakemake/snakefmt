@@ -929,6 +929,44 @@ rule a:
 '''
         assert formatter.get_formatted() == expected
 
+    def test_shell_mixed_string_types(self):
+        """https://github.com/snakemake/snakefmt/issues/129"""
+        snakecode = (
+            "rule:\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}("conditional prefix" if True else "") +\n'
+            f'{TAB * 2}"""\\\n'
+            f"{TAB * 2}cmd\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}(\n"
+            f'{TAB * 3}("conditional prefix" if True else "")\n'
+            f'{TAB * 3}+ """\\\n'
+            f"{TAB * 2}cmd\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2})\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_shell_interspersed_comments(self):
+        """https://github.com/snakemake/snakefmt/issues/193"""
+        snakecode = (
+            "rule:\n"
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}# Concatenate all the files together\n"
+            f'{TAB * 2}"cat {{input:q}} 2> {{log.cat:q}} | "\n'
+            f"{TAB * 2}# Coordinate sort everything\n"
+            f'{TAB * 2}+"sortBed 2> {{log.sort:q}} | "\n'
+            f"{TAB * 2}# Merge overlapping coordinates into individual expanded records\n"  # noqa: E501
+            f'{TAB * 2}+"mergeBed 2> {{log.merge:q}} 1> {{output:q}}"\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_tpq_inside_run_block(self):
         snakecode = '''rule cutadapt:
     input:
@@ -1583,3 +1621,17 @@ class TestStorage:
         formatter = setup_formatter(code)
 
         assert formatter.get_formatted() == code
+
+
+class TestRunBlockFormatting:
+    def test_issue_267_comment_indentation_in_run_block(self):
+        """https://github.com/snakemake/snakefmt/issues/267"""
+        snakecode = (
+            "rule fmt_bug_repro:\n"
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}if "something nested":\n'
+            f"{TAB * 3}pass\n"
+            f"{TAB * 2}# Comment gets indented\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode

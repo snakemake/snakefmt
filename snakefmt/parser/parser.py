@@ -310,7 +310,9 @@ class Parser(ABC):
                 if token.type == tokenize.COMMENT:
                     # Because comment indent level is not knowable from indent/dedent
                     # tokens, just use its input whitespace level.
-                    buffer += " " * col_nb(token)
+                    # We subtract the block indent, as it is added back by the formatter
+                    indent = max(0, col_nb(token) - (self.block_indent * len(TAB)))
+                    buffer += " " * indent
                 else:
                     buffer += TAB * self.effective_indent
 
