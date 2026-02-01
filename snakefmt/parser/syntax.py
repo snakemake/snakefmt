@@ -501,7 +501,10 @@ class ParameterSyntax(Syntax):
 
         # Eager treatment of comments: tag them onto params
         if token_type == tokenize.COMMENT and not self.in_brackets:
-            cur_param.add_comment(self.token.string, self.keyword_indent)
+            if cur_param.inline or cur_param.fully_processed:
+                cur_param.add_comment(self.token.string, self.keyword_indent)
+            else:
+                cur_param.add_elem(prev_token, self.token)
             return cur_param
         if is_newline(self.token):  # Special treatment for inline comments
             if not cur_param.is_empty():

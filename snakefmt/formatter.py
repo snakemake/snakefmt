@@ -284,9 +284,16 @@ class Formatter(Parser):
         else:
             docstring_has_extra_newline_after = False
 
-        val = self.run_black_format_str(
-            val, target_indent, extra_spacing, no_nesting=True
-        )
+        try:
+            val = self.run_black_format_str(
+                val, target_indent, extra_spacing, no_nesting=True
+            )
+        except InvalidPython:
+            # Fallback for cases like https://github.com/snakemake/snakefmt/issues/129
+            val = f"({val})"
+            val = self.run_black_format_str(
+                val, target_indent, extra_spacing, no_nesting=True
+            )
 
         # remove newline added after first docstring (black>=24.1)
         if docstring_line_index is not None and not docstring_has_extra_newline_after:
