@@ -194,18 +194,24 @@ class Formatter(Parser):
                 self.snakefile.denext(next_token)
             except StopIteration:
                 next_token = None
-            token_for_line_num = (
-                next_token if next_token is not None else self.last_token
-            )
-            if match and token_for_line_num is not None:
+            if match and next_token is not None:
                 # this is the line number within the piece of code that was passed to
                 # black, not necessarily the line number within the Snakefile
                 line_num = int(match.group("line"))
-                context_line_num = token_for_line_num.start[0] - len(
-                    string.splitlines()
-                )
+                context_line_num = next_token.start[0] - len(string.splitlines())
                 total_line_num = context_line_num + line_num - 1
                 err_msg = match.group(1) + str(total_line_num) + match.group(3)
+            elif match and self.last_token is not None:
+                # Fallback when next_token is None (e.g. at EOF)
+                line_num = int(match.group("line"))
+                # Adjustment: last_token is at the end of the block, so we add 1
+                context_line_num = self.last_token.start[0] - len(string.splitlines()) + 1
+                total_line_num = context_line_num + line_num - 1
+                err_msg = match.group(1) + str(total_line_num) + match.group(3)
+                err_msg += (
+                    "\n\n(Note reported line number may be an approximation as "
+                    "snakefmt reached the end of the file)"
+                )
             else:
                 err_msg = str(e) + (
                     "\n\n(Note reported line number may be incorrect, as"
