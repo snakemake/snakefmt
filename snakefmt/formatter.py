@@ -209,7 +209,9 @@ class Formatter(Parser):
                 # Fallback when next_token is None (e.g. at EOF)
                 line_num = int(match.group("line"))
                 # Adjustment: last_token is at the end of the block, so we add 1
-                context_line_num = self.last_token.start[0] - len(string.splitlines()) + 1
+                context_line_num = (
+                    self.last_token.start[0] - len(string.splitlines()) + 1
+                )
                 total_line_num = context_line_num + line_num - 1
                 err_msg = match.group(1) + str(total_line_num) + match.group(3)
                 err_msg += (
