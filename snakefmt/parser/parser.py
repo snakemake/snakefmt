@@ -87,6 +87,7 @@ class Parser(ABC):
         self.block_indent = 0
         self.queriable = True
         self.in_fstring = False
+        self.last_token: Optional[Token] = None
 
         status = self.get_next_queriable(self.snakefile)
         self.buffer = status.buffer
@@ -226,9 +227,13 @@ class Parser(ABC):
                 self.context = saved_context
 
             self.queriable = True
+            self.block_indent = self.syntax.keyword_indent + 1
             status = self.get_next_queriable(self.snakefile)
             # lstrip forces the formatter deal with newlines
-            self.buffer += status.buffer.lstrip()
+            if self.context.syntax.accepts_python_code:
+                self.buffer += status.buffer.lstrip("\n\r")
+            else:
+                self.buffer += status.buffer.lstrip()
             return status
 
         elif issubclass(new_context.syntax, ParameterSyntax):
@@ -279,17 +284,20 @@ class Parser(ABC):
         prev_token: Optional[Token] = Token(tokenize.NAME)
         while True:
             token = next(snakefile)
+            self.last_token = token
             self.in_fstring = fstring_processing(token, prev_token, self.in_fstring)
             if block_indent == -1 and not_a_comment_related_token(token):
                 block_indent = self.cur_indent
             if token.type == tokenize.INDENT:
                 self.syntax.cur_indent += 1
                 prev_token = None
+                newline = True
                 continue
             elif token.type == tokenize.DEDENT:
                 if self.cur_indent > 0:
                     self.syntax.cur_indent -= 1
                 prev_token = None
+                newline = True
                 continue
             elif token.type == tokenize.ENDMARKER:
                 return Status(

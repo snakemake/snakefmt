@@ -1635,3 +1635,28 @@ class TestRunBlockFormatting:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+    def test_double_block_comment(self):
+        """https://github.com/snakemake/snakefmt/issues/196"""
+        snakecode = (
+            "rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# one comment\n"
+            f"{TAB * 2}# second comment\n"
+            f"{TAB * 2}distances_chains = []\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_double_block_comment_mid_run(self):
+        """https://github.com/snakemake/snakefmt/issues/196"""
+        snakecode = (
+            "rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}x = 1\n"
+            f"{TAB * 2}# one comment\n"
+            f"{TAB * 2}# second comment\n"
+            f"{TAB * 2}y = 2\n"
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode

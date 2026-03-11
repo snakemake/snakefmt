@@ -165,14 +165,8 @@ class Formatter(Parser):
         inside an artificial 'if' statement. Setting `no_nesting` to True means the code
         will always be formatted with two line skips.
         """
-        if target_indent > 0 and comment_start(string):
-            lines = string.splitlines()
-            if len(lines) > 1:
-                lines[1] = textwrap.dedent(lines[1])
-                string = "\n".join(lines)
-
         artificial_nest = (
-            self.from_python
+            (self.from_python or self.syntax.accepts_python_code)
             and target_indent > 0
             and not is_all_comments(string)
             and len(string.strip().splitlines()) > 1
@@ -200,11 +194,16 @@ class Formatter(Parser):
                 self.snakefile.denext(next_token)
             except StopIteration:
                 next_token = None
-            if match and next_token is not None:
+            token_for_line_num = (
+                next_token if next_token is not None else self.last_token
+            )
+            if match and token_for_line_num is not None:
                 # this is the line number within the piece of code that was passed to
                 # black, not necessarily the line number within the Snakefile
                 line_num = int(match.group("line"))
-                context_line_num = next_token.start[0] - len(string.splitlines())
+                context_line_num = token_for_line_num.start[0] - len(
+                    string.splitlines()
+                )
                 total_line_num = context_line_num + line_num - 1
                 err_msg = match.group(1) + str(total_line_num) + match.group(3)
             else:
