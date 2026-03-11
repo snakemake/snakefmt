@@ -10,10 +10,10 @@
 This repository provides formatting for [Snakemake][snakemake] files. It follows the
 design and specifications of [Black][black].
 
-> **⚠️WARNING⚠️**: `snakefmt` modifies files in-place by default, thus we strongly
+> [!WARNING]
+> `snakefmt` modifies files in-place by default, thus we strongly
 > recommend ensuring your files are under version control before doing any formatting.
-> You
-> can also pipe the file in from stdin, which will print it to the screen, or use the
+> You can also pipe the file in from stdin, which will print it to the screen, or use the
 > `--diff` or `--check` options. See [Usage](#usage) for more details.
 
 [TOC]: #
