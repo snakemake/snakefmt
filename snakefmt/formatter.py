@@ -74,6 +74,10 @@ class Formatter(Parser):
     def get_formatted(self) -> str:
         return self.result
 
+    @property
+    def current_line_nb(self) -> int:
+        return self.result.count("\n") + 1
+
     def flush_buffer(
         self,
         from_python: bool = False,
@@ -333,6 +337,7 @@ class Formatter(Parser):
         return result
 
     def format_params(self, parameters: ParameterSyntax) -> str:
+        keyword_line_nb = self.current_line_nb
         target_indent = parameters.keyword_indent
         used_indent = TAB * (target_indent - 1)
 
@@ -360,7 +365,8 @@ class Formatter(Parser):
             for comment in param.pre_comments:
                 prepended_comments += f"{used_indent}{comment}\n"
             if prepended_comments != "":
-                Warnings.comment_relocation(parameters.keyword_name, param.line_nb)
+                keyword_line_nb += prepended_comments.count("\n")
+                Warnings.comment_relocation(parameters.keyword_name, keyword_line_nb)
             result = f"{prepended_comments}{result} {param_result}"
         else:
             result = f"{result}{parameters.comment}\n"
@@ -370,7 +376,7 @@ class Formatter(Parser):
                 )
         num_c = len(param.post_comments)
         if num_c > 1 or (not param._has_inline_comment and num_c == 1):
-            Warnings.block_comment_below(parameters.keyword_name, param.line_nb)
+            Warnings.block_comment_below(parameters.keyword_name, keyword_line_nb)
         return result
 
     def add_newlines(
