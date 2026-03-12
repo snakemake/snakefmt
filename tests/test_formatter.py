@@ -767,6 +767,44 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_multiple_if_statements_with_snakecode(self):
+        """https://github.com/snakemake/snakefmt/issues/239"""
+        snakecode = (
+            "if condition:\n"
+            f'{TAB * 1}include: "my_rule.smk"\n'
+            "else:\n"
+            f'{TAB * 1}raise Exception("Condition not given")\n\n'
+            "if other_condition:\n\n"
+            f"{TAB * 1}rule other_rule:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"somefile",\n'
+        )
+        expected = (
+            "if condition:\n\n"
+            f'{TAB * 1}include: "my_rule.smk"\n\n'
+            "else:\n"
+            f'{TAB * 1}raise Exception("Condition not given")\n\n'
+            "if other_condition:\n\n"
+            f"{TAB * 1}rule other_rule:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"somefile",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_elif_with_snakecode(self):
+        """https://github.com/snakemake/snakefmt/issues/239"""
+        snakecode = (
+            "if condition_1:\n\n"
+            f'{TAB * 1}include: "rule_1.smk"\n\n'
+            "elif condition_2:\n\n"
+            f"{TAB * 1}pass\n\n"
+            "else:\n\n"
+            f'{TAB * 1}raise Exception("Invalid conditions")\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
 
 class TestStringFormatting:
     """Naming: tpq = triple quoted string"""
