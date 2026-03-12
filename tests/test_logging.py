@@ -43,6 +43,7 @@ class TestLogging:
 
         warnings = [rec.message for rec in caplog.records]
 
+        expected_prefix = 'Keyword "input" at line 7'
         assert any(
-            "at line 7" in w for w in warnings
-        ), f"Warning should report line 7, but got: {warnings}"
+            w.startswith(expected_prefix) for w in warnings
+        ), f"Expected warning starting with '{expected_prefix}', but got: {warnings}"
