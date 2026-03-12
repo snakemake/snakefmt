@@ -28,7 +28,7 @@ docstring_matcher = re.compile(
     r"\s*([rR]?[\"']{3}.*?[\"']{3})", re.DOTALL | re.MULTILINE
 )
 contextual_matcher = re.compile(
-    r"(.*)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
+    r"(.*?)^(if|elif|else|with|for|while)([^:]*)(:.*)", re.S | re.M
 )
 after_if_keywords = ("elif", "else")
 
