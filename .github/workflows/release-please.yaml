@@ -16,16 +16,16 @@ jobs:
           release-type: python
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ steps.release.outputs.release_created }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         if: ${{ steps.release.outputs.release_created }}
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
         if: ${{ steps.release.outputs.release_created }}
@@ -37,7 +37,7 @@ jobs:
 
       - name: Publish to PyPI
         if: ${{ steps.release.outputs.release_created }}
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user:     __token__
           password: ${{ secrets.PYPI_TOKEN }}
