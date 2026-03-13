@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.11.5](https://github.com/snakemake/snakefmt/compare/v0.11.4...v0.11.5) (2026-03-13)
+
+
+### Bug Fixes
+
+* correctly format multiple if/elif blocks with Snakemake keywords [closes [#239](https://github.com/snakemake/snakefmt/issues/239)] ([a3ecda2](https://github.com/snakemake/snakefmt/commit/a3ecda291e3551905696a2be9427bf31bbe541c6))
+* correctly format run blocks with multiple comments [closes [#196](https://github.com/snakemake/snakefmt/issues/196)] ([f6a0387](https://github.com/snakemake/snakefmt/commit/f6a0387e56343e93504bdcd60f52aeba07495958))
+* report warning line numbers based on formatted output [closes [#241](https://github.com/snakemake/snakefmt/issues/241)]. ([b249a95](https://github.com/snakemake/snakefmt/commit/b249a959ecda1b74b3cf4b5199cee4b017045dde))
+
 ## [0.11.4](https://github.com/snakemake/snakefmt/compare/v0.11.3...v0.11.4) (2026-02-09)
 
 
