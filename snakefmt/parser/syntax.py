@@ -342,7 +342,7 @@ class KeywordSyntax(Syntax):
         keyword_name: str,
         keyword_indent: int,
         snakefile: Optional[TokenIterator] = None,
-        incident_syntax: Optional[KeywordSyntax] = None,
+        incident_syntax: "Optional[KeywordSyntax]" = None,
         from_python: bool = False,
         accepts_py: bool = False,
     ):
