@@ -2,11 +2,11 @@
 Code in charge of parsing and validating Snakemake syntax
 """
 
-from collections import OrderedDict
 import tokenize
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from re import match as re_match
-from typing import Optional, NamedTuple, Type
+from typing import NamedTuple, Optional, Type
 
 from snakefmt import fstring_tokeniser_in_use
 from snakefmt.exceptions import (

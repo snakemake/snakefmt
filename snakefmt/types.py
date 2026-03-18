@@ -1,5 +1,5 @@
-from typing import Iterator
 from tokenize import TokenInfo
+from typing import Iterator
 
 TAB = "    "  # PEP8, indentation will be coded as 4 spaces
 COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
