@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import NamedTuple, Optional
 
 from snakefmt.exceptions import UnsupportedSyntax
-from snakefmt.parser.grammar import Context, PythonCode, SnakeGlobal
+from snakefmt.parser.grammar import PythonCode, SnakeGlobal
 from snakefmt.parser.syntax import (
     KeywordSyntax,
     ParameterSyntax,
@@ -16,17 +16,17 @@ from snakefmt.parser.syntax import (
 from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
 
-def not_a_comment_related_token(token):
-    return not (
-        token.type == tokenize.COMMENT
-        or token.type == tokenize.NEWLINE
-        or token.type == tokenize.NL
-        or token.type == tokenize.INDENT
-        or token.type == tokenize.DEDENT
-    )
+def not_a_comment_related_token(token: Token):
+    return token.type not in {
+        tokenize.COMMENT,
+        tokenize.NEWLINE,
+        tokenize.NL,
+        tokenize.INDENT,
+        tokenize.DEDENT,
+    }
 
 
-class Snakefile:
+class Snakefile(TokenIterator):
     """
     Adapted from snakemake.parser.Snakefile
     """
@@ -43,10 +43,9 @@ class Snakefile:
         self.lines = 0
 
     def __next__(self) -> Token:
-        if len(self._buffered_tokens) == 0:
-            return next(self._live_tokens)
-        else:
+        if self._buffered_tokens:
             return self._buffered_tokens.pop()
+        return next(self._live_tokens)
 
     def denext(self, token: Token) -> None:
         self._buffered_tokens.append(token)
@@ -67,6 +66,16 @@ class Status(NamedTuple):
     pythonable: bool
 
 
+class Context(NamedTuple):
+    """
+    Ties together a vocabulary and a syntax.
+    When a keyword from `vocab` is recognised, a new context is induced
+    """
+
+    vocab: Vocabulary
+    syntax: KeywordSyntax
+
+
 class Parser(ABC):
     """
     The parser alternates between parsing blocks of python code (`pycode`) and
@@ -75,12 +84,12 @@ class Parser(ABC):
     and the alternation in `:self.last_block_was_snakecode`.
     """
 
-    def __init__(self, snakefile: TokenIterator):
+    def __init__(self, snakefile: Snakefile):
         self.context = Context(
             SnakeGlobal(), KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
         )
         self.context_stack = [self.context]
-        self.snakefile: TokenIterator = snakefile
+        self.snakefile = snakefile
         self.from_python: bool = False
         self.last_recognised_keyword: str = ""
         self.last_block_was_snakecode = False
@@ -89,15 +98,17 @@ class Parser(ABC):
         self.in_fstring = False
         self.last_token: Optional[Token] = None
 
-        status = self.get_next_queriable(self.snakefile)
+        status = self.get_next_queriable()
         self.buffer = status.buffer
 
         # Parse the full snakemake file
         while True:
             if status.cur_indent < self.keyword_indent:
                 self.context_exit(status)
+                self.post_process_keyword()
 
             if status.eof:
+                self.post_process_keyword()
                 break
 
             keyword = status.token.string
@@ -126,7 +137,7 @@ class Parser(ABC):
                     )
                 else:
                     self.buffer += f"{keyword}"
-                    status = self.get_next_queriable(self.snakefile)
+                    status = self.get_next_queriable()
                     if self.last_block_was_snakecode and not status.eof:
                         self.block_indent = status.block_indent
                         self.last_block_was_snakecode = False
@@ -195,6 +206,10 @@ class Parser(ABC):
     ):
         """Initialises parsing a keyword parameter, eg a 'input:'"""
 
+    @abstractmethod
+    def post_process_keyword(self) -> None:
+        """Sort params when exiting a keyword context, eg after finishing parsing a 'rule:'"""
+
     def process_keyword(self, status: Status, from_python: bool = False) -> Status:
         """Called when a snakemake keyword has been found.
 
@@ -203,21 +218,20 @@ class Parser(ABC):
             - keyword parameter: accepts parameter value, eg 'input'
         """
         keyword = status.token.string
-        new_context = self.vocab.get(keyword)
-        accepts_py = new_context.vocab is PythonCode
-        if issubclass(new_context.syntax, KeywordSyntax):
+        new_vocab, new_syntax = self.vocab.get(keyword)
+        if new_vocab is not None and issubclass(new_syntax, KeywordSyntax):
             in_global_context = self.in_global_context
             saved_context = self.context
             # 'use' keyword can not enter a new context
             self.context = Context(
-                new_context.vocab(),
-                new_context.syntax(
+                new_vocab(),
+                new_syntax(
                     keyword,
                     self.syntax.cur_indent + 1,
                     snakefile=self.snakefile,
                     incident_syntax=self.syntax,
                     from_python=from_python,
-                    accepts_py=accepts_py,
+                    accepts_py=new_vocab is PythonCode,
                 ),
             )
             self.process_keyword_context(in_global_context)
@@ -228,16 +242,16 @@ class Parser(ABC):
 
             self.queriable = True
             self.block_indent = self.syntax.keyword_indent + 1
-            status = self.get_next_queriable(self.snakefile)
+            status = self.get_next_queriable()
             # lstrip forces the formatter deal with newlines
-            if self.context.syntax.accepts_python_code:
+            if self.context.syntax.accepts_python_code:  # type: ignore
                 self.buffer += status.buffer.lstrip("\n\r")
             else:
                 self.buffer += status.buffer.lstrip()
             return status
 
-        elif issubclass(new_context.syntax, ParameterSyntax):
-            param_context = new_context.syntax(
+        elif issubclass(new_syntax, ParameterSyntax):
+            param_context = new_syntax(
                 keyword, self.syntax.cur_indent + 1, self.vocab, self.snakefile
             )
             self.process_keyword_param(param_context, self.in_global_context)
@@ -270,7 +284,7 @@ class Parser(ABC):
         if self.keyword_indent > 0:
             self.syntax.keyword_indent = status.cur_indent + 1
 
-    def get_next_queriable(self, snakefile: TokenIterator) -> Status:
+    def get_next_queriable(self) -> Status:
         """Produces the next word that could be a snakemake keyword,
         and additional information in a :Status:
 
@@ -281,9 +295,9 @@ class Parser(ABC):
         newline = False
         pythonable = False
         block_indent = -1
-        prev_token: Optional[Token] = Token(tokenize.NAME)
+        prev_token: Optional[Token] = Token(tokenize.NAME, "", (-1, -1), (-1, -1), "")
         while True:
-            token = next(snakefile)
+            token = next(self.snakefile)
             self.last_token = token
             self.in_fstring = fstring_processing(token, prev_token, self.in_fstring)
             if block_indent == -1 and not_a_comment_related_token(token):

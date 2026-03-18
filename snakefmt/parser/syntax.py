@@ -2,10 +2,11 @@
 Code in charge of parsing and validating Snakemake syntax
 """
 
+from collections import OrderedDict
 import tokenize
 from abc import ABC, abstractmethod
 from re import match as re_match
-from typing import Optional
+from typing import Optional, NamedTuple, Type
 
 from snakefmt import fstring_tokeniser_in_use
 from snakefmt.exceptions import (
@@ -270,18 +271,29 @@ class Parameter:
         self.value = ""
 
 
+class Context(NamedTuple):
+    vocab: Optional[Type[Vocabulary]]
+    syntax: Type[Syntax]
+
+
 class Vocabulary:
     """
     Responsible for recognising snakemake keywords
     """
 
-    spec = dict()
+    spec: dict[str, Context] = dict()
 
     def recognises(self, keyword: str) -> bool:
         return keyword in self.spec
 
     def get(self, keyword: str):
         return self.spec[keyword]
+
+    @classmethod
+    def ordered(cls):
+        if isinstance(cls.spec, OrderedDict):
+            return list(cls.spec)
+        return []
 
 
 class Syntax(ABC):

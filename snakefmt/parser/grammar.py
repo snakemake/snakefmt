@@ -1,24 +1,14 @@
-from typing import NamedTuple, Optional, Type, Union
+from collections import OrderedDict
 
 from snakefmt.parser.syntax import (
+    Context,
     InlineSingleParam,
     KeywordSyntax,
     NoKeyParamList,
     ParamList,
     SingleParam,
-    Syntax,
     Vocabulary,
 )
-
-
-class Context(NamedTuple):
-    """
-    Ties together a vocabulary and a syntax.
-    When a keyword from `vocab` is recognised, a new context is induced
-    """
-
-    vocab: Optional[Union[Type[Vocabulary], Vocabulary]]
-    syntax: Union[Type[Syntax], Syntax]
 
 
 class PythonCode(Vocabulary):
@@ -26,7 +16,7 @@ class PythonCode(Vocabulary):
 
 
 # In common between 'use rule' and 'rule'
-rule_properties = dict(
+rule_properties = OrderedDict(
     name=Context(None, SingleParam),
     input=Context(None, ParamList),
     output=Context(None, ParamList),
@@ -59,7 +49,8 @@ class SnakeUseRule(Vocabulary):
 
 
 class SnakeRule(Vocabulary):
-    spec = dict(
+    spec = OrderedDict(
+        **rule_properties,
         run=Context(PythonCode, KeywordSyntax),
         shell=Context(None, SingleParam),
         script=Context(None, SingleParam),
@@ -67,12 +58,11 @@ class SnakeRule(Vocabulary):
         wrapper=Context(None, SingleParam),
         cwl=Context(None, SingleParam),
         template_engine=Context(None, SingleParam),
-        **rule_properties,
     )
 
 
 class SnakeModule(Vocabulary):
-    spec = dict(
+    spec = OrderedDict(
         snakefile=Context(None, SingleParam),
         config=Context(None, SingleParam),
         skip_validation=Context(None, SingleParam),
