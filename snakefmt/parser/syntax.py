@@ -287,9 +287,8 @@ class Vocabulary:
 
     @classmethod
     def ordered(cls):
-        if isinstance(cls.spec, OrderedDict):
-            return list(cls.spec)
-        return []
+        assert isinstance(cls.spec, OrderedDict)
+        return list(cls.spec)
 
 
 class Syntax(ABC):
