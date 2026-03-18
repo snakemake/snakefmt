@@ -253,7 +253,11 @@ class Parser(ABC):
 
         elif issubclass(new_syntax, ParameterSyntax):
             param_context = new_syntax(
-                keyword, self.syntax.cur_indent + 1, self.vocab, self.snakefile
+                keyword,
+                self.syntax.cur_indent + 1,
+                self.vocab,
+                self.snakefile,
+                allow_with=self.syntax.keyword_name == "use",
             )
             self.process_keyword_param(param_context, self.in_global_context)
             self.syntax.add_processed_keyword(status.token, status.token.string)

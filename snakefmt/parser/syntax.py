@@ -131,13 +131,12 @@ def fstring_processing(
     Returns True if we are entering, or have already entered and not exited,
     an f-string.
     """
-    result = False
-    if fstring_tokeniser_in_use:
-        if prev_token is not None and prev_token.type == tokenize.FSTRING_START:
-            result = True
-        elif token.type != tokenize.FSTRING_END and in_fstring:
-            result = True
-    return result
+    if fstring_tokeniser_in_use and prev_token is not None:
+        if prev_token.type == tokenize.FSTRING_START:
+            return True
+        elif in_fstring and token.type != tokenize.FSTRING_END:
+            return True
+    return False
 
 
 def operator_skip_spacing(
@@ -247,7 +246,9 @@ class Parameter:
     def has_value(self) -> bool:
         return len(self.value) > 0
 
-    def add_elem(self, prev_token: Token, token: Token, in_fstring: bool = False):
+    def add_elem(
+        self, prev_token: Optional[Token], token: Token, in_fstring: bool = False
+    ):
         if add_token_space(prev_token, token, in_fstring) and len(self.value) > 0:
             self.value += " "
 
@@ -298,7 +299,10 @@ class Syntax(ABC):
     """
 
     def __init__(
-        self, keyword_name: str, keyword_indent: int, snakefile: TokenIterator = None
+        self,
+        keyword_name: str,
+        keyword_indent: int,
+        snakefile: Optional[TokenIterator] = None,
     ):
         self.keyword_name = keyword_name
         self.keyword_line = keyword_name
@@ -310,6 +314,7 @@ class Syntax(ABC):
 
         if snakefile is not None:
             self.validate_keyword_line(snakefile)
+            assert self.token is not None
             if self.token.type == tokenize.COMMENT:
                 self.comment = f"{COMMENT_SPACING}{self.token.string}"
                 self.token = next(snakefile)
@@ -320,6 +325,7 @@ class Syntax(ABC):
 
     @property
     def line_nb(self):
+        assert self.token is not None
         return f"L{line_nb(self.token)}: "
 
 
@@ -335,8 +341,8 @@ class KeywordSyntax(Syntax):
         self,
         keyword_name: str,
         keyword_indent: int,
-        snakefile: TokenIterator = None,
-        incident_syntax: "KeywordSyntax" = None,
+        snakefile: Optional[TokenIterator] = None,
+        incident_syntax: Optional[KeywordSyntax] = None,
         from_python: bool = False,
         accepts_py: bool = False,
     ):
@@ -348,7 +354,7 @@ class KeywordSyntax(Syntax):
 
         if incident_syntax is not None:
             if self.token.type != tokenize.NEWLINE:
-                NewlineError(line_nb, self.keyword_line)
+                NewlineError(self.line_nb, self.keyword_line)
             if not from_python:
                 incident_syntax.add_processed_keyword(self.token, self.keyword_line)
 
@@ -391,7 +397,7 @@ class KeywordSyntax(Syntax):
         match = re_match(use_syntax_regexp, self.keyword_line)
         if match is None:
             SyntaxFormError(self.line_nb, self.keyword_line, use_ebnf_syntax)
-        if match.groups()[0] is None:
+        elif match.groups()[0] is None:
             self.enter_context = False
         else:
             # Gets added at formatting
@@ -426,7 +432,9 @@ class ParameterSyntax(Syntax):
         keyword_indent: int,
         incident_vocab: Vocabulary,
         snakefile: TokenIterator,
+        allow_with: bool = False,
     ):
+        self.allow_with = allow_with
         super().__init__(keyword_name, keyword_indent, snakefile)
         self.positional_params, self.keyword_params = list(), list()
         self.eof = False
@@ -458,7 +466,34 @@ class ParameterSyntax(Syntax):
 
     def validate_anonymous_keyword_line(self, snakefile: TokenIterator):
         if not is_colon(self.token):
-            ColonError(self.line_nb, self.token.string, self.keyword_line)
+            # Support 'keyword with:' syntax only when use with.
+            if self.token.type == tokenize.NAME and self.token.string == "with":
+                if not self.allow_with:
+                    from snakefmt.parser.grammar import rule_properties
+
+                    allowed_keywords = [
+                        k
+                        for k, v in rule_properties.items()
+                        if issubclass(v.syntax, ParamList)
+                    ]
+                    if self.keyword_name in allowed_keywords:
+                        raise InvalidParameterSyntax(
+                            f"{self.line_nb}Syntax 'keyword with:' not allowed for "
+                            f"'{self.keyword_name}' "
+                            f"(only for {'/'.join(allowed_keywords)}"
+                            " in 'use rule ... with:')"
+                        )
+                    raise SyntaxFormError(
+                        self.line_nb,
+                        self.keyword_line,
+                        f"{self.keyword_name} with: <params>",
+                    )
+                self.keyword_line += " with"
+                self.token = next(snakefile)
+                if not is_colon(self.token):
+                    ColonError(self.line_nb, self.token.string, self.keyword_line)
+            else:
+                ColonError(self.line_nb, self.token.string, self.keyword_line)
         self.token = next(snakefile)
 
     @property
@@ -503,7 +538,9 @@ class ParameterSyntax(Syntax):
                 self.flush_param(cur_param, skip_empty=True)
         return exit
 
-    def process_token(self, cur_param: Parameter, prev_token: Token) -> Parameter:
+    def process_token(
+        self, cur_param: Parameter, prev_token: Optional[Token]
+    ) -> Parameter:
         token_type = self.token.type
         # f-string treatment (since python 3.12)
         self.in_fstring = fstring_processing(self.token, prev_token, self.in_fstring)
@@ -573,6 +610,7 @@ class ParameterSyntax(Syntax):
 # ___Parameter Syntax Validators___#
 class SingleParam(ParameterSyntax):
     def __init__(self, *args, **kwargs):
+        kwargs["allow_with"] = False
         super().__init__(*args, **kwargs)
 
         if self.num_params() > 1:

@@ -180,9 +180,9 @@ class Formatter(Parser):
         for keyword in self.keyword_spec:
             res = self.keywords.pop(keyword, "")
             self.previous_result += res
-        for keyword, res in self.keywords.items():
-            self.previous_result += res
-        self.keywords.clear()
+        assert not self.keywords, "Some keywords were not flushed: " + (
+            ", ".join(self.keywords)
+        )
         self.result = self.previous_result + self.result
         self.previous_result = ""
 

@@ -1758,3 +1758,13 @@ class TestSortFormatting:
             '    print("error")\n'
         )
         assert formatter.get_formatted() == expected
+
+    def test_use_parameter_with(self):
+        snakecode = (
+            "use rule a as a1 with:\n"
+            f"{TAB * 1}input with:\n"
+            f'{TAB * 2}a="a.txt",\n'
+            f'{TAB * 2}b="b.txt",\n'
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        assert formatter.get_formatted() == snakecode
