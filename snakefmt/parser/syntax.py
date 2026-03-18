@@ -291,11 +291,6 @@ class Vocabulary:
         return []
 
 
-class Context(NamedTuple):
-    vocab: Optional[Type[Vocabulary]]
-    syntax: Type[Syntax]
-
-
 class Syntax(ABC):
     """
     Responsible for reading and processing tokens
@@ -326,6 +321,11 @@ class Syntax(ABC):
     @property
     def line_nb(self):
         return f"L{line_nb(self.token)}: "
+
+
+class Context(NamedTuple):
+    vocab: Optional[Type[Vocabulary]]
+    syntax: Type[Syntax]
 
 
 class KeywordSyntax(Syntax):

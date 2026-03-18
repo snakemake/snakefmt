@@ -116,7 +116,8 @@ class Formatter(Parser):
                     f"{re_match.group(1)}{test_substitute}" f"{re_match.group(4)}pass"
                 )
                 formatted = self.run_black_format_str(to_format, self.block_indent)
-                assert (re_rematch := contextual_matcher.match(formatted)) is not None
+                re_rematch = contextual_matcher.match(formatted)
+                assert re_rematch is not None
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
                 formatted = (

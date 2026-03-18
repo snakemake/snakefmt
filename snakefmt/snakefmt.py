@@ -86,7 +86,7 @@ def get_snakefiles_in_dir(
     metavar="INT",
 )
 @click.option(
-    "-s", "--sort-params", is_flag=True, help=f"Sort parameters in rules and modules."
+    "-s", "--sort-params", is_flag=True, help="Sort parameters in rules and modules."
 )
 @click.option(
     "--check",
