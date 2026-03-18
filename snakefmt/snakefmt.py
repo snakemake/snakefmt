@@ -86,7 +86,11 @@ def get_snakefiles_in_dir(
     metavar="INT",
 )
 @click.option(
-    "-s", "--sort-params", is_flag=True, help="Sort parameters in rules and modules."
+    "--sort/--no-sort",
+    "-s/-S",
+    "sort_directives",
+    default=True,
+    help="Sort parameters in rules and modules.",
 )
 @click.option(
     "--check",
@@ -168,7 +172,7 @@ def get_snakefiles_in_dir(
 def main(
     ctx: click.Context,
     line_length: int,
-    sort_params: bool,
+    sort_directives: bool,
     check: bool,
     diff: bool,
     compact_diff: bool,
@@ -250,7 +254,7 @@ def main(
             formatter = Formatter(
                 snakefile,
                 line_length=line_length,
-                sort_params=sort_params,
+                sort_directives=sort_directives,
                 black_config_file=config,
             )
             formatted_content = formatter.get_formatted()

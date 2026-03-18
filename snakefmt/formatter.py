@@ -58,13 +58,13 @@ class Formatter(Parser):
         self,
         snakefile: Snakefile,
         line_length: Optional[int] = None,
-        sort_params: bool = False,
+        sort_directives: bool = False,
         black_config_file: Optional[PathLike] = None,
     ):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
-        self.sort_params = sort_params
+        self.sort_directives = sort_directives
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
@@ -166,11 +166,11 @@ class Formatter(Parser):
             in_global_context=in_global_context,
             context=param_context,
         )
-        res = self.format_params(param_context)
-        if self.sort_params and not in_global_context and self.keyword_spec:
-            self.keywords[param_context.keyword_name] = res
+        param_formatted = self.format_params(param_context)
+        if self.sort_directives and not in_global_context and self.keyword_spec:
+            self.keywords[param_context.keyword_name] = param_formatted
         else:
-            self.result += res
+            self.result += param_formatted
         self.last_recognised_keyword = param_context.keyword_name
 
     def post_process_keyword(self):
@@ -180,9 +180,11 @@ class Formatter(Parser):
         for keyword in self.keyword_spec:
             res = self.keywords.pop(keyword, "")
             self.previous_result += res
-        assert not self.keywords, "Some keywords were not flushed: " + (
-            ", ".join(self.keywords)
-        )
+        if self.keywords:
+            raise InvalidParameterSyntax(
+                "Unexpected keywords when sorted keywords: "
+                + (", ".join(self.keywords))
+            )
         self.result = self.previous_result + self.result
         self.previous_result = ""
 

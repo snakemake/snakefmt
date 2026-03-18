@@ -18,6 +18,6 @@ def setup_formatter(
     return Formatter(
         smk,
         line_length=line_length,
-        sort_params=sort_params,
+        sort_directives=sort_params,
         black_config_file=black_config_file,
     )

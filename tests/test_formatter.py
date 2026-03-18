@@ -1704,67 +1704,95 @@ class TestSortFormatting:
     def test_sorting_of_params(self):
         snakecode = (
             "rule a:\n"
-            ' input: "a", "fsdfdsdfd", "ccc"\n'
-            ' output: "b",\n'
-            " # annots\n"
-            " threads: 1\n"
-            " run:\n"
-            '            print("hello world")\n'
+            f'{TAB * 1}input: "a", "fsdfdsdfd", "ccc"\n'
+            f'{TAB * 1}output: "b",\n'
+            f"{TAB * 1}# annots\n"
+            f"{TAB * 1}threads: 1\n"
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}print("hello world")\n'
             "if 2:\n"
-            "    rule b:\n"
-            '        output: "b",\n'
-            '        input: "a", "fsdfdsdfd", "ccc"\n'
-            "        threads:\n"
-            "            1\n"
-            '        shell: "?"\n'
-            "    module a:\n"
-            "        config:\n"
-            '            "{a=1}"\n'
-            '        snakefile: "Snakefile"\n'
+            f"{TAB * 1}rule b:\n"
+            f'{TAB * 2}output: "b",\n'
+            f'{TAB * 2}input: "a", "fsdfdsdfd", "ccc"\n'
+            f"{TAB * 2}threads:\n"
+            f"{TAB * 3}1\n"
+            f'{TAB * 2}shell: "?"\n'
+            f"{TAB * 1}module a:\n"
+            f"{TAB * 2}config:\n"
+            f'{TAB * 3}"{{a=1}}"\n'
+            f'{TAB * 2}snakefile: "Snakefile"\n'
             "onerror:\n"
-            '    print("error")\n'
+            f'{TAB * 1}print("error")\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
         expected = (
             "rule a:\n"
-            "    # annots\n"
-            "    input:\n"
-            '        "a",\n'
-            '        "fsdfdsdfd",\n'
-            '        "ccc",\n'
-            "    output:\n"
-            '        "b",\n'
-            "    threads: 1\n"
-            "    run:\n"
-            '        print("hello world")\n\n\n'
+            f"{TAB * 1}# annots\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"a",\n'
+            f'{TAB * 2}"fsdfdsdfd",\n'
+            f'{TAB * 2}"ccc",\n'
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"b",\n'
+            f"{TAB * 1}threads: 1\n"
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}print("hello world")\n\n\n'
             "if 2:\n"
             "\n"
-            "    rule b:\n"
-            "        input:\n"
-            '            "a",\n'
-            '            "fsdfdsdfd",\n'
-            '            "ccc",\n'
-            "        output:\n"
-            '            "b",\n'
-            "        threads: 1\n"
-            "        shell:\n"
-            '            "?"\n\n'
-            "    module a:\n"
-            "        snakefile:\n"
-            '            "Snakefile"\n'
-            "        config:\n"
-            '            "{a=1}"\n\n\n'
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"a",\n'
+            f'{TAB * 3}"fsdfdsdfd",\n'
+            f'{TAB * 3}"ccc",\n'
+            f"{TAB * 2}output:\n"
+            f'{TAB * 3}"b",\n'
+            f"{TAB * 2}threads: 1\n"
+            f"{TAB * 2}shell:\n"
+            f'{TAB * 3}"?"\n\n'
+            f"{TAB * 1}module a:\n"
+            f"{TAB * 2}snakefile:\n"
+            f'{TAB * 3}"Snakefile"\n'
+            f"{TAB * 2}config:\n"
+            f'{TAB * 3}"{{a=1}}"\n\n\n'
             "onerror:\n"
             '    print("error")\n'
         )
         assert formatter.get_formatted() == expected
 
+
+class TestUseParameterWith:
     def test_use_parameter_with(self):
         snakecode = (
             "use rule a as a1 with:\n"
             f"{TAB * 1}input with:\n"
             f'{TAB * 2}a="a.txt",\n'
             f'{TAB * 2}b="b.txt",\n'
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        assert formatter.get_formatted() == snakecode
+
+    def test_use_parameters_with(self):
+        snakecode = (
+            "use rule a as a1 with:\n"
+            f"{TAB * 1}input with:\n"
+            f'{TAB * 2}a="a.txt",\n'
+            f'{TAB * 2}b="b.txt",\n'
+            f"{TAB * 1}output with:\n"
+            f'{TAB * 2}c="c.txt",\n'
+            f"{TAB * 1}params with:\n"
+            f'{TAB * 2}d="d.txt",\n'
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        assert formatter.get_formatted() == snakecode
+        snakecode += (
+            f"{TAB * 1}resources with:\n"
+            f'{TAB * 2}memory="5g",\n'
+            f"{TAB * 1}log with:\n"
+            f'{TAB * 2}f="f.txt",\n'
+            f"{TAB * 1}wildcard_constraints with:\n"
+            f'{TAB * 2}g="g|h",\n'
+            f"{TAB * 1}pathvars with:\n"
+            f'{TAB * 2}i="i",\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
         assert formatter.get_formatted() == snakecode
