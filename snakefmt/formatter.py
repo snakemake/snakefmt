@@ -149,7 +149,8 @@ class Formatter(Parser):
             formatted += ":"
         formatted += f"{self.syntax.comment}\n"
         if self.syntax.accepts_python_code:
-            # cache to enable sorted context to insert, this always a `run:`, must at the end
+            # cache to enable sorted context to insert,
+            # this always a `run:`, must at the end
             self.previous_result = self.result
             self.result = ""
         else:  # not a PythonCode context, collect keywords to sort

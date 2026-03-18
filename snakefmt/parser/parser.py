@@ -208,7 +208,8 @@ class Parser(ABC):
 
     @abstractmethod
     def post_process_keyword(self) -> None:
-        """Sort params when exiting a keyword context, eg after finishing parsing a 'rule:'"""
+        """Sort params when exiting a keyword context,
+        eg after finishing parsing a 'rule:'"""
 
     def process_keyword(self, status: Status, from_python: bool = False) -> Status:
         """Called when a snakemake keyword has been found.
