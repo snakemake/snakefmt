@@ -6,7 +6,7 @@ import tokenize
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from re import match as re_match
-from typing import NamedTuple, Optional, Type
+from typing import ClassVar, NamedTuple, Optional, Type
 
 from snakefmt import fstring_tokeniser_in_use
 from snakefmt.exceptions import (
@@ -277,7 +277,7 @@ class Vocabulary:
     Responsible for recognising snakemake keywords
     """
 
-    spec: "dict[str, Context]" = dict()
+    spec: ClassVar["dict[str, Context]"] = {}
 
     def recognises(self, keyword: str) -> bool:
         return keyword in self.spec

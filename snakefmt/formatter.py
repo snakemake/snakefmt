@@ -167,7 +167,7 @@ class Formatter(Parser):
             context=param_context,
         )
         res = self.format_params(param_context)
-        if self.sort_params:
+        if self.sort_params and not in_global_context and self.keyword_spec:
             self.keywords[param_context.keyword_name] = res
         else:
             self.result += res
