@@ -1698,3 +1698,63 @@ class TestRunBlockFormatting:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+
+class TestSortFormatting:
+    def test_sorting_of_params(self):
+        snakecode = (
+            "rule a:\n"
+            ' input: "a", "fsdfdsdfd", "ccc"\n'
+            ' output: "b",\n'
+            " # annots\n"
+            " threads: 1\n"
+            " run:\n"
+            '            print("hello world")\n'
+            "if 2:\n"
+            "    rule b:\n"
+            '        output: "b",\n'
+            '        input: "a", "fsdfdsdfd", "ccc"\n'
+            "        threads:\n"
+            "            1\n"
+            '        shell: "?"\n'
+            "    module a:\n"
+            "        config:\n"
+            '            "{a=1}"\n'
+            '        snakefile: "Snakefile"\n'
+            "onerror:\n"
+            '    print("error")\n'
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "rule a:\n"
+            "    # annots\n"
+            "    input:\n"
+            '        "a",\n'
+            '        "fsdfdsdfd",\n'
+            '        "ccc",\n'
+            "    output:\n"
+            '        "b",\n'
+            "    threads: 1\n"
+            "    run:\n"
+            '        print("hello world")\n\n\n'
+            "if 2:\n"
+            "\n"
+            "    rule b:\n"
+            "        input:\n"
+            '            "a",\n'
+            '            "fsdfdsdfd",\n'
+            '            "ccc",\n'
+            "        output:\n"
+            '            "b",\n'
+            "        threads: 1\n"
+            "        shell:\n"
+            '            "?"\n\n'
+            "    module a:\n"
+            "        snakefile:\n"
+            '            "Snakefile"\n'
+            "        config:\n"
+            '            "{a=1}"\n\n\n'
+            "onerror:\n"
+            '    print("error")\n'
+        )
+        assert formatter.get_formatted() == expected

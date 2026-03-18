@@ -271,17 +271,12 @@ class Parameter:
         self.value = ""
 
 
-class Context(NamedTuple):
-    vocab: Optional[Type[Vocabulary]]
-    syntax: Type[Syntax]
-
-
 class Vocabulary:
     """
     Responsible for recognising snakemake keywords
     """
 
-    spec: dict[str, Context] = dict()
+    spec: "dict[str, Context]" = dict()
 
     def recognises(self, keyword: str) -> bool:
         return keyword in self.spec
@@ -294,6 +289,11 @@ class Vocabulary:
         if isinstance(cls.spec, OrderedDict):
             return list(cls.spec)
         return []
+
+
+class Context(NamedTuple):
+    vocab: Optional[Type[Vocabulary]]
+    syntax: Type[Syntax]
 
 
 class Syntax(ABC):
