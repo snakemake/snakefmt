@@ -1704,10 +1704,10 @@ class TestSortFormatting:
     def test_sorting_of_params(self):
         snakecode = (
             "rule a:\n"
-            f'{TAB * 1}input: "a", "fsdfdsdfd", "ccc"\n'
-            f'{TAB * 1}output: "b",\n'
             f"{TAB * 1}# annots\n"
             f"{TAB * 1}threads: 1\n"
+            f'{TAB * 1}log: "b",\n'
+            f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
             f"{TAB * 1}run:\n"
             f'{TAB * 2}print("hello world")\n'
             "if 2:\n"
@@ -1727,14 +1727,14 @@ class TestSortFormatting:
         formatter = setup_formatter(snakecode, sort_params=True)
         expected = (
             "rule a:\n"
-            f"{TAB * 1}# annots\n"
-            f"{TAB * 1}input:\n"
+            f"{TAB * 1}output:\n"
             f'{TAB * 2}"a",\n'
             f'{TAB * 2}"fsdfdsdfd",\n'
             f'{TAB * 2}"ccc",\n'
-            f"{TAB * 1}output:\n"
-            f'{TAB * 2}"b",\n'
+            f"{TAB * 1}# annots\n"
             f"{TAB * 1}threads: 1\n"
+            f"{TAB * 1}log:\n"
+            f'{TAB * 2}"b",\n'
             f"{TAB * 1}run:\n"
             f'{TAB * 2}print("hello world")\n\n\n'
             "if 2:\n"
@@ -1768,7 +1768,7 @@ class TestUseParameterWith:
             f'{TAB * 2}a="a.txt",\n'
             f'{TAB * 2}b="b.txt",\n'
         )
-        formatter = setup_formatter(snakecode, sort_params=True)
+        formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
     def test_use_parameters_with(self):
@@ -1782,7 +1782,7 @@ class TestUseParameterWith:
             f"{TAB * 1}params with:\n"
             f'{TAB * 2}d="d.txt",\n'
         )
-        formatter = setup_formatter(snakecode, sort_params=True)
+        formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
         snakecode += (
             f"{TAB * 1}resources with:\n"
@@ -1794,5 +1794,5 @@ class TestUseParameterWith:
             f"{TAB * 1}pathvars with:\n"
             f'{TAB * 2}i="i",\n'
         )
-        formatter = setup_formatter(snakecode, sort_params=True)
+        formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode

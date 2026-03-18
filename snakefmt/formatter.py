@@ -81,7 +81,8 @@ class Formatter(Parser):
 
     @property
     def current_line_nb(self) -> int:
-        return self.result.count("\n") + 1
+        """Report the line number of the rule defination"""
+        return (self.previous_result + self.result).count("\n")
 
     def flush_buffer(
         self,
@@ -148,15 +149,16 @@ class Formatter(Parser):
         if self.syntax.enter_context:
             formatted += ":"
         formatted += f"{self.syntax.comment}\n"
-        if self.syntax.accepts_python_code:
-            # cache to enable sorted context to insert,
-            # this always a `run:`, must at the end
-            self.previous_result = self.result
-            self.result = ""
-        else:  # not a PythonCode context, collect keywords to sort
-            self.keyword_spec = self.vocab.ordered()
-        self.result += formatted
         self.last_recognised_keyword = self.syntax.keyword_name
+        # cache to enable sorted context to insert,
+        # this always a `run:`, must at the end
+        if self.syntax.accepts_python_code:
+            self.previous_result += self.result
+            self.result = formatted
+        else:  # not a PythonCode context, collect keywords to sort
+            self.previous_result += self.result + formatted
+            self.result = ""
+            self.keyword_spec = self.vocab.ordered()
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
@@ -168,7 +170,8 @@ class Formatter(Parser):
         )
         param_formatted = self.format_params(param_context)
         if self.sort_directives and not in_global_context and self.keyword_spec:
-            self.keywords[param_context.keyword_name] = param_formatted
+            self.keywords[param_context.keyword_name] = self.result + param_formatted
+            self.result = ""
         else:
             self.result += param_formatted
         self.last_recognised_keyword = param_context.keyword_name
