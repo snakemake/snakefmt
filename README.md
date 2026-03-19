@@ -29,6 +29,7 @@ design and specifications of [Black][black].
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
 - [Configuration](#configuration)
+  - [Directive Sorting](#directive-sorting)
 - [Integration](#integration)
     - [Editor Integration](#editor-integration)
     - [Version Control Integration](#version-control-integration)
@@ -216,7 +217,7 @@ Usage: snakefmt [OPTIONS] [SRC]...
 Options:
   -l, --line-length INT       Lines longer than INT will be wrapped. [default:
                               88]
-  -s, --sort / -S, --no-sort  Sort parameters in rules and modules.  [default:
+  -s, --sort / -S, --no-sort  Sort directives in rules and modules.  [default:
                               sort]
   --check                     Don't write the files back, just return the
                               status. Return code 0 means nothing would

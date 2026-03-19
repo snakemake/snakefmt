@@ -90,7 +90,7 @@ def get_snakefiles_in_dir(
     "-s/-S",
     "sort_directives",
     default=True,
-    help="Sort parameters in rules and modules.",
+    help="Sort directives in rules and modules.",
     show_default=True,
 )
 @click.option(
