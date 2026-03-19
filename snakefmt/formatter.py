@@ -120,7 +120,8 @@ class Formatter(Parser):
                 re_rematch = contextual_matcher.match(formatted)
                 if re_rematch is None:
                     raise ValueError(
-                        f"contextual_matcher failed to match for the given formatted string: {formatted}"
+                        "contextual_matcher failed to match for the given "
+                        f"formatted string: {formatted}"
                     )
                 if condition != "":
                     callback_keyword += re_rematch.group(3)

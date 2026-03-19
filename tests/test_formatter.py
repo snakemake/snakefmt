@@ -1725,7 +1725,6 @@ class TestSortFormatting:
             f'{TAB * 1}print("error")\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
-        # New ordering: input > output > log > benchmark > cache > message > ... > threads > resources > params > shell/run
         expected = (
             "rule a:\n"
             f"{TAB * 1}output:\n"
