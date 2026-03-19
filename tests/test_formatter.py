@@ -1725,16 +1725,17 @@ class TestSortFormatting:
             f'{TAB * 1}print("error")\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
+        # New ordering: input > output > log > benchmark > cache > message > ... > threads > resources > params > shell/run
         expected = (
             "rule a:\n"
             f"{TAB * 1}output:\n"
             f'{TAB * 2}"a",\n'
             f'{TAB * 2}"fsdfdsdfd",\n'
             f'{TAB * 2}"ccc",\n'
-            f"{TAB * 1}# annots\n"
-            f"{TAB * 1}threads: 1\n"
             f"{TAB * 1}log:\n"
             f'{TAB * 2}"b",\n'
+            f"{TAB * 1}# annots\n"
+            f"{TAB * 1}threads: 1\n"
             f"{TAB * 1}run:\n"
             f'{TAB * 2}print("hello world")\n\n\n'
             "if 2:\n"
@@ -1759,6 +1760,95 @@ class TestSortFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    def test_sorting_comprehensive(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB}shell: 'echo done'\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}resources: mem_mb=100\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}conda: 'env.yaml'\n"
+            f"{TAB}message: 'finishing'\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "rule all:\n"
+            f"{TAB}name:\n"
+            f'{TAB*2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}log:\n"
+            f'{TAB*2}"log.txt",\n'
+            f"{TAB}message:\n"
+            f'{TAB*2}"finishing"\n'
+            f"{TAB}conda:\n"
+            f'{TAB*2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f'{TAB*2}mem_mb=100,\n'
+            f"{TAB}params:\n"
+            f'{TAB*2}p=1,\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo done"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_sorting_with_comments_preservation(self):
+        snakecode = (
+            "rule complex:\n"
+            f"{TAB}# Action comment\n"
+            f"{TAB}shell: 'do something'\n"
+            f"{TAB}# Resource comment\n"
+            f"{TAB}resources: res=1\n"
+            f"{TAB}# Input comment\n"
+            f"{TAB}input: 'i'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        # Comments stay with their keywords
+        expected = (
+            "rule complex:\n"
+            f"{TAB}# Input comment\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"i",\n'
+            f"{TAB}# Resource comment\n"
+            f"{TAB}resources:\n"
+            f'{TAB*2}res=1,\n'
+            f"{TAB}# Action comment\n"
+            f"{TAB}shell:\n"
+            f'{TAB*2}"do something"\n'
+        )
+        actual = formatter.get_formatted()
+        assert actual == expected
+
+
+    def test_sorting_with_inline_parameter_comments(self):
+        snakecode = (
+            "rule inline_comments:\n"
+            f"{TAB}shell: 'echo'\n"
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,  # parameter comment\n"
+            f"{TAB}input: 'i'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "rule inline_comments:\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"i",\n'
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,  # parameter comment\n"
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo"\n'
+        )
+        actual = formatter.get_formatted()
+        assert actual == expected
 
 class TestUseParameterWith:
     def test_use_parameter_with(self):
