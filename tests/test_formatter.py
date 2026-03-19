@@ -1793,9 +1793,9 @@ class TestSortFormatting:
             f'{TAB*2}"env.yaml"\n'
             f"{TAB}threads: 4\n"
             f"{TAB}resources:\n"
-            f'{TAB*2}mem_mb=100,\n'
+            f"{TAB*2}mem_mb=100,\n"
             f"{TAB}params:\n"
-            f'{TAB*2}p=1,\n'
+            f"{TAB*2}p=1,\n"
             f"{TAB}shell:\n"
             f'{TAB*2}"echo done"\n'
         )
@@ -1820,14 +1820,13 @@ class TestSortFormatting:
             f'{TAB*2}"i",\n'
             f"{TAB}# Resource comment\n"
             f"{TAB}resources:\n"
-            f'{TAB*2}res=1,\n'
+            f"{TAB*2}res=1,\n"
             f"{TAB}# Action comment\n"
             f"{TAB}shell:\n"
             f'{TAB*2}"do something"\n'
         )
         actual = formatter.get_formatted()
         assert actual == expected
-
 
     def test_sorting_with_inline_parameter_comments(self):
         snakecode = (
@@ -1849,6 +1848,7 @@ class TestSortFormatting:
         )
         actual = formatter.get_formatted()
         assert actual == expected
+
 
 class TestUseParameterWith:
     def test_use_parameter_with(self):

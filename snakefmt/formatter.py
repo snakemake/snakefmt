@@ -118,7 +118,10 @@ class Formatter(Parser):
                 )
                 formatted = self.run_black_format_str(to_format, self.block_indent)
                 re_rematch = contextual_matcher.match(formatted)
-                assert re_rematch is not None
+                if re_rematch is None:
+                    raise ValueError(
+                        f"contextual_matcher failed to match for the given formatted string: {formatted}"
+                    )
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
                 formatted = (
