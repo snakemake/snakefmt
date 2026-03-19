@@ -294,11 +294,12 @@ def main(
                         out_handle.write(formatted_content)
 
     if check:
+        exit_value = ExitCode.NO_CHANGE.value
         if files_unchanged == len(files_to_format):
             logger.info(
                 f"All {len(files_to_format)} file(s) would be left unchanged 🎉"
             )
-            ctx.exit(ExitCode.NO_CHANGE.value)
+            ctx.exit(exit_value)
         elif files_with_errors > 0:
             exit_value = ExitCode.ERROR.value
         elif files_changed > 0:
