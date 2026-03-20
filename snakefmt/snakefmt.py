@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Pattern, Set, Union
 
 import click
-from black import get_gitignore
+from black.files import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
@@ -84,6 +84,14 @@ def get_snakefiles_in_dir(
     type=int,
     help=f"Lines longer than INT will be wrapped. [default: {DEFAULT_LINE_LENGTH}]",
     metavar="INT",
+)
+@click.option(
+    "--sort/--no-sort",
+    "-s/-S",
+    "sort_directives",
+    default=True,
+    help="Sort directives in rules and modules.",
+    show_default=True,
 )
 @click.option(
     "--check",
@@ -165,6 +173,7 @@ def get_snakefiles_in_dir(
 def main(
     ctx: click.Context,
     line_length: int,
+    sort_directives: bool,
     check: bool,
     diff: bool,
     compact_diff: bool,
@@ -214,7 +223,7 @@ def main(
             f"Invalid regular expression for --exclude given: {exclude!r}"
         )
 
-    files_to_format: Set[PathLike] = set()
+    files_to_format: Set[Path] = set()
     gitignore = get_gitignore(Path())
     for path in src:
         path = Path(path)
@@ -235,27 +244,26 @@ def main(
         path_is_stdin = path.name == "-"
         if path_is_stdin:
             logger.debug("Formatting from stdin")
-            path = sys.stdin
+            original_content = sys.stdin.read()
         else:
             logger.debug("")
-
-        try:
             original_content = path.read_text()
-        except AttributeError:
-            original_content = path.read()
+            LogConfig.switch(str(path))
 
-        if not path_is_stdin:
-            LogConfig.switch(path)
         try:
             snakefile = Snakefile(StringIO(original_content))
             formatter = Formatter(
-                snakefile, line_length=line_length, black_config_file=config
+                snakefile,
+                line_length=line_length,
+                sort_directives=sort_directives,
+                black_config_file=config,
             )
             formatted_content = formatter.get_formatted()
         except Exception as error:
             if check:
                 logger.error(f"{error.__class__.__name__}: {error}")
                 files_with_errors += 1
+                LogConfig.switch()
                 continue
             else:
                 raise error
@@ -287,11 +295,12 @@ def main(
                         out_handle.write(formatted_content)
 
     if check:
+        exit_value = ExitCode.NO_CHANGE.value
         if files_unchanged == len(files_to_format):
             logger.info(
                 f"All {len(files_to_format)} file(s) would be left unchanged 🎉"
             )
-            ctx.exit(ExitCode.NO_CHANGE.value)
+            ctx.exit(exit_value)
         elif files_with_errors > 0:
             exit_value = ExitCode.ERROR.value
         elif files_changed > 0:

@@ -1,14 +1,11 @@
-from typing import Iterator, NamedTuple, Tuple
+from tokenize import TokenInfo
+from typing import Iterator
 
 TAB = "    "  # PEP8, indentation will be coded as 4 spaces
 COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
 
 
-class Token(NamedTuple):
-    type: int
-    string: str = ""
-    start: Tuple[int, int] = (-1, -1)
-    end: Tuple[int, int] = (-1, -1)
+Token = TokenInfo
 
 
 def line_nb(token: Token) -> int:

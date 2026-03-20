@@ -34,13 +34,13 @@ PEP8_BLOCK_COMMENTS = """PEP8 recommends block comments appear before what they 
 class Warnings:
     @staticmethod
     def block_comment_below(keyword: str, line_nb: int):
-        msg = f'Keyword "{keyword}" at line {line_nb} has comments under a value.'
+        msg = f'L{line_nb}: Keyword "{keyword}" has comments under a value.'
         LogConfig.get_logger().warning(f"{msg}\n\t{PEP8_BLOCK_COMMENTS}")
 
     @staticmethod
     def comment_relocation(keyword: str, line_nb: int):
         msg = (
-            f'Inline-formatted keyword "{keyword}" at line {line_nb} had its'
+            f'L{line_nb}: Inline-formatted keyword "{keyword}" had its'
             " comments relocated above it."
         )
         LogConfig.get_logger().warning(f"{msg}\n{PEP8_BLOCK_COMMENTS}")

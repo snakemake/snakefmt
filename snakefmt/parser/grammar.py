@@ -1,24 +1,14 @@
-from typing import NamedTuple, Optional, Type, Union
+from collections import OrderedDict
 
 from snakefmt.parser.syntax import (
+    Context,
     InlineSingleParam,
     KeywordSyntax,
     NoKeyParamList,
     ParamList,
     SingleParam,
-    Syntax,
     Vocabulary,
 )
-
-
-class Context(NamedTuple):
-    """
-    Ties together a vocabulary and a syntax.
-    When a keyword from `vocab` is recognised, a new context is induced
-    """
-
-    vocab: Optional[Union[Type[Vocabulary], Vocabulary]]
-    syntax: Union[Type[Syntax], Syntax]
 
 
 class PythonCode(Vocabulary):
@@ -26,31 +16,38 @@ class PythonCode(Vocabulary):
 
 
 # In common between 'use rule' and 'rule'
-rule_properties = dict(
+rule_properties = OrderedDict(
+    # Primary metadata
     name=Context(None, SingleParam),
+    default_target=Context(None, InlineSingleParam),
+    # I/O
     input=Context(None, ParamList),
     output=Context(None, ParamList),
-    params=Context(None, ParamList),
-    threads=Context(None, InlineSingleParam),
-    resources=Context(None, ParamList),
-    priority=Context(None, InlineSingleParam),
     log=Context(None, ParamList),
-    message=Context(None, SingleParam),
     benchmark=Context(None, SingleParam),
+    # Rule logic
+    pathvars=Context(None, ParamList),
+    wildcard_constraints=Context(None, ParamList),
+    # Scheduling & control
+    cache=Context(None, InlineSingleParam),
+    priority=Context(None, InlineSingleParam),
+    retries=Context(None, InlineSingleParam),
+    group=Context(None, SingleParam),
+    localrule=Context(None, InlineSingleParam),
+    handover=Context(None, InlineSingleParam),
+    # Execution environment
+    shadow=Context(None, SingleParam),
     conda=Context(None, SingleParam),
-    singularity=Context(None, SingleParam),
     container=Context(None, SingleParam),
+    singularity=Context(None, SingleParam),
     containerized=Context(None, SingleParam),
     envmodules=Context(None, NoKeyParamList),
-    wildcard_constraints=Context(None, ParamList),
-    shadow=Context(None, SingleParam),
-    group=Context(None, SingleParam),
-    cache=Context(None, InlineSingleParam),
-    handover=Context(None, InlineSingleParam),
-    default_target=Context(None, InlineSingleParam),
-    retries=Context(None, InlineSingleParam),
-    localrule=Context(None, InlineSingleParam),
-    pathvars=Context(None, ParamList),
+    # Execution resources and parameters
+    threads=Context(None, InlineSingleParam),
+    resources=Context(None, ParamList),
+    params=Context(None, ParamList),
+    # Rule definition
+    message=Context(None, SingleParam),
 )
 
 
@@ -59,7 +56,9 @@ class SnakeUseRule(Vocabulary):
 
 
 class SnakeRule(Vocabulary):
-    spec = dict(
+    spec = OrderedDict(
+        **rule_properties,
+        # Action
         run=Context(PythonCode, KeywordSyntax),
         shell=Context(None, SingleParam),
         script=Context(None, SingleParam),
@@ -67,20 +66,19 @@ class SnakeRule(Vocabulary):
         wrapper=Context(None, SingleParam),
         cwl=Context(None, SingleParam),
         template_engine=Context(None, SingleParam),
-        **rule_properties,
     )
 
 
 class SnakeModule(Vocabulary):
-    spec = dict(
+    spec = OrderedDict(
+        name=Context(None, InlineSingleParam),
+        pathvars=Context(None, ParamList),
         snakefile=Context(None, SingleParam),
         config=Context(None, SingleParam),
         skip_validation=Context(None, SingleParam),
-        meta_wrapper=Context(None, SingleParam),
         prefix=Context(None, SingleParam),
         replace_prefix=Context(None, SingleParam),
-        name=Context(None, InlineSingleParam),
-        pathvars=Context(None, ParamList),
+        meta_wrapper=Context(None, SingleParam),
     )
 
 

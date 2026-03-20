@@ -58,11 +58,16 @@ class Formatter(Parser):
         self,
         snakefile: Snakefile,
         line_length: Optional[int] = None,
+        sort_directives: bool = False,
         black_config_file: Optional[PathLike] = None,
     ):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
+        self.sort_directives = sort_directives
+        self.previous_result: str = ""
+        self.keyword_spec: list[str] = []
+        self.keywords: dict[str, str] = {}  # cache to sort
 
         self.black_mode = read_black_config(black_config_file)
 
@@ -76,7 +81,8 @@ class Formatter(Parser):
 
     @property
     def current_line_nb(self) -> int:
-        return self.result.count("\n") + 1
+        """Report the line number of the rule defination"""
+        return (self.previous_result + self.result).count("\n")
 
     def flush_buffer(
         self,
@@ -112,6 +118,11 @@ class Formatter(Parser):
                 )
                 formatted = self.run_black_format_str(to_format, self.block_indent)
                 re_rematch = contextual_matcher.match(formatted)
+                if re_rematch is None:
+                    raise ValueError(
+                        "contextual_matcher failed to match for the given "
+                        f"formatted string: {formatted}"
+                    )
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
                 formatted = (
@@ -142,8 +153,16 @@ class Formatter(Parser):
         if self.syntax.enter_context:
             formatted += ":"
         formatted += f"{self.syntax.comment}\n"
-        self.result += formatted
         self.last_recognised_keyword = self.syntax.keyword_name
+        # cache to enable sorted context to insert,
+        # this always a `run:`, must at the end
+        if self.syntax.accepts_python_code:
+            self.previous_result += self.result
+            self.result = formatted
+        else:  # not a PythonCode context, collect keywords to sort
+            self.previous_result += self.result + formatted
+            self.result = ""
+            self.keyword_spec = self.vocab.ordered()
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
@@ -153,8 +172,28 @@ class Formatter(Parser):
             in_global_context=in_global_context,
             context=param_context,
         )
-        self.result += self.format_params(param_context)
+        param_formatted = self.format_params(param_context)
+        if self.sort_directives and not in_global_context and self.keyword_spec:
+            self.keywords[param_context.keyword_name] = self.result + param_formatted
+            self.result = ""
+        else:
+            self.result += param_formatted
         self.last_recognised_keyword = param_context.keyword_name
+
+    def post_process_keyword(self):
+        if not self.previous_result:
+            self.previous_result = self.result
+            self.result = ""
+        for keyword in self.keyword_spec:
+            res = self.keywords.pop(keyword, "")
+            self.previous_result += res
+        if self.keywords:
+            raise InvalidParameterSyntax(
+                "Unexpected keywords when sorted keywords: "
+                + (", ".join(self.keywords))
+            )
+        self.result = self.previous_result + self.result
+        self.previous_result = ""
 
     def run_black_format_str(
         self,
@@ -314,8 +353,7 @@ class Formatter(Parser):
                     lines.pop(docstring_line_index + 1)
                     val = "\n".join(lines)
 
-        if param_list:
-            match_equal = re.match(r"f\((.*)\)", val, re.DOTALL)
+        if param_list and (match_equal := re.match(r"f\((.*)\)", val, re.DOTALL)):
             val = match_equal.group(1)
             val = textwrap.dedent(val)
 
@@ -385,7 +423,7 @@ class Formatter(Parser):
         formatted_string: str = "",
         final_flush: bool = False,
         in_global_context: bool = False,
-        context: Syntax = None,
+        context: Optional[Syntax] = None,
     ):
         """
         Top-level (indent of 0) rules and python code get two newlines separation

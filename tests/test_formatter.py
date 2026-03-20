@@ -1698,3 +1698,242 @@ class TestRunBlockFormatting:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+
+class TestSortFormatting:
+    def test_sorting_of_params(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}# annots\n"
+            f"{TAB * 1}threads: 1\n"
+            f'{TAB * 1}log: "b",\n'
+            f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}print("hello world")\n'
+            "if 2:\n"
+            f"{TAB * 1}rule b:\n"
+            f'{TAB * 2}output: "b",\n'
+            f'{TAB * 2}input: "a", "fsdfdsdfd", "ccc"\n'
+            f"{TAB * 2}threads:\n"
+            f"{TAB * 3}1\n"
+            f'{TAB * 2}shell: "?"\n'
+            f"{TAB * 1}module a:\n"
+            f"{TAB * 2}config:\n"
+            f'{TAB * 3}"{{a=1}}"\n'
+            f'{TAB * 2}snakefile: "Snakefile"\n'
+            "onerror:\n"
+            f'{TAB * 1}print("error")\n'
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "rule a:\n"
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"a",\n'
+            f'{TAB * 2}"fsdfdsdfd",\n'
+            f'{TAB * 2}"ccc",\n'
+            f"{TAB * 1}log:\n"
+            f'{TAB * 2}"b",\n'
+            f"{TAB * 1}# annots\n"
+            f"{TAB * 1}threads: 1\n"
+            f"{TAB * 1}run:\n"
+            f'{TAB * 2}print("hello world")\n\n\n'
+            "if 2:\n"
+            "\n"
+            f"{TAB * 1}rule b:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"a",\n'
+            f'{TAB * 3}"fsdfdsdfd",\n'
+            f'{TAB * 3}"ccc",\n'
+            f"{TAB * 2}output:\n"
+            f'{TAB * 3}"b",\n'
+            f"{TAB * 2}threads: 1\n"
+            f"{TAB * 2}shell:\n"
+            f'{TAB * 3}"?"\n\n'
+            f"{TAB * 1}module a:\n"
+            f"{TAB * 2}snakefile:\n"
+            f'{TAB * 3}"Snakefile"\n'
+            f"{TAB * 2}config:\n"
+            f'{TAB * 3}"{{a=1}}"\n\n\n'
+            "onerror:\n"
+            '    print("error")\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_sorting_comprehensive(self):
+        snakecode = (
+            "rule all:\n"
+            f"{TAB}shell: 'echo done'\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}resources: mem_mb=100\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}conda: 'env.yaml'\n"
+            f"{TAB}message: 'finishing'\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "rule all:\n"
+            f"{TAB}name:\n"
+            f'{TAB*2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}log:\n"
+            f'{TAB*2}"log.txt",\n'
+            f"{TAB}conda:\n"
+            f'{TAB*2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB*2}"finishing"\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo done"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_sorting_with_comments_preservation(self):
+        snakecode = (
+            "rule complex:\n"
+            f"{TAB}# Action comment\n"
+            f"{TAB}shell: 'do something'\n"
+            f"{TAB}# Resource comment\n"
+            f"{TAB}resources: res=1\n"
+            f"{TAB}# Input comment\n"
+            f"{TAB}input: 'i'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        # Comments stay with their keywords
+        expected = (
+            "rule complex:\n"
+            f"{TAB}# Input comment\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"i",\n'
+            f"{TAB}# Resource comment\n"
+            f"{TAB}resources:\n"
+            f"{TAB*2}res=1,\n"
+            f"{TAB}# Action comment\n"
+            f"{TAB}shell:\n"
+            f'{TAB*2}"do something"\n'
+        )
+        actual = formatter.get_formatted()
+        assert actual == expected
+
+    def test_sorting_with_inline_parameter_comments(self):
+        snakecode = (
+            "rule inline_comments:\n"
+            f"{TAB}shell: 'echo'\n"
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,  # parameter comment\n"
+            f"{TAB}input: 'i'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "rule inline_comments:\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"i",\n'
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,  # parameter comment\n"
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo"\n'
+        )
+        actual = formatter.get_formatted()
+        assert actual == expected
+
+    def test_sorting_module(self):
+        snakecode = (
+            "module other:\n"
+            f"{TAB}meta_wrapper: 'wrapper'\n"
+            f"{TAB}replace_prefix: 'rp'\n"
+            f"{TAB}prefix: 'p'\n"
+            f"{TAB}skip_validation: True\n"
+            f"{TAB}config: 'c'\n"
+            f"{TAB}snakefile: 's'\n"
+            f"{TAB}pathvars: ['pv']\n"
+            f"{TAB}name: 'n'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "module other:\n"
+            f'{TAB}name: "n"\n'
+            f"{TAB}pathvars:\n"
+            f'{TAB*2}["pv"],\n'
+            f"{TAB}snakefile:\n"
+            f'{TAB*2}"s"\n'
+            f"{TAB}config:\n"
+            f'{TAB*2}"c"\n'
+            f"{TAB}skip_validation:\n"
+            f"{TAB*2}True\n"
+            f"{TAB}prefix:\n"
+            f'{TAB*2}"p"\n'
+            f"{TAB}replace_prefix:\n"
+            f'{TAB*2}"rp"\n'
+            f"{TAB}meta_wrapper:\n"
+            f'{TAB*2}"wrapper"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_sorting_checkpoint(self):
+        snakecode = (
+            "checkpoint map_reads:\n"
+            f"{TAB}shell: 'echo'\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "checkpoint map_reads:\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+
+class TestUseParameterWith:
+    def test_use_parameter_with(self):
+        snakecode = (
+            "use rule a as a1 with:\n"
+            f"{TAB * 1}input with:\n"
+            f'{TAB * 2}a="a.txt",\n'
+            f'{TAB * 2}b="b.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_use_parameters_with(self):
+        snakecode = (
+            "use rule a as a1 with:\n"
+            f"{TAB * 1}input with:\n"
+            f'{TAB * 2}a="a.txt",\n'
+            f'{TAB * 2}b="b.txt",\n'
+            f"{TAB * 1}output with:\n"
+            f'{TAB * 2}c="c.txt",\n'
+            f"{TAB * 1}params with:\n"
+            f'{TAB * 2}d="d.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+        snakecode += (
+            f"{TAB * 1}resources with:\n"
+            f'{TAB * 2}memory="5g",\n'
+            f"{TAB * 1}log with:\n"
+            f'{TAB * 2}f="f.txt",\n'
+            f"{TAB * 1}wildcard_constraints with:\n"
+            f'{TAB * 2}g="g|h",\n'
+            f"{TAB * 1}pathvars with:\n"
+            f'{TAB * 2}i="i",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode

@@ -441,3 +441,29 @@ class TestCliConfig:
         result = cli_runner.invoke(main, params, input=stdin)
 
         assert result.exit_code != 0
+
+
+class TestCheckExitCode:
+    def test_check_unchanged_exit_code(self, cli_runner):
+        stdin = 'rule all:\n    input:\n        "a",\n'
+        # First format it so it's already correct
+        params = ["-"]
+        result = cli_runner.invoke(main, params, input=stdin)
+        formatted = result.stdout
+
+        # Now check it
+        params = ["--check", "-"]
+        result = cli_runner.invoke(main, params, input=formatted)
+        assert result.exit_code == 0
+
+    def test_check_changed_exit_code(self, cli_runner):
+        stdin = 'rule all:\n input: "a"'
+        params = ["--check", "-"]
+        result = cli_runner.invoke(main, params, input=stdin)
+        assert result.exit_code == 1
+
+    def test_check_error_exit_code(self, cli_runner):
+        stdin = "rule all: input: "  # Missing parameter
+        params = ["--check", "-"]
+        result = cli_runner.invoke(main, params, input=stdin)
+        assert result.exit_code == 123

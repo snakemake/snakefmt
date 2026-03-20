@@ -182,6 +182,16 @@ class TestParamSyntax:
         with pytest.raises(NoParametersError, match="baz"):
             setup_formatter(snakecode)
 
+    def test_use_with(self):
+        with pytest.raises(
+            InvalidParameterSyntax, match="Syntax 'keyword with:' not allowed for"
+        ):
+            setup_formatter("rule a:\n" f'{TAB * 1}input with: touch("file.txt")')
+        with pytest.raises(SyntaxError, match="threads with: <params>"):
+            setup_formatter("use rule a as a1 with:\n" f"{TAB * 1}threads with: 4")
+        with pytest.raises(SyntaxError, match="Colon.*expected"):
+            setup_formatter("use rule a as a1 with:\n" f"{TAB * 1}input with '4'")
+
 
 class TestIndentationErrors:
     def test_param_collating(self):
