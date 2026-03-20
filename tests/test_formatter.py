@@ -1786,8 +1786,6 @@ class TestSortFormatting:
             f'{TAB*2}"out.txt",\n'
             f"{TAB}log:\n"
             f'{TAB*2}"log.txt",\n'
-            f"{TAB}message:\n"
-            f'{TAB*2}"finishing"\n'
             f"{TAB}conda:\n"
             f'{TAB*2}"env.yaml"\n'
             f"{TAB}threads: 4\n"
@@ -1795,6 +1793,8 @@ class TestSortFormatting:
             f"{TAB*2}mem_mb=100,\n"
             f"{TAB}params:\n"
             f"{TAB*2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB*2}"finishing"\n'
             f"{TAB}shell:\n"
             f'{TAB*2}"echo done"\n'
         )
@@ -1847,6 +1847,58 @@ class TestSortFormatting:
         )
         actual = formatter.get_formatted()
         assert actual == expected
+
+    def test_sorting_module(self):
+        snakecode = (
+            "module other:\n"
+            f"{TAB}meta_wrapper: 'wrapper'\n"
+            f"{TAB}replace_prefix: 'rp'\n"
+            f"{TAB}prefix: 'p'\n"
+            f"{TAB}skip_validation: True\n"
+            f"{TAB}config: 'c'\n"
+            f"{TAB}snakefile: 's'\n"
+            f"{TAB}pathvars: ['pv']\n"
+            f"{TAB}name: 'n'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "module other:\n"
+            f'{TAB}name: "n"\n'
+            f"{TAB}pathvars:\n"
+            f'{TAB*2}["pv"],\n'
+            f"{TAB}snakefile:\n"
+            f'{TAB*2}"s"\n'
+            f"{TAB}config:\n"
+            f'{TAB*2}"c"\n'
+            f"{TAB}skip_validation:\n"
+            f"{TAB*2}True\n"
+            f"{TAB}prefix:\n"
+            f'{TAB*2}"p"\n'
+            f"{TAB}replace_prefix:\n"
+            f'{TAB*2}"rp"\n'
+            f"{TAB}meta_wrapper:\n"
+            f'{TAB*2}"wrapper"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_sorting_checkpoint(self):
+        snakecode = (
+            "checkpoint map_reads:\n"
+            f"{TAB}shell: 'echo'\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+        )
+        formatter = setup_formatter(snakecode, sort_params=True)
+        expected = (
+            "checkpoint map_reads:\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo"\n'
+        )
+        assert formatter.get_formatted() == expected
 
 
 class TestUseParameterWith:

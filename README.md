@@ -272,14 +272,16 @@ By default, `snakefmt` sorts rule directives (like `input`, `output`, `shell`, e
 
 Directives are grouped by their functional role in the following order:
 
-1.  **Core (I/O & Primary Metadata)**: `name`, `input`, `output`, `log`, `benchmark`, `cache`
-2.  **Rule Logic**: `message`, `wildcard_constraints`
-3.  **Scheduling & Control**: `priority`, `retries`, `group`, `localrule`, `default_target`
-4.  **Execution Environment**: `handover`, `shadow`, `conda`, `container`, `singularity`, `containerized`, `envmodules`
-5.  **Execution Resources & Parameters**: `threads`, `resources`, `pathvars`, `params`
-6.  **Action**: `shell`, `run`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
+1.  **Identity & Early Control**: `name`, `default_target`
+2.  **I/O Contract**: `input`, `output`, `log`, `benchmark`
+3.  **Wildcard & Path Qualification**: `wildcard_constraints`, `pathvars`
+4.  **Scheduling & Control**: `priority`, `retries`, `group`, `localrule`, `cache`, `handover`
+5.  **Execution Environment**: `shadow`, `conda`, `container`, `singularity`, `containerized`, `envmodules`
+6.  **Execution Resources & Parameters**: `threads`, `resources`, `params`
+7.  **Annotation / Runtime Display**: `message`
+8.  **Action**: `shell`, `run`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
 
-This ordering ensures that the directives most frequently used in shell commands (like `threads` and `params`) are placed immediately above the action directive.
+This ordering ensures that the directives most frequently used in execution blocks (like `threads`, `resources`, and `params`) are placed immediately above the action directive.
 
 You can disable this feature using the `--no-sort` flag.
 
