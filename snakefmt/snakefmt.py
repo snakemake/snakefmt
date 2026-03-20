@@ -263,6 +263,7 @@ def main(
             if check:
                 logger.error(f"{error.__class__.__name__}: {error}")
                 files_with_errors += 1
+                LogConfig.switch()
                 continue
             else:
                 raise error
