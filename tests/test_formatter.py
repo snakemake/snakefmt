@@ -1983,6 +1983,46 @@ def test_invalid_python_error_eof():
 
 
 @mock.patch("black.format_str", spec=True)
+def test_invalid_python_error_no_dedent(mock_format):
+    # This test covers the branch where last_token is not a DEDENT or ENDMARKER
+    def side_effect(*args, **kwargs):
+        raise black.parsing.InvalidInput("Cannot parse: 1:1: error")
+
+    mock_format.side_effect = side_effect
+    import io
+    import tokenize
+
+    from snakefmt.formatter import Formatter
+    from snakefmt.parser.parser import Snakefile
+
+    # Create a dummy formatter without running the parser loop
+    smk = Snakefile(io.StringIO(""))
+    # Consume ENDMARKER
+    list(smk)
+
+    formatter = Formatter.__new__(Formatter)
+    formatter.snakefile = smk
+    formatter.black_mode = black.Mode()
+    formatter.from_python = False
+    from snakefmt.parser.parser import Context
+    from snakefmt.parser.syntax import KeywordSyntax
+
+    formatter.context = Context(
+        None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
+    )
+    # Manually set last_token to something that isn't DEDENT/ENDMARKER
+    formatter.last_token = tokenize.TokenInfo(
+        tokenize.NAME, "a", (1, 0), (1, 1), "a = 1\n"
+    )
+
+    with pytest.raises(InvalidPython) as excinfo:
+        formatter.run_black_format_str("a = 1", 0)
+    msg = str(excinfo.value)
+    # context_line_num = 1 - 1 + 1 = 1. total = 1 + 1 - 1 = 1.
+    assert ": 1:" in msg
+
+
+@mock.patch("black.format_str", spec=True)
 def test_invalid_python_error_no_match(mock_format):
     def side_effect(*args, **kwargs):
         raise black.parsing.InvalidInput("Custom black error without line number")
