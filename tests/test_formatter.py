@@ -1062,6 +1062,28 @@ rule a:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    @mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
+    def test_invalid_python_recovery(self, mock_format):
+        from snakefmt.exceptions import InvalidPython
+
+        def side_effect(val, *args, **kwargs):
+            if val.startswith("f(") and not val.startswith("(f("):
+                raise InvalidPython("Simulated syntax error")
+            return val
+        
+        mock_format.side_effect = side_effect
+
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}cmd\n"
+            f'{TAB * 2}"""\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+        assert mock_format.call_count == 2
+
     def test_fstring_with_equal_sign_inside_function_call(self):
         """https://github.com/snakemake/snakefmt/issues/220"""
         snakecode = 'test = f"job_properties: {json.dumps(job_properties, indent=4)}"\n'

@@ -18,7 +18,7 @@ design and specifications of [Black][black].
 
 > [!IMPORTANT]
 > **Recent Changes:** 
-> 1. **Rule directives are now sorted by default:** `snakefmt` will automatically sort the order of directives inside rules (e.g. `input`, `output`, `shell`) into a consistent order. You can opt out of this by using the `--no-sort` CLI flag.
+> 1. **Rule and module directives are now sorted by default:** `snakefmt` will automatically sort the order of directives inside rules (e.g. `input`, `output`, `shell`) and modules into a consistent order. You can opt out of this by using the `--no-sort` CLI flag.
 > 2. **Black upgraded to v26:** The underlying `black` formatter has been upgraded to v26. You will see changes in how implicitly concatenated strings are wrapped (they are now collapsed onto a single line if they fit within the line limit) and other minor adjustments compared to previous versions.
 > 
 > **Example of expected differences:**
@@ -296,7 +296,7 @@ configuration file.
 
 ### Directive Sorting
 
-By default, `snakefmt` sorts rule directives (like `input`, `output`, `shell`, etc.) into a consistent order. This makes rules easier to read and allows for quicker cross-referencing between inputs, outputs, and the resources used by the execution command.
+By default, `snakefmt` sorts rule and module directives (like `input`, `output`, `shell`, etc.) into a consistent order. This makes rules easier to read and allows for quicker cross-referencing between inputs, outputs, and the resources used by the execution command.
 
 Directives are grouped by their functional role in the following order:
 
