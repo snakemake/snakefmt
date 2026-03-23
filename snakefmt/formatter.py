@@ -231,7 +231,7 @@ class Formatter(Parser):
             err_msg = ""
             # Not clear whether all Black errors start with 'Cannot parse' - it seems to
             # in the tests I ran
-            match = re.search(r"(Cannot parse: )(?P<line>\d+)(.*)", str(e))
+            match = re.search(r"(Cannot parse.*?:\s*)(?P<line>\d+)(.*)", str(e))
             try:
                 next_token = next(self.snakefile)
                 self.snakefile.denext(next_token)
@@ -320,19 +320,6 @@ class Formatter(Parser):
         val = f"f({val})"
         extra_spacing = 3
 
-        # get the index of the last character of the first docstring, if any
-        docstring_index = index_of_first_docstring(val)
-        docstring_line_index = None
-        if docstring_index is not None:
-            docstring_line_index = val[:docstring_index].count("\n")
-        lines = val.splitlines()
-        if docstring_line_index is not None and docstring_line_index + 1 < len(lines):
-            docstring_has_extra_newline_after = (
-                lines[docstring_line_index + 1].strip() == ""
-            )
-        else:
-            docstring_has_extra_newline_after = False
-
         try:
             val = self.run_black_format_str(
                 val, target_indent, extra_spacing, no_nesting=True
@@ -343,16 +330,6 @@ class Formatter(Parser):
             val = self.run_black_format_str(
                 val, target_indent, extra_spacing, no_nesting=True
             )
-
-        # remove newline added after first docstring (black>=24.1)
-        if docstring_line_index is not None and not docstring_has_extra_newline_after:
-            lines = val.splitlines()
-            if docstring_line_index + 1 < len(lines):
-                line_after_docstring = lines[docstring_line_index + 1]
-                if line_after_docstring.strip() == "":
-                    # delete the newline
-                    lines.pop(docstring_line_index + 1)
-                    val = "\n".join(lines)
 
         val_stripped = val.strip()
         is_multiline_fallback = False
@@ -415,12 +392,7 @@ class Formatter(Parser):
         result = f"{used_indent}{parameters.keyword_line}:"
         if inline_fmting:
             # here, check if the value is too large to put in one line
-            params_iter = iter(parameters.all_params)
-            try:
-                param = next(params_iter)
-            except StopIteration:
-                # No params; render just the keyword line and its comment.
-                return f"{result}{parameters.comment}\n"
+            param = parameters.all_params[0]
             param_result = self.format_param(
                 param, target_indent, inline_fmting, param_list
             )

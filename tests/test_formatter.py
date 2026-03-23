@@ -7,8 +7,10 @@ errors arise, as tested in test_parser.py.
 import textwrap
 from unittest import mock
 
+import black
 import pytest
 
+from snakefmt.exceptions import InvalidPython
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
@@ -1952,3 +1954,76 @@ class TestUseParameterWith:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+
+def test_invalid_python_error_line_number():
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}run:\n"
+        f"{TAB * 2}a = \n"
+        f"{TAB * 2}b = 2\n"
+        "rule b:\n"
+        f"{TAB * 1}pass\n"
+    )
+    with pytest.raises(InvalidPython) as excinfo:
+        setup_formatter(snakecode).get_formatted()
+    assert "Black error:" in str(excinfo.value)
+
+
+def test_invalid_python_error_eof():
+    snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = \n"
+    with pytest.raises(InvalidPython) as excinfo:
+        setup_formatter(snakecode).get_formatted()
+    assert "Black error:" in str(excinfo.value)
+
+
+@mock.patch("black.format_str", spec=True)
+def test_invalid_python_error_no_match(mock_format):
+    def side_effect(*args, **kwargs):
+        raise black.parsing.InvalidInput("Custom black error without line number")
+
+    mock_format.side_effect = side_effect
+    snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = 1\n"
+    with pytest.raises(InvalidPython) as excinfo:
+        setup_formatter(snakecode).get_formatted()
+    assert "Custom black error without line number" in str(excinfo.value)
+
+
+@mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
+def test_multiline_fallback(mock_format):
+    from snakefmt.exceptions import InvalidPython
+
+    def side_effect(val, *args, **kwargs):
+        if val.startswith("f(") and not val.startswith("(f("):
+            raise InvalidPython("Simulated syntax error")
+        if val.startswith("(f("):
+            # simulate black wrapping the fallback across multiple lines
+            return "(\n    " + val[1:-1] + "\n)"
+        return val
+
+    mock_format.side_effect = side_effect
+
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}cmd\n"
+        f'{TAB * 2}"""\n'
+    )
+    formatter = setup_formatter(snakecode)
+    # The actual result won't be perfect because we hand-mocked Black,
+    # but it guarantees the code path is executed.
+    formatter.get_formatted()
+
+
+def test_mask_string_collision():
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"`~!@#$%^&*|?" + """\n'
+        f"{TAB * 2}multiline\n"
+        f'{TAB * 2}"""\n'
+    )
+    formatter = setup_formatter(snakecode)
+    # Just need it to execute
+    formatter.get_formatted()
