@@ -1,5 +1,6 @@
 import re
 import textwrap
+import tokenize
 from ast import parse as ast_parse
 from copy import copy
 from typing import Optional
@@ -247,8 +248,15 @@ class Formatter(Parser):
             elif match and self.last_token is not None:
                 # Fallback when next_token is None (e.g. at EOF)
                 line_num = int(match.group("line"))
-                # Adjustment: last_token is at the end of the block, so we add 1
-                context_line_num = self.last_token.end[0] - len(string.splitlines()) + 1
+                # Adjustment: last_token is usually a DEDENT or ENDMARKER on the line
+                # after the block
+                context_line_num = self.last_token.start[0] - len(string.splitlines())
+
+                if self.last_token.type not in (
+                    tokenize.DEDENT,
+                    tokenize.ENDMARKER,
+                ):
+                    context_line_num += 1
                 total_line_num = context_line_num + line_num - 1
                 err_msg = match.group(1) + str(total_line_num) + match.group(3)
                 err_msg += (

@@ -1967,14 +1967,19 @@ def test_invalid_python_error_line_number():
     )
     with pytest.raises(InvalidPython) as excinfo:
         setup_formatter(snakecode).get_formatted()
-    assert "Black error:" in str(excinfo.value)
+    msg = str(excinfo.value)
+    assert "Black error:" in msg
+    assert ": 3:" in msg
 
 
 def test_invalid_python_error_eof():
     snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = \n"
     with pytest.raises(InvalidPython) as excinfo:
         setup_formatter(snakecode).get_formatted()
-    assert "Black error:" in str(excinfo.value)
+    msg = str(excinfo.value)
+    assert "Black error:" in msg
+    assert ": 3:" in msg
+    assert "Note reported line number may be an approximation" in msg
 
 
 @mock.patch("black.format_str", spec=True)
@@ -1986,7 +1991,8 @@ def test_invalid_python_error_no_match(mock_format):
     snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = 1\n"
     with pytest.raises(InvalidPython) as excinfo:
         setup_formatter(snakecode).get_formatted()
-    assert "Custom black error without line number" in str(excinfo.value)
+    msg = str(excinfo.value)
+    assert "Custom black error without line number" in msg
 
 
 @mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
@@ -2013,7 +2019,11 @@ def test_multiline_fallback(mock_format):
     formatter = setup_formatter(snakecode)
     # The actual result won't be perfect because we hand-mocked Black,
     # but it guarantees the code path is executed.
-    formatter.get_formatted()
+    result = formatter.get_formatted()
+    assert "(f(" not in result
+    assert "(\n" not in result
+    assert '"""' in result
+    assert "cmd" in result
 
 
 def test_mask_string_collision():
@@ -2025,5 +2035,7 @@ def test_mask_string_collision():
         f'{TAB * 2}"""\n'
     )
     formatter = setup_formatter(snakecode)
-    # Just need it to execute
-    formatter.get_formatted()
+    result = formatter.get_formatted()
+    assert "`~!@#$%^&*|?" in result
+    assert '"""' in result
+    assert "multiline" in result
