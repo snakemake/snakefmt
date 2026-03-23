@@ -277,6 +277,7 @@ class Formatter(Parser):
         split_string = split_code_string(string)
         if len(split_string) == 1:
             return textwrap.indent(split_string[0], used_indent)
+
         # First, masks all multi-line strings
         mask_string = "`~!@#$%^&*|?"
         while mask_string in string:
@@ -287,7 +288,8 @@ class Formatter(Parser):
             used_indent,
         )
         split_code = fakewrap.split(mask_string)
-        # After indenting, we puts those strings back
+
+        # After indenting, we put those strings back exactly as they were
         indented = "".join(
             s.replace("\t", TAB) if i % 2 else split_code[i // 2]
             for i, s in enumerate(split_string)
@@ -312,12 +314,11 @@ class Formatter(Parser):
         except SyntaxError:
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
 
-        if inline_formatting or param_list:
-            val = val.rstrip()
-        extra_spacing = 0
-        if param_list:
-            val = f"f({val}\n)"
-            extra_spacing = 3
+        val = val.rstrip()
+
+        # Wrapping trick to avoid Black 26 standalone string reformatting
+        val = f"f({val})"
+        extra_spacing = 3
 
         # get the index of the last character of the first docstring, if any
         docstring_index = index_of_first_docstring(val)
@@ -353,9 +354,26 @@ class Formatter(Parser):
                     lines.pop(docstring_line_index + 1)
                     val = "\n".join(lines)
 
-        if param_list and (match_equal := re.match(r"f\((.*)\)", val, re.DOTALL)):
-            val = match_equal.group(1)
-            val = textwrap.dedent(val)
+        if match_f := re.match(r"^f\((.*)\)$", val.strip(), re.DOTALL):
+            content = match_f.group(1)
+            if content.startswith("\n"):
+                content = content[1:]
+
+                # Split the string and only dedent the code parts to strip
+                # Black's 4 spaces
+                parts = split_code_string(content)
+                new_parts = []
+                for i, p in enumerate(parts):
+                    if i % 2 == 0:
+                        # Code part: strip 4 spaces
+                        p = re.sub(r"^    ", "", p, flags=re.MULTILINE)
+                    # String part: leave alone!
+                    new_parts.append(p)
+
+                val = "".join(new_parts)
+                val = val.rstrip("\n")
+            else:
+                val = content
 
         val = self.align_strings(val, target_indent)
 

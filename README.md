@@ -16,6 +16,34 @@ design and specifications of [Black][black].
 > You can also pipe the file in from stdin, which will print it to the screen, or use the
 > `--diff` or `--check` options. See [Usage](#usage) for more details.
 
+> [!IMPORTANT]
+> **Recent Changes:** 
+> 1. **Rule directives are now sorted by default:** `snakefmt` will automatically sort the order of directives inside rules (e.g. `input`, `output`, `shell`) into a consistent order. You can opt out of this by using the `--no-sort` CLI flag.
+> 2. **Black upgraded to v26:** The underlying `black` formatter has been upgraded to v26. You will see changes in how implicitly concatenated strings are wrapped (they are now collapsed onto a single line if they fit within the line limit) and other minor adjustments compared to previous versions.
+> 
+> **Example of expected differences:**
+> ```python
+> # Before (Snakefmt older versions)
+> rule example:
+>     shell:
+>         "for i in $(seq 1 5);"
+>         "do echo $i;"
+>         "done"
+>     output:
+>         "b.txt",
+>     input:
+>         "a.txt",
+> 
+> # After (Directives sorted, strings collapsed by Black 26)
+> rule example:
+>     input:
+>         "a.txt",
+>     output:
+>         "b.txt",
+>     shell:
+>         "for i in $(seq 1 5);" "do echo $i;" "done"
+> ```
+
 [TOC]: #
 
 # Table of Contents

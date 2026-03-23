@@ -55,9 +55,7 @@ class TestSimpleParamFormatting:
         expected = (
             "rule a:\n"
             f"{TAB * 1}shell:\n"
-            f'{TAB * 2}"for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"\n'
+            f'{TAB * 2}"for i in $(seq 1 5);" "do echo $i;" "done"\n'
         )
         assert formatter.get_formatted() == expected
 
@@ -143,7 +141,6 @@ class TestUseRuleFormatting:
     def test_use_rule_with_exclude(self):
         snakecode = """from snakemake.utils import min_version
 
-
 min_version("6.0")
 
 
@@ -160,7 +157,6 @@ use rule * from other_workflow exclude ruleC as other_*
 
     def test_use_rule_with_multiple_excludes(self):
         snakecode = """from snakemake.utils import min_version
-
 
 min_version("6.0")
 
@@ -565,7 +561,10 @@ class TestComplexPythonFormatting:
             mock_m.return_value = "if condition:\n"
             setup_formatter(snakecode)
             assert mock_m.call_count == 3
-            assert mock_m.call_args_list[1] == mock.call('"a"', 0, 0, no_nesting=True)
+            assert mock_m.call_args_list[1] == mock.call(
+                'f("a")', 0, 3, no_nesting=True
+            )
+
             assert mock_m.call_args_list[2] == mock.call("b = 2\n", 0)
 
         formatter = setup_formatter(snakecode)
@@ -821,10 +820,7 @@ class TestStringFormatting:
         expected = (
             "rule a:\n"
             f"{TAB * 1}message:\n"
-            f'{TAB * 2}"""Hello"""\n'
-            f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
-            f'{TAB * 2}"World"\n'
-            f'{TAB * 2}"""    Yes"""\n'
+            f'{TAB * 2}"""Hello""" """    a string""" "World" """    Yes"""\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
@@ -852,6 +848,7 @@ class TestStringFormatting:
             )
             assert setup_formatter(snakecode).get_formatted() == snakecode
             snakecode2 = snakecode.replace('"""', "'''")
+            # Black normalizes triple quotes to """
             assert setup_formatter(snakecode2).get_formatted() == snakecode
 
     def test_tpq_alignment_and_keep_relative_indenting(self):
@@ -960,8 +957,7 @@ rule a:
 
 
 rule a:
-{TAB * 1}"""The rule a
-{TAB * 0}"""
+{TAB * 1}"""The rule a\"\"\"
 {TAB * 1}message:
 {TAB * 2}"a"
 '''
@@ -980,12 +976,9 @@ rule a:
         expected = (
             "rule:\n"
             f"{TAB * 1}shell:\n"
-            f"{TAB * 2}(\n"
-            f'{TAB * 3}("conditional prefix" if True else "")\n'
-            f'{TAB * 3}+ """\\\n'
+            f'{TAB * 2}("conditional prefix" if True else "") + """\\\n'
             f"{TAB * 2}cmd\n"
             f'{TAB * 2}"""\n'
-            f"{TAB * 2})\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
@@ -1002,34 +995,40 @@ rule a:
             f"{TAB * 2}# Merge overlapping coordinates into individual expanded records\n"  # noqa: E501
             f'{TAB * 2}+"mergeBed 2> {{log.merge:q}} 1> {{output:q}}"\n'
         )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}# Concatenate all the files together\n"
+            f'{TAB * 2}"cat {{input:q}} 2> {{log.cat:q}} | "\n'
+            f"{TAB * 2}# Coordinate sort everything\n"
+            f'{TAB * 2}+ "sortBed 2> {{log.sort:q}} | "\n'
+            f"{TAB * 2}# Merge overlapping coordinates into individual expanded records\n"  # noqa: E501
+            f'{TAB * 2}+ "mergeBed 2> {{log.merge:q}} 1> {{output:q}}"\n'
+        )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
+        assert formatter.get_formatted() == expected
 
     def test_tpq_inside_run_block(self):
-        snakecode = '''rule cutadapt:
+        snakecode = """rule cutadapt:
     input:
         "a.txt",
     output:
         "b.txt",
     run:
         if True:
-            shell(
-                """
+            shell(\"\"\"
             cutadapt \
                 -m 30 \
                 {input} \
                 -o {output}
-            """
-            )
+            \"\"\")
         else:
-            shell(
-                """
+            shell(\"\"\"
             cutadapt \
                 {input} \
                 -o {output}
-            """
-            )
-'''
+            \"\"\")
+"""
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
@@ -1353,8 +1352,7 @@ class TestNewlineSpacing:
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_double_spacing_for_rules(self):
-        formatter = setup_formatter(
-            f"""above_rule = "2spaces"
+        formatter = setup_formatter(f"""above_rule = "2spaces"
 rule a:
 {TAB * 1}threads: 1
 
@@ -1363,8 +1361,7 @@ rule a:
 rule b:
 {TAB * 1}threads: 2
 below_rule = "2spaces"
-"""
-        )
+""")
 
         expected = f"""above_rule = "2spaces"
 
@@ -1463,13 +1460,11 @@ below_rule = "2spaces"
         assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_below_keyword_gets_spaced(self):
-        formatter = setup_formatter(
-            f"""# Rules
+        formatter = setup_formatter(f"""# Rules
 rule all:
 {TAB * 1}input: output_files
 # Comment
-"""
-        )
+""")
 
         actual = formatter.get_formatted()
         expected = f"""# Rules
@@ -1649,13 +1644,11 @@ class TestLineWrapping:
 
 class TestStorage:
     def test_storage(self):
-        code = textwrap.dedent(
-            """
+        code = textwrap.dedent("""
             storage http_local:
                 provider="http",
                 keep_local=True,
-            """
-        )
+            """)
         formatter = setup_formatter(code)
 
         assert formatter.get_formatted() == code
