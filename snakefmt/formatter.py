@@ -356,8 +356,10 @@ class Formatter(Parser):
 
         val_stripped = val.strip()
         is_multiline_fallback = False
-        if match_fallback := re.match(r"^\(\s*(f\(.*\))\s*\)$", val_stripped, re.DOTALL):
-            if "\n" in val_stripped[:match_fallback.start(1)]:
+        if match_fallback := re.match(
+            r"^\(\s*(f\(.*\))\s*\)$", val_stripped, re.DOTALL
+        ):
+            if "\n" in val_stripped[: match_fallback.start(1)]:
                 is_multiline_fallback = True
             val_stripped = match_fallback.group(1)
 
@@ -372,7 +374,8 @@ class Formatter(Parser):
                 new_parts = []
                 for i, p in enumerate(parts):
                     if i % 2 == 0:
-                        # Code part: strip 4 spaces (or 8 spaces if multiline fallback wrapper was used)
+                        # Code part: strip 4 spaces
+                        # (or 8 spaces if multiline fallback wrapper was used)
                         strip_pattern = r"^ {8}" if is_multiline_fallback else r"^ {4}"
                         p = re.sub(strip_pattern, "", p, flags=re.MULTILINE)
                     # String part: leave alone!

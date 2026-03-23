@@ -1070,7 +1070,7 @@ rule a:
             if val.startswith("f(") and not val.startswith("(f("):
                 raise InvalidPython("Simulated syntax error")
             return val
-        
+
         mock_format.side_effect = side_effect
 
         snakecode = (
