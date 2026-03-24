@@ -45,60 +45,57 @@ class TestSimpleParamFormatting:
 
         assert actual == expected
 
+    example_shell_newline = (
+        "rule a:\n"
+        f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
+        f'{TAB * 2}"do echo $i;"\n'
+        f'{TAB * 2}"done"',
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"for i in $(seq 1 5);"\n'
+        f'{TAB * 2}"do echo $i;"\n'
+        f'{TAB * 2}"done"\n',
+    )
+
     def test_shell_param_newline_indented(self):
-        formatter = setup_formatter(
-            "rule a:\n"
-            f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"'
-        )
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}shell:\n"
-            f'{TAB * 2}"for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"\n'
-        )
-        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(self.example_shell_newline[0])
+        assert formatter.get_formatted() == self.example_shell_newline[1]
+
+    example_params_newline = (
+        f"rule a: \n"
+        f'{TAB * 1}input: "a", "b",\n'
+        f'{TAB * 4}"c"\n'
+        f'{TAB * 1}wrapper: "mywrapper"',
+        "rule a:\n"
+        f"{TAB * 1}input:\n"
+        f'{TAB * 2}"a",\n'
+        f'{TAB * 2}"b",\n'
+        f'{TAB * 2}"c",\n'
+        f"{TAB * 1}wrapper:\n"
+        f'{TAB * 2}"mywrapper"\n',
+    )
 
     def test_single_param_keyword_in_rule_gets_newline_indented(self):
-        formatter = setup_formatter(
-            f"rule a: \n"
-            f'{TAB * 1}input: "a", "b",\n'
-            f'{TAB * 4}"c"\n'
-            f'{TAB * 1}wrapper: "mywrapper"'
-        )
+        formatter = setup_formatter(self.example_params_newline[0])
+        assert formatter.get_formatted() == self.example_params_newline[1]
 
-        actual = formatter.get_formatted()
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"a",\n'
-            f'{TAB * 2}"b",\n'
-            f'{TAB * 2}"c",\n'
-            f"{TAB * 1}wrapper:\n"
-            f'{TAB * 2}"mywrapper"\n'
-        )
-
-        assert actual == expected
+    example_input_threads_newline = (
+        "rule a: \n"
+        f'{TAB * 1}input: "c"\n'
+        f"{TAB * 1}threads:\n"
+        f"{TAB * 2}20\n"
+        f"{TAB * 1}default_target:\n"
+        f"{TAB * 2}True\n",
+        f"rule a:\n"
+        f"{TAB * 1}input:\n"
+        f'{TAB * 2}"c",\n'
+        f"{TAB * 1}threads: 20\n"
+        f"{TAB * 1}default_target: True\n",
+    )
 
     def test_single_numeric_param_keyword_in_rule_stays_on_same_line(self):
-        formatter = setup_formatter(
-            "rule a: \n"
-            f'{TAB * 1}input: "c"\n'
-            f"{TAB * 1}threads:\n"
-            f"{TAB * 2}20\n"
-            f"{TAB * 1}default_target:\n"
-            f"{TAB * 2}True\n"
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
-            f'rule a:\n{TAB * 1}input:\n{TAB * 2}"c",\n{TAB * 1}threads: 20\n'
-            f"{TAB * 1}default_target: True\n"
-        )
-
-        assert actual == expected
+        formatter = setup_formatter(self.example_input_threads_newline[0])
+        assert formatter.get_formatted() == self.example_input_threads_newline[1]
 
 
 class TestModuleFormatting:
@@ -566,7 +563,8 @@ class TestComplexPythonFormatting:
             setup_formatter(snakecode)
             assert mock_m.call_count == 3
             assert mock_m.call_args_list[1] == mock.call('"a"', 0, 0, no_nesting=True)
-            assert mock_m.call_args_list[2] == mock.call("b = 2\n", 0)
+            # now python codes parsed as-is
+            assert mock_m.call_args_list[2] == mock.call("b=2\n", 0)
 
         formatter = setup_formatter(snakecode)
         expected = (
@@ -1662,17 +1660,24 @@ class TestStorage:
 
 
 class TestRunBlockFormatting:
-    def test_issue_267_comment_indentation_in_run_block(self):
+    def test_comment_indentation_in_run_block(self):
         """https://github.com/snakemake/snakefmt/issues/267"""
-        snakecode = (
+        expected = (
             "rule fmt_bug_repro:\n"
             f"{TAB * 1}run:\n"
             f'{TAB * 2}if "something nested":\n'
             f"{TAB * 3}pass\n"
             f"{TAB * 2}# Comment gets indented\n"
         )
-        formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
+        assert setup_formatter(expected).get_formatted() == expected
+        snakecode = (
+            "rule fmt_bug_repro:\n"
+            f" run:\n"
+            f'  if "something nested":\n'
+            f"   pass\n"
+            f"  # Comment gets indented\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_double_block_comment(self):
         """https://github.com/snakemake/snakefmt/issues/196"""
@@ -1937,3 +1942,134 @@ class TestUseParameterWith:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+
+class TestFmtOffOn:
+    """Tests for # fmt: off / # fmt: on directives."""
+
+    def test_fmt_off_at_start(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            expected = "# fmt: off\n" + code
+            assert setup_formatter(expected).get_formatted() == expected
+
+    def test_fmt_off_at_middle(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            code1 = code + "\n\n\n# fmt: off\n" + code
+            expected = formatted.strip() + "\n# fmt: off\n" + code
+            assert setup_formatter(code1).get_formatted() == expected
+
+    def test_fmt_off_on(self):
+        # TODO: the action after `# fmt: on` should be consistent, should be fixed in the future.
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            code1 = "\n# fmton\n" + code
+            expected = "# fmton\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = "\n\n# fmt: on\n" + code
+            expected = "# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+            # TODO: trailing comments like `# fmt: off # comment` are not currently supported, but should be in the future
+            code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
+            expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+    def test_fmt_off_on_in_run(self):
+        """# fmt: off inside Python code is handled by Black."""
+        code = (
+            "# ?\n"
+            "x = [1,2,3]\n"
+            "# fmt: off\n"
+            "y = [  1,   2]\n"
+            "s = f'''\n"
+            " {y} \n"
+            " '''\n"
+            "# fmt: on\n"
+            "z = [4,5,6]\n"
+        )
+        expected = (
+            "# ?\n"
+            "x = [1, 2, 3]\n"
+            "# fmt: off\n"
+            "y = [  1,   2]\n"
+            "s = f'''\n"
+            " {y} \n"
+            " '''\n"
+            "# fmt: on\n"
+            "z = [4, 5, 6]\n"
+        )
+        assert setup_formatter(code).get_formatted() == expected
+        snakecode = "rule:\n" f" run:\n" + (
+            "".join(f"  {i}\n" for i in code.splitlines())
+        )
+        snakexpected = "rule:\n" f"{TAB * 1}run:\n" + (
+            f"{TAB * 2}# ?\n"
+            f"{TAB * 2}x = [1, 2, 3]\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}y = [  1,   2]\n"
+            f"{TAB * 2}s = f'''\n"
+            f"{'  '} {{y}} \n"
+            f"{'  '} '''\n"
+            f"{TAB * 2}# fmt: on\n"
+            f"{TAB * 2}z = [4, 5, 6]\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakexpected
+
+    def test_fmt_off_on_in_run_complex(self):
+        code, formatted = TestSimpleParamFormatting.example_shell_newline
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"    run:\n"
+            f"        # fmt: off\n"
+            f"        x = [ 1,2,3]\n"
+            f"        # fmt: on\n"
+            f"\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
+            f"{TAB * 2}# fmt: on\n"
+            f"\n"
+            f"\n"
+            f"sth = 1\n"
+            f"\n"
+            f"\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"    run:\n"
+            f"        # fmt: off\n"
+            f"        x = [ 1,2,3]\n"
+            f"\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
+            f"\n"
+            f"\n"
+            f"sth = 1\n"
+            f"\n"
+            f"\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected

@@ -1,6 +1,6 @@
 import tokenize
 from abc import ABC, abstractmethod
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Literal
 
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import PythonCode, SnakeGlobal
@@ -16,6 +16,28 @@ from snakefmt.parser.syntax import (
 from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
 
+FMT_OFF_REGION = frozenset({"# fmt: off"})
+FMT_OFF_ONE = frozenset({"# fmt: off[one]"})
+FMT_OFF_SORT = frozenset({"# fmt: off[sort]"})
+FMT_OFF = FMT_OFF_REGION | FMT_OFF_ONE | FMT_OFF_SORT
+FMT_ON = frozenset({"# fmt: on"})
+
+
+def split_token_lines(token: tokenize.TokenInfo):
+    """Token can be multiline.
+    e.g., `f'''\\nplaintext\\n'''` has these tokens:
+
+        TokenInfo(type=61 (FSTRING_START), string="f'''", start=(21, 0), end=(21, 4), line="f'''\\n")
+        TokenInfo(type=62 (FSTRING_MIDDLE), string='\\ncccccccc\\n', start=(21, 4), end=(23, 0), line="f'''\\ncccccccc\\n'''\\n")
+        TokenInfo(type=63 (FSTRING_END), string="'''", start=(23, 0), end=(23, 3), line="'''\\n")
+
+    lines should be split to drop overlapping lines and keep unique ones.
+    """
+    return zip(
+        range(token.start[0], token.end[0] + 1), token.line.splitlines(keepends=True)
+    )
+
+
 def not_a_comment_related_token(token: Token):
     return token.type not in {
         tokenize.COMMENT,
@@ -24,6 +46,14 @@ def not_a_comment_related_token(token: Token):
         tokenize.INDENT,
         tokenize.DEDENT,
     }
+
+
+def check_indent(line: str, indents: list[str]) -> int:
+    indents_len = len(indents)
+    for i, indent in enumerate(reversed(indents), 1):
+        if line.startswith(indent):
+            return indents_len - i
+    raise SyntaxError("Unexpected indent")
 
 
 class Snakefile(TokenIterator):
@@ -97,6 +127,13 @@ class Parser(ABC):
         self.queriable = True
         self.in_fstring = False
         self.last_token: Optional[Token] = None
+        self.fmt_off_sort_next: bool = False  # for `# fmt: off[sort]`
+        # for `# fmt: off`, (indent, )
+        self.fmt_off: Literal[False] | tuple[int] = False
+        # True if a new block should be formatted as fmt: off due to a preceding fmt directive
+        self.fmt_off_applied: bool = False
+
+        self.indents: list[str] = [""]
 
         status = self.get_next_queriable()
         self.buffer = status.buffer
@@ -112,13 +149,34 @@ class Parser(ABC):
                 break
 
             keyword = status.token.string
+            if status.token.string in FMT_ON:
+                self.fmt_off = False
+                self.fmt_off_sort_next = False
+            elif status.token.string in FMT_OFF:
+                self.fmt_off = (status.cur_indent,)
+                self.fmt_off_sort_next = False
+            elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
+                self.fmt_off = False
+                self.fmt_off_applied = False
 
-            if self.vocab.recognises(keyword):
+            if self.vocab.recognises(keyword) and self.fmt_off:
+                if self.fmt_off:
+                    self.fmt_off_applied = True
+                self._consume_fmt_off(status.token, min_indent=self.keyword_indent)
+                status = self.get_next_queriable()
+                if self.last_block_was_snakecode and not status.eof:
+                    self.block_indent = status.block_indent
+                    self.last_block_was_snakecode = False
+                self.buffer = status.buffer.lstrip()
+            elif self.vocab.recognises(keyword):
+                new_vocab, new_syntax_cls = self.vocab.get(keyword)
+                is_context_kw = new_vocab is not None and issubclass(
+                    new_syntax_cls, KeywordSyntax
+                )
                 if status.cur_indent > self.keyword_indent:
-                    in_if_else = self.buffer.startswith(("if", "else", "elif"))
-                    if self.syntax.from_python or status.pythonable or in_if_else:
+                    if self.syntax.from_python or status.pythonable:
                         self.from_python = True
-                elif self.from_python:
+                elif self.from_python and not is_context_kw:
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
                     self.from_python = self.syntax.from_python
@@ -135,11 +193,24 @@ class Parser(ABC):
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.syntax.keyword_name} definition"
                     )
-                else:
-                    self.buffer += f"{keyword}"
+                elif keyword in FMT_OFF_REGION:
+                    self.flush_buffer(
+                        from_python=self.from_python,
+                        in_global_context=self.in_global_context,
+                    )
+                    self._consume_fmt_off(status.token, min_indent=self.keyword_indent)
+                    self.buffer = ""
                     status = self.get_next_queriable()
                     if self.last_block_was_snakecode and not status.eof:
                         self.block_indent = status.block_indent
+                        self.last_block_was_snakecode = False
+                    self.buffer = status.buffer.lstrip()
+                    if self.keyword_indent:
+                        self.last_block_was_snakecode = True
+                else:
+                    source, status = self._consume_python(status.token)
+                    self.buffer += source
+                    if self.last_block_was_snakecode and not status.eof:
                         self.last_block_was_snakecode = False
                     self.buffer += status.buffer
                     if (
@@ -193,6 +264,7 @@ class Parser(ABC):
         from_python: bool = False,
         final_flush: bool = False,
         in_global_context: bool = False,
+        exiting_keywords: bool = False,
     ) -> None:
         """Processes the text in :self.buffer:"""
 
@@ -210,6 +282,141 @@ class Parser(ABC):
     def post_process_keyword(self) -> None:
         """Sort params when exiting a keyword context,
         eg after finishing parsing a 'rule:'"""
+
+    def _consume_python(
+        self, start_token: Token, vocab_recognises=True, added_indent: str = ""
+    ) -> tuple[str, Status]:
+        """Collect Python source lines until a snakemake keyword at correct indent,
+        or dedent below min_indent, or EOF.
+        Returns (source_text, next_status) where next_status carries the stopping token.
+        """
+        origin_indent = start_token.start[1]
+
+        lines: dict[int, str] = {start_token.start[0]: start_token.line}
+        # Lines that are interior to a multiline token (string / f-string body).
+        # Their content must not be reindented.
+        string_interior_lines: set[int] = set()
+        self.queriable = False
+        prev_token = None
+        last_indent_token = None
+        min_indent = -1
+
+        def _init_min_indent(token: Token):
+            nonlocal min_indent
+            if token.string.lstrip()[:1] != "#":
+                while not token.line.startswith(self.indents[-1]):
+                    self.indents.pop()
+                min_indent = len(self.indents) - 1
+
+        _init_min_indent(start_token)
+        while True:
+            try:
+                token = next(self.snakefile)
+            except StopIteration:
+                eof_token = Token(tokenize.ENDMARKER, "", (0, 0), (0, 0), "")
+                self.snakefile.denext(eof_token)
+                break
+            if min_indent == -1:
+                _init_min_indent(token)
+            elif token.line[:origin_indent].strip():
+                # non-whitespace before origin indent: stop
+                self.snakefile.denext(token)
+                break
+            self.last_token = token
+            self.in_fstring = fstring_processing(token, prev_token, self.in_fstring)
+            prev_token = token
+            if token.type == tokenize.ENDMARKER:
+                self.snakefile.denext(token)
+                break
+            if token.type == tokenize.INDENT:
+                self._handle_indent(token)
+                self.syntax.cur_indent = len(self.indents) - 1
+                last_indent_token = token
+                continue
+            if token.type == tokenize.DEDENT:
+                saved_indents = list(self.indents)
+                self._handle_indent(token)
+                new_indent = len(self.indents) - 1
+                last_indent_token = None
+                if new_indent < min_indent:
+                    # let get_next_queriable handle dedent below min_indent
+                    self.indents = saved_indents
+                    self.snakefile.denext(token)
+                    break
+                self.syntax.cur_indent = new_indent
+                continue
+            if is_newline(token):
+                self.queriable = True
+                lines.update(split_token_lines(token))
+                continue
+            if vocab_recognises:
+                if (
+                    (token.type == tokenize.NAME or token.string == "@")
+                    and self.queriable
+                    and not self.in_fstring
+                ):
+                    if self.vocab.recognises(token.string):
+                        # snakemake keyword: stop, let main loop handle it
+                        self.snakefile.denext(token)
+                        if last_indent_token is not None:
+                            self.snakefile.denext(last_indent_token)
+                            self.indents.pop()
+                            self.syntax.cur_indent = len(self.indents) - 1
+                        break
+            else:
+                if token.type == tokenize.COMMENT and token.string in FMT_ON:
+                    lines.update(split_token_lines(token))
+                    self.fmt_off = False
+                    self.fmt_off_sort_next = False
+                    break
+
+            self.queriable = False
+            lines.update(split_token_lines(token))
+            # Mark interior lines of any multiline token as string content.
+            if token.start[0] != token.end[0]:
+                string_interior_lines.update(
+                    range(token.start[0] + 1, token.end[0] + 1)
+                )
+
+        verbatim = self._reindent(
+            lines, string_interior_lines, origin_indent, added_indent
+        )
+        next_status = self.get_next_queriable()
+        return verbatim, next_status._replace(
+            pythonable=next_status.pythonable or bool(verbatim.strip())
+        )
+
+    @abstractmethod
+    def handle_fmt_off_region(self, verbatim: str) -> None:
+        """handle unformatted text (just update indent)."""
+
+    def _consume_fmt_off(self, start_token: Token, min_indent: int):
+        verbatim, next_status = self._consume_python(
+            start_token, vocab_recognises=False, added_indent=TAB * min_indent
+        )
+        self.handle_fmt_off_region(verbatim)
+        self.snakefile.denext(next_status.token)
+        self.queriable = True
+
+    def _reindent(
+        self,
+        lines: dict[int, str],
+        string_interior_lines: set[int],
+        origin_indent: int,
+        added_indent: str = "",
+    ) -> str:
+        newlines = []
+        for i in sorted(lines):
+            line = lines[i]
+            if i in string_interior_lines:
+                newlines.append(line)
+            elif line.strip():
+                newline = line.rsplit("\n", 1)
+                newline[0] = added_indent + newline[0][origin_indent:]
+                newlines.append("\n".join(newline))
+            else:
+                newlines.append(line[origin_indent:])
+        return "".join(newlines)
 
     def process_keyword(self, status: Status, from_python: bool = False) -> Status:
         """Called when a snakemake keyword has been found.
@@ -261,10 +468,13 @@ class Parser(ABC):
             )
             self.process_keyword_param(param_context, self.in_global_context)
             self.syntax.add_processed_keyword(status.token, status.token.string)
+            cur_indent = param_context.cur_indent
+            if param_context.token.type == tokenize.COMMENT and not param_context.eof:
+                cur_indent = self._determe_comment_indent(param_context.token)
             return Status(
                 param_context.token,
-                param_context.cur_indent,
-                param_context.cur_indent,
+                cur_indent,
+                cur_indent,
                 status.buffer,
                 param_context.eof,
                 self.from_python,
@@ -278,7 +488,8 @@ class Parser(ABC):
         while self.keyword_indent > status.cur_indent:
             callback_context: Context = self.context_stack.pop()
             if callback_context.syntax.accepts_python_code:
-                self.flush_buffer()  # Flushes any code inside 'run' directive
+                # Flushes any code inside 'run' directive
+                self.flush_buffer(exiting_keywords=True)
             else:
                 callback_context.syntax.check_empty()
             self.context = self.context_stack[-1]
@@ -288,6 +499,65 @@ class Parser(ABC):
         self.block_indent = self.cur_indent
         if self.keyword_indent > 0:
             self.syntax.keyword_indent = status.cur_indent + 1
+
+    def _determe_comment_indent(self, token: Token) -> int:
+        """
+        Treat each line of single-line comment separately,
+        it is determined by the following real code line and previous self.indents.
+
+        follow_indent = indent of the following real code line
+        if EOF:
+            follow_indent = 0
+        rule 1 (always):
+            indent of comments >= follow_indent
+        rule 2 (if follow_indent < self.indents[-1]):
+            indent of comments = max(i for i in self.indents if i <= comment_indent) + epsilon.
+
+        next(self.snakefile) until follow_indent is determined, then put all peeked tokens back.
+        """
+        # ── Step 1: peek ahead to find follow_indent ────────────────────────
+        peeked: list[Token] = []
+        saved_indents = list(self.indents)
+        follow_indent = len(self.indents) - 1
+        try:
+            while True:
+                t = next(self.snakefile)
+                peeked.append(t)
+                if self._handle_indent(t):
+                    pass
+                elif t.type not in {tokenize.NEWLINE, tokenize.NL, tokenize.COMMENT}:
+                    follow_indent = check_indent(t.line, self.indents)
+                    break
+        except StopIteration:
+            follow_indent = 0
+        # restore indent stack and token stream unchanged
+        self.indents = saved_indents
+        for t in reversed(peeked):
+            self.snakefile.denext(t)
+
+        # Rule 1 (always): comment must not be indented below following code.
+        if len(self.indents) - 1 <= follow_indent:
+            return follow_indent
+        # Rule 2 (dedent is happening, standalone only): snap comment to the
+        # highest indent level fitting within the comment's column.
+        return max(check_indent(token.line, self.indents), follow_indent)
+
+    def _handle_indent(self, token: Token) -> bool:
+        if token.type == tokenize.INDENT:
+            line = token.line
+            indent = line[: len(line) - len(line.lstrip())]
+            if indent not in self.indents:
+                self.indents.append(indent)
+        elif token.type == tokenize.DEDENT:
+            line = token.line
+            indent = line[: len(line) - len(line.lstrip())]
+            while self.indents and self.indents[-1] != indent:
+                self.indents.pop()
+            if not self.indents:
+                raise SyntaxError("Unexpected dedent")
+        else:
+            return False
+        return True
 
     def get_next_queriable(self) -> Status:
         """Produces the next word that could be a snakemake keyword,
@@ -307,24 +577,37 @@ class Parser(ABC):
             self.in_fstring = fstring_processing(token, prev_token, self.in_fstring)
             if block_indent == -1 and not_a_comment_related_token(token):
                 block_indent = self.cur_indent
-            if token.type == tokenize.INDENT:
-                self.syntax.cur_indent += 1
+            if self._handle_indent(token):
                 prev_token = None
                 newline = True
-                continue
-            elif token.type == tokenize.DEDENT:
-                if self.cur_indent > 0:
-                    self.syntax.cur_indent -= 1
-                prev_token = None
-                newline = True
+                self.syntax.cur_indent = len(self.indents) - 1
                 continue
             elif token.type == tokenize.ENDMARKER:
                 return Status(
                     token, block_indent, self.cur_indent, buffer, True, pythonable
                 )
             elif token.type == tokenize.COMMENT:
-                if col_nb(token) == 0:
-                    return Status(token, block_indent, 0, buffer, False, pythonable)
+                if (
+                    not self.last_block_was_snakecode
+                    and token.string in FMT_OFF
+                    or token.string in FMT_ON
+                ):
+                    # col-0 comments report cur_indent=0 to trigger context_exit;
+                    # fmt directives at other columns report actual cur_indent.
+                    return Status(
+                        token, block_indent, self.cur_indent, buffer, False, pythonable
+                    )
+                # Comments arrive in the token stream *before* any following
+                # INDENT/DEDENT tokens, so self.cur_indent still reflects the
+                # previous (potentially higher) level.  Delegate to
+                # _determe_comment_indent which peeks ahead and applies the
+                # two snapping rules.
+                effective_indent = self._determe_comment_indent(token)
+                self.syntax.cur_indent = effective_indent
+                if effective_indent < max(self.keyword_indent, self.block_indent):
+                    return Status(
+                        token, block_indent, effective_indent, buffer, False, pythonable
+                    )
 
             elif is_newline(token):
                 self.queriable, newline = True, True
@@ -343,7 +626,11 @@ class Parser(ABC):
                 else:
                     buffer += TAB * self.effective_indent
 
-            if (token.type == tokenize.NAME or token.string == "@") and self.queriable:
+            if (
+                (token.type == tokenize.NAME or token.string == "@")
+                and self.queriable
+                and not self.in_fstring
+            ):
                 self.queriable = False
                 return Status(
                     token, block_indent, self.cur_indent, buffer, False, pythonable

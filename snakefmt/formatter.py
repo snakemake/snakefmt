@@ -65,6 +65,7 @@ class Formatter(Parser):
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
         self.sort_directives = sort_directives
+        self.fmt_off_sort_next: bool = False  # for # fmt: off[sort]
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
@@ -89,10 +90,13 @@ class Formatter(Parser):
         from_python: bool = False,
         final_flush: bool = False,
         in_global_context: bool = False,
+        exiting_keywords: bool = False,
     ) -> None:
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.result += self.buffer
             self.buffer = ""
+            if exiting_keywords and self.no_formatting_yet and self.result.rstrip("\n"):
+                self.no_formatting_yet = False
             return
 
         if not from_python:
@@ -162,7 +166,7 @@ class Formatter(Parser):
         else:  # not a PythonCode context, collect keywords to sort
             self.previous_result += self.result + formatted
             self.result = ""
-            self.keyword_spec = self.vocab.ordered()
+            self.keyword_spec = [] if self.fmt_off_sort_next else self.vocab.ordered()
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
@@ -194,6 +198,23 @@ class Formatter(Parser):
             )
         self.result = self.previous_result + self.result
         self.previous_result = ""
+        self.fmt_off_sort_next = False  # reset after each rule/context
+
+    def handle_fmt_off_region(self, verbatim: str) -> None:
+        if self.no_formatting_yet:
+            self.result = self.result.lstrip("\n")
+        self.result += self.buffer
+        self.buffer = ""
+        if not verbatim:
+            return
+        if self.lagging_comments:
+            self.result += self.lagging_comments
+            self.lagging_comments = ""
+        self.result += verbatim
+        # Treat the verbatim region as transparent to separator logic:
+        # resume formatting as if nothing preceded (no blank-line separator added).
+        self.no_formatting_yet = True
+        self.last_recognised_keyword = ""
 
     def run_black_format_str(
         self,
@@ -215,7 +236,9 @@ class Formatter(Parser):
             and len(string.strip().splitlines()) > 1
             and not no_nesting
         )
-
+        if self.fmt_off and self.fmt_off_applied:
+            # a `fmt: off` in previous block also affects here, make it work
+            string = "# fmt: off\n" + string
         if artificial_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
@@ -267,6 +290,11 @@ class Formatter(Parser):
             lines = fmted.splitlines(keepends=True)[1:]
             s = "".join(lines).lstrip("\n")
             fmted = textwrap.dedent(s)
+        if self.fmt_off:
+            if self.fmt_off_applied:
+                fmted = fmted.split("# fmt: off\n", 1)[1]
+            else:
+                self.fmt_off_applied = True
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:
