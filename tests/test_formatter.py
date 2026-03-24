@@ -2079,3 +2079,15 @@ def test_mask_string_collision():
     assert "`~!@#$%^&*|?" in result
     assert '"""' in result
     assert "multiline" in result
+
+
+def test_index_of_first_docstring_none():
+    from snakefmt.formatter import index_of_first_docstring
+
+    assert index_of_first_docstring("no docstring here") is None
+
+
+def test_index_of_first_docstring_match():
+    from snakefmt.formatter import index_of_first_docstring
+
+    assert index_of_first_docstring('"""docstring"""') == 14
