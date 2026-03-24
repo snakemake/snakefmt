@@ -200,6 +200,8 @@ class Formatter(Parser):
         self.result = self.previous_result + self.result
         self.previous_result = ""
         self.fmt_off_sort_next = False  # reset after each rule/context
+        if self.no_formatting_yet and self.result.rstrip("\n"):
+            self.no_formatting_yet = False
 
     def handle_fmt_off_region(self, verbatim: str) -> None:
         if self.no_formatting_yet:

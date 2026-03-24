@@ -1790,7 +1790,6 @@ class TestSortFormatting:
     def test_sorting_comprehensive(self):
         snakecode = (
             "rule all:\n"
-            f"{TAB}shell: 'echo done'\n"
             f"{TAB}params: p=1\n"
             f"{TAB}resources: mem_mb=100\n"
             f"{TAB}threads: 4\n"
@@ -1801,6 +1800,7 @@ class TestSortFormatting:
             f"{TAB}# Important input\n"
             f"{TAB}input: 'in.txt'\n"
             f"{TAB}name: 'myrule'\n"
+            f"{TAB}shell: 'echo done'\n"
         )
         formatter = setup_formatter(snakecode, sort_params=True)
         expected = (
@@ -2128,7 +2128,6 @@ class TestFmtOffOn:
             assert setup_formatter(code1).get_formatted() == expected
 
     def test_fmt_off_on(self):
-        # TODO: the action after `# fmt: on` should be consistent, should be fixed in the future.
         for code, formatted in (
             TestSimpleParamFormatting.example_shell_newline,
             TestSimpleParamFormatting.example_params_newline,
@@ -2140,9 +2139,28 @@ class TestFmtOffOn:
             code1 = "\n\n# fmt: on\n" + code
             expected = "# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
-            # TODO: trailing comments like `# fmt: off # comment` are not currently supported, but should be in the future
             code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
             expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+    def test_fmt_off_not_on(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            code1 = (
+                "\n# fmt: off\n"
+                + code
+                + "\nif 1:\n    a=1\n    # fmt: on\n    b=2\n"
+                + code
+            )
+            expected = (
+                "# fmt: off\n"
+                + code
+                + "\nif 1:\n    a=1\n    # fmt: on\n    b=2\n"
+                + code
+            )
             assert setup_formatter(code1).get_formatted() == expected
 
     def test_fmt_off_on_in_run(self):
@@ -2193,8 +2211,7 @@ class TestFmtOffOn:
             f"    run:\n"
             f"        # fmt: off\n"
             f"        x = [ 1,2,3]\n"
-            f"        # fmt: on\n"
-            f"\n"
+            f"        # fmt: on\n\n"
             f"sth=1\n"
             f"{code}"
         )
@@ -2203,12 +2220,8 @@ class TestFmtOffOn:
             f"{TAB * 1}run:\n"
             f"{TAB * 2}# fmt: off\n"
             f"{TAB * 2}x = [ 1,2,3]\n"
-            f"{TAB * 2}# fmt: on\n"
-            f"\n"
-            f"\n"
-            f"sth = 1\n"
-            f"\n"
-            f"\n"
+            f"{TAB * 2}# fmt: on\n\n\n"
+            f"sth = 1\n\n\n"
             f"{formatted}"
         )
         assert formatter.get_formatted() == expected
@@ -2216,8 +2229,7 @@ class TestFmtOffOn:
             f"rule:\n"
             f"    run:\n"
             f"        # fmt: off\n"
-            f"        x = [ 1,2,3]\n"
-            f"\n"
+            f"        x = [ 1,2,3]\n\n"
             f"sth=1\n"
             f"{code}"
         )
@@ -2225,12 +2237,90 @@ class TestFmtOffOn:
             "rule:\n"
             f"{TAB * 1}run:\n"
             f"{TAB * 2}# fmt: off\n"
-            f"{TAB * 2}x = [ 1,2,3]\n"
-            f"\n"
-            f"\n"
-            f"sth = 1\n"
-            f"\n"
-            f"\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n\n"
+            f"sth = 1\n\n\n"
             f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_on_in_rule(self):
+        code, formatted = TestSimpleParamFormatting.example_shell_newline
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"    # fmt: off\n"
+            f"    run:\n"
+            f"        x = [ 1,2,3]\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n\n"
+            f"sth = 1\n\n\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"    message: 'finishing'\n"
+            f"    # Important input\n"
+            f"    input: 'in.txt'\n"
+            f"    # fmt: off\n"
+            f"    log: 'log.txt'\n"
+            f"    name: 'myrule'\n"
+            f"    # fmt: on\n"
+            f"    output: 'out.txt'\n"
+            f"    run:\n"
+            f"        # fmt: off\n"
+            f"        x = [ 1,2,3]\n\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB}message:\n"
+            f'{TAB}{TAB}"finishing"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB}{TAB}"in.txt",\n'
+            f"{TAB}# fmt: off\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}# fmt: on\n"
+            f"{TAB}output:\n"
+            f'{TAB}{TAB}"out.txt",\n'
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n\n"
+            f"sth = 1\n\n\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_on_in_other(self):
+        formatter = setup_formatter(
+            "module a: \n"
+            f'{TAB * 1}snakefile: "other.smk"\n'
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}config: config\n"
+            f'{TAB * 1}prefix: "testmodule"\n'
+            f"{TAB * 1}# fmt: on\n"
+            f'{TAB * 1}replace_prefix: {{"results/": "results/testmodule/"}}\n'
+            f'{TAB * 1}meta_wrapper: "0.72.0/meta/bio/bwa_mapping"\n'
+        )
+        expected = (
+            "module a:\n"
+            f"{TAB * 1}snakefile:\n"
+            f'{TAB * 2}"other.smk"\n'
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}config: config\n"
+            f'{TAB * 1}prefix: "testmodule"\n'
+            f"{TAB * 1}# fmt: on\n"
+            f"{TAB * 1}replace_prefix:\n"
+            f'{TAB * 2}{{"results/": "results/testmodule/"}}\n'
+            f"{TAB * 1}meta_wrapper:\n"
+            f'{TAB * 2}"0.72.0/meta/bio/bwa_mapping"\n'
         )
         assert formatter.get_formatted() == expected

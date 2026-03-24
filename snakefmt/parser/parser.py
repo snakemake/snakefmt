@@ -149,7 +149,7 @@ class Parser(ABC):
                 break
 
             keyword = status.token.string
-            if status.token.string in FMT_ON:
+            if self._check_fmt_off_on(status.token):
                 self.fmt_off = False
                 self.fmt_off_sort_next = False
             elif status.token.string in FMT_OFF:
@@ -198,6 +198,8 @@ class Parser(ABC):
                         from_python=self.from_python,
                         in_global_context=self.in_global_context,
                     )
+                    if self.keyword_indent > 0:
+                        self.syntax.add_processed_keyword(status.token, keyword)
                     self._consume_fmt_off(status.token, min_indent=self.keyword_indent)
                     self.buffer = ""
                     status = self.get_next_queriable()
@@ -303,7 +305,7 @@ class Parser(ABC):
 
         def _init_min_indent(token: Token):
             nonlocal min_indent
-            if token.string.lstrip()[:1] != "#":
+            if not comment_start(token.string):
                 while not token.line.startswith(self.indents[-1]):
                     self.indents.pop()
                 min_indent = len(self.indents) - 1
@@ -364,10 +366,10 @@ class Parser(ABC):
                             self.syntax.cur_indent = len(self.indents) - 1
                         break
             else:
-                if token.type == tokenize.COMMENT and token.string in FMT_ON:
-                    lines.update(split_token_lines(token))
+                if self._check_fmt_off_on(token):
                     self.fmt_off = False
                     self.fmt_off_sort_next = False
+                    lines.update(split_token_lines(token))
                     break
 
             self.queriable = False
@@ -542,6 +544,13 @@ class Parser(ABC):
         # highest indent level fitting within the comment's column.
         return max(check_indent(token.line, self.indents), follow_indent)
 
+    def _check_fmt_off_on(self, token: Token) -> bool:
+        if token.type == tokenize.COMMENT and self.fmt_off:
+            if token.string in FMT_ON:
+                if self._determe_comment_indent(token) == self.fmt_off[0]:
+                    return True
+        return False
+
     def _handle_indent(self, token: Token) -> bool:
         if token.type == tokenize.INDENT:
             line = token.line
@@ -589,9 +598,8 @@ class Parser(ABC):
             elif token.type == tokenize.COMMENT:
                 if (
                     not self.last_block_was_snakecode
-                    and token.string in FMT_OFF
-                    or token.string in FMT_ON
-                ):
+                    and (token.string in FMT_OFF or token.string in FMT_ON)
+                ) and col_nb(token) == 0:
                     # col-0 comments report cur_indent=0 to trigger context_exit;
                     # fmt directives at other columns report actual cur_indent.
                     return Status(
