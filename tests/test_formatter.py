@@ -2015,6 +2015,7 @@ def test_invalid_python_error_no_dedent(mock_format):
     formatter.snakefile = smk
     formatter.black_mode = black.Mode()
     formatter.from_python = False
+    formatter.fmt_off = False
     from snakefmt.parser.parser import Context
     from snakefmt.parser.syntax import KeywordSyntax
 
