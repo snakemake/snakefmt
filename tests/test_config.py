@@ -302,3 +302,23 @@ class TestReadBlackConfig:
             target_versions=DEFAULT_TARGET_VERSIONS,
         )
         assert formatter.black_mode == expected
+
+
+class TestFindProjectRoot:
+    def test_stdin_filename(self, tmp_path):
+        from snakefmt.config import find_project_root
+
+        (tmp_path / ".git").mkdir()
+        srcs = ("-",)
+        root, _ = find_project_root(srcs, stdin_filename=str(tmp_path / "file.smk"))
+        assert root == tmp_path.resolve()
+
+    def test_hg_directory(self, tmp_path):
+        from snakefmt.config import find_project_root
+
+        hg_dir = tmp_path / ".hg"
+        hg_dir.mkdir()
+        file_path = tmp_path / "file.smk"
+        file_path.touch()
+        root, _ = find_project_root((str(file_path),))
+        assert root == tmp_path.resolve()

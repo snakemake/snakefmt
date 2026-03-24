@@ -22,7 +22,7 @@ keywords = [
 ]
 dependencies = [
     "click>=8.2.0,<9",
-    "black>=24.3.0,<25",
+    "black>=26.3.1,<27",
 ]
 
 [project.urls]
@@ -46,6 +46,7 @@ dev = [
 ]
 
 [tool.black]
+target-version = ["py311"]
 line-length = 88
 include = '\.pyi?$'
 exclude = '''
