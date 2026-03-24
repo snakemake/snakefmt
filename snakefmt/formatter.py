@@ -1,5 +1,6 @@
 import re
 import textwrap
+import tokenize
 from ast import parse as ast_parse
 from copy import copy
 from typing import Optional
@@ -254,7 +255,7 @@ class Formatter(Parser):
             err_msg = ""
             # Not clear whether all Black errors start with 'Cannot parse' - it seems to
             # in the tests I ran
-            match = re.search(r"(Cannot parse: )(?P<line>\d+)(.*)", str(e))
+            match = re.search(r"(Cannot parse.*?:\s*)(?P<line>\d+)(.*)", str(e))
             try:
                 next_token = next(self.snakefile)
                 self.snakefile.denext(next_token)
@@ -270,8 +271,15 @@ class Formatter(Parser):
             elif match and self.last_token is not None:
                 # Fallback when next_token is None (e.g. at EOF)
                 line_num = int(match.group("line"))
-                # Adjustment: last_token is at the end of the block, so we add 1
-                context_line_num = self.last_token.end[0] - len(string.splitlines()) + 1
+                # Adjustment: last_token is usually a DEDENT or ENDMARKER on the line
+                # after the block
+                context_line_num = self.last_token.start[0] - len(string.splitlines())
+
+                if self.last_token.type not in (
+                    tokenize.DEDENT,
+                    tokenize.ENDMARKER,
+                ):
+                    context_line_num += 1
                 total_line_num = context_line_num + line_num - 1
                 err_msg = match.group(1) + str(total_line_num) + match.group(3)
                 err_msg += (
@@ -305,6 +313,7 @@ class Formatter(Parser):
         split_string = split_code_string(string)
         if len(split_string) == 1:
             return textwrap.indent(split_string[0], used_indent)
+
         # First, masks all multi-line strings
         mask_string = "`~!@#$%^&*|?"
         while mask_string in string:
@@ -315,7 +324,8 @@ class Formatter(Parser):
             used_indent,
         )
         split_code = fakewrap.split(mask_string)
-        # After indenting, we puts those strings back
+
+        # After indenting, we put those strings back exactly as they were
         indented = "".join(
             s.replace("\t", TAB) if i % 2 else split_code[i // 2]
             for i, s in enumerate(split_string)
@@ -340,25 +350,11 @@ class Formatter(Parser):
         except SyntaxError:
             raise InvalidParameterSyntax(f"{parameter.line_nb}{val}") from None
 
-        if inline_formatting or param_list:
-            val = val.rstrip()
-        extra_spacing = 0
-        if param_list:
-            val = f"f({val}\n)"
-            extra_spacing = 3
+        val = val.rstrip()
 
-        # get the index of the last character of the first docstring, if any
-        docstring_index = index_of_first_docstring(val)
-        docstring_line_index = None
-        if docstring_index is not None:
-            docstring_line_index = val[:docstring_index].count("\n")
-        lines = val.splitlines()
-        if docstring_line_index is not None and docstring_line_index + 1 < len(lines):
-            docstring_has_extra_newline_after = (
-                lines[docstring_line_index + 1].strip() == ""
-            )
-        else:
-            docstring_has_extra_newline_after = False
+        # Wrapping trick to avoid Black 26 standalone string reformatting
+        val = f"f({val})"
+        extra_spacing = 3
 
         try:
             val = self.run_black_format_str(
@@ -371,19 +367,37 @@ class Formatter(Parser):
                 val, target_indent, extra_spacing, no_nesting=True
             )
 
-        # remove newline added after first docstring (black>=24.1)
-        if docstring_line_index is not None and not docstring_has_extra_newline_after:
-            lines = val.splitlines()
-            if docstring_line_index + 1 < len(lines):
-                line_after_docstring = lines[docstring_line_index + 1]
-                if line_after_docstring.strip() == "":
-                    # delete the newline
-                    lines.pop(docstring_line_index + 1)
-                    val = "\n".join(lines)
+        val_stripped = val.strip()
+        is_multiline_fallback = False
+        if match_fallback := re.match(
+            r"^\(\s*(f\(.*\))\s*\)$", val_stripped, re.DOTALL
+        ):
+            if "\n" in val_stripped[: match_fallback.start(1)]:
+                is_multiline_fallback = True
+            val_stripped = match_fallback.group(1)
 
-        if param_list and (match_equal := re.match(r"f\((.*)\)", val, re.DOTALL)):
-            val = match_equal.group(1)
-            val = textwrap.dedent(val)
+        if match_f := re.match(r"^f\((.*)\)$", val_stripped, re.DOTALL):
+            content = match_f.group(1)
+            if content.startswith("\n"):
+                content = content[1:]
+
+                # Split the string and only dedent the code parts to strip
+                # Black's spaces
+                parts = split_code_string(content)
+                new_parts = []
+                for i, p in enumerate(parts):
+                    if i % 2 == 0:
+                        # Code part: strip 4 spaces
+                        # (or 8 spaces if multiline fallback wrapper was used)
+                        strip_pattern = r"^ {8}" if is_multiline_fallback else r"^ {4}"
+                        p = re.sub(strip_pattern, "", p, flags=re.MULTILINE)
+                    # String part: leave alone!
+                    new_parts.append(p)
+
+                val = "".join(new_parts)
+                val = val.rstrip("\n")
+            else:
+                val = content
 
         val = self.align_strings(val, target_indent)
 
@@ -414,12 +428,7 @@ class Formatter(Parser):
         result = f"{used_indent}{parameters.keyword_line}:"
         if inline_fmting:
             # here, check if the value is too large to put in one line
-            params_iter = iter(parameters.all_params)
-            try:
-                param = next(params_iter)
-            except StopIteration:
-                # No params; render just the keyword line and its comment.
-                return f"{result}{parameters.comment}\n"
+            param = parameters.all_params[0]
             param_result = self.format_param(
                 param, target_indent, inline_fmting, param_list
             )

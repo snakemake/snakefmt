@@ -7,8 +7,11 @@ errors arise, as tested in test_parser.py.
 import textwrap
 from unittest import mock
 
+import black
+import black.parsing
 import pytest
 
+from snakefmt.exceptions import InvalidPython
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
@@ -52,9 +55,7 @@ class TestSimpleParamFormatting:
         f'{TAB * 2}"done"',
         "rule a:\n"
         f"{TAB * 1}shell:\n"
-        f'{TAB * 2}"for i in $(seq 1 5);"\n'
-        f'{TAB * 2}"do echo $i;"\n'
-        f'{TAB * 2}"done"\n',
+        f'{TAB * 2}"for i in $(seq 1 5);" "do echo $i;" "done"\n',
     )
 
     def test_shell_param_newline_indented(self):
@@ -140,7 +141,6 @@ class TestUseRuleFormatting:
     def test_use_rule_with_exclude(self):
         snakecode = """from snakemake.utils import min_version
 
-
 min_version("6.0")
 
 
@@ -157,7 +157,6 @@ use rule * from other_workflow exclude ruleC as other_*
 
     def test_use_rule_with_multiple_excludes(self):
         snakecode = """from snakemake.utils import min_version
-
 
 min_version("6.0")
 
@@ -562,8 +561,10 @@ class TestComplexPythonFormatting:
             mock_m.return_value = "if condition:\n"
             setup_formatter(snakecode)
             assert mock_m.call_count == 3
-            assert mock_m.call_args_list[1] == mock.call('"a"', 0, 0, no_nesting=True)
-            # now python codes parsed as-is
+            assert mock_m.call_args_list[1] == mock.call(
+                'f("a")', 0, 3, no_nesting=True
+            )
+
             assert mock_m.call_args_list[2] == mock.call("b=2\n", 0)
 
         formatter = setup_formatter(snakecode)
@@ -819,10 +820,7 @@ class TestStringFormatting:
         expected = (
             "rule a:\n"
             f"{TAB * 1}message:\n"
-            f'{TAB * 2}"""Hello"""\n'
-            f'{TAB * 2}"""    a string"""\n'  # Quotes normalised
-            f'{TAB * 2}"World"\n'
-            f'{TAB * 2}"""    Yes"""\n'
+            f'{TAB * 2}"""Hello""" """    a string""" "World" """    Yes"""\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
@@ -850,6 +848,7 @@ class TestStringFormatting:
             )
             assert setup_formatter(snakecode).get_formatted() == snakecode
             snakecode2 = snakecode.replace('"""', "'''")
+            # Black normalizes triple quotes to """
             assert setup_formatter(snakecode2).get_formatted() == snakecode
 
     def test_tpq_alignment_and_keep_relative_indenting(self):
@@ -958,8 +957,7 @@ rule a:
 
 
 rule a:
-{TAB * 1}"""The rule a
-{TAB * 0}"""
+{TAB * 1}"""The rule a\"\"\"
 {TAB * 1}message:
 {TAB * 2}"a"
 '''
@@ -978,12 +976,9 @@ rule a:
         expected = (
             "rule:\n"
             f"{TAB * 1}shell:\n"
-            f"{TAB * 2}(\n"
-            f'{TAB * 3}("conditional prefix" if True else "")\n'
-            f'{TAB * 3}+ """\\\n'
+            f'{TAB * 2}("conditional prefix" if True else "") + """\\\n'
             f"{TAB * 2}cmd\n"
             f'{TAB * 2}"""\n'
-            f"{TAB * 2})\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
@@ -1000,34 +995,40 @@ rule a:
             f"{TAB * 2}# Merge overlapping coordinates into individual expanded records\n"  # noqa: E501
             f'{TAB * 2}+"mergeBed 2> {{log.merge:q}} 1> {{output:q}}"\n'
         )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}shell:\n"
+            f"{TAB * 2}# Concatenate all the files together\n"
+            f'{TAB * 2}"cat {{input:q}} 2> {{log.cat:q}} | "\n'
+            f"{TAB * 2}# Coordinate sort everything\n"
+            f'{TAB * 2}+ "sortBed 2> {{log.sort:q}} | "\n'
+            f"{TAB * 2}# Merge overlapping coordinates into individual expanded records\n"  # noqa: E501
+            f'{TAB * 2}+ "mergeBed 2> {{log.merge:q}} 1> {{output:q}}"\n'
+        )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == snakecode
+        assert formatter.get_formatted() == expected
 
     def test_tpq_inside_run_block(self):
-        snakecode = '''rule cutadapt:
+        snakecode = """rule cutadapt:
     input:
         "a.txt",
     output:
         "b.txt",
     run:
         if True:
-            shell(
-                """
+            shell(\"\"\"
             cutadapt \
                 -m 30 \
                 {input} \
                 -o {output}
-            """
-            )
+            \"\"\")
         else:
-            shell(
-                """
+            shell(\"\"\"
             cutadapt \
                 {input} \
                 -o {output}
-            """
-            )
-'''
+            \"\"\")
+"""
         formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
@@ -1060,6 +1061,28 @@ rule a:
         snakecode = 'f"{var1}{var2}"\n'
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+    @mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
+    def test_invalid_python_recovery(self, mock_format):
+        from snakefmt.exceptions import InvalidPython
+
+        def side_effect(val, *args, **kwargs):
+            if val.startswith("f(") and not val.startswith("(f("):
+                raise InvalidPython("Simulated syntax error")
+            return val
+
+        mock_format.side_effect = side_effect
+
+        snakecode = (
+            "rule a:\n"
+            f"{TAB * 1}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}cmd\n"
+            f'{TAB * 2}"""\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+        assert mock_format.call_count == 2
 
     def test_fstring_with_equal_sign_inside_function_call(self):
         """https://github.com/snakemake/snakefmt/issues/220"""
@@ -1942,6 +1965,143 @@ class TestUseParameterWith:
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
+
+
+def test_invalid_python_error_line_number():
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}run:\n"
+        f"{TAB * 2}a = \n"
+        f"{TAB * 2}b = 2\n"
+        "rule b:\n"
+        f"{TAB * 1}pass\n"
+    )
+    with pytest.raises(InvalidPython) as excinfo:
+        setup_formatter(snakecode).get_formatted()
+    msg = str(excinfo.value)
+    assert "Black error:" in msg
+    assert ": 3:" in msg
+
+
+def test_invalid_python_error_eof():
+    snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = \n"
+    with pytest.raises(InvalidPython) as excinfo:
+        setup_formatter(snakecode).get_formatted()
+    msg = str(excinfo.value)
+    assert "Black error:" in msg
+    assert ": 3:" in msg
+    assert "Note reported line number may be an approximation" in msg
+
+
+@mock.patch("black.format_str", spec=True)
+def test_invalid_python_error_no_dedent(mock_format):
+    # This test covers the branch where last_token is not a DEDENT or ENDMARKER
+    def side_effect(*args, **kwargs):
+        raise black.parsing.InvalidInput("Cannot parse: 1:1: error")
+
+    mock_format.side_effect = side_effect
+    import io
+    import tokenize
+
+    from snakefmt.formatter import Formatter
+    from snakefmt.parser.parser import Snakefile
+
+    # Create a dummy formatter without running the parser loop
+    smk = Snakefile(io.StringIO(""))
+    # Consume ENDMARKER
+    list(smk)
+
+    formatter = Formatter.__new__(Formatter)
+    formatter.snakefile = smk
+    formatter.black_mode = black.Mode()
+    formatter.from_python = False
+    from snakefmt.parser.parser import Context
+    from snakefmt.parser.syntax import KeywordSyntax
+
+    formatter.context = Context(
+        None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)  # type: ignore
+    )
+    # Manually set last_token to something that isn't DEDENT/ENDMARKER
+    formatter.last_token = tokenize.TokenInfo(
+        tokenize.NAME, "a", (1, 0), (1, 1), "a = 1\n"
+    )
+
+    with pytest.raises(InvalidPython) as excinfo:
+        formatter.run_black_format_str("a = 1", 0)
+    msg = str(excinfo.value)
+    # context_line_num = 1 - 1 + 1 = 1. total = 1 + 1 - 1 = 1.
+    assert ": 1:" in msg
+
+
+@mock.patch("black.format_str", spec=True)
+def test_invalid_python_error_no_match(mock_format):
+    def side_effect(*args, **kwargs):
+        raise black.parsing.InvalidInput("Custom black error without line number")
+
+    mock_format.side_effect = side_effect
+    snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = 1\n"
+    with pytest.raises(InvalidPython) as excinfo:
+        setup_formatter(snakecode).get_formatted()
+    msg = str(excinfo.value)
+    assert "Custom black error without line number" in msg
+
+
+@mock.patch("snakefmt.formatter.Formatter.run_black_format_str", spec=True)
+def test_multiline_fallback(mock_format):
+    from snakefmt.exceptions import InvalidPython
+
+    def side_effect(val, *args, **kwargs):
+        if val.startswith("f(") and not val.startswith("(f("):
+            raise InvalidPython("Simulated syntax error")
+        if val.startswith("(f("):
+            # simulate black wrapping the fallback across multiple lines
+            return "(\n    " + val[1:-1] + "\n)"
+        return val
+
+    mock_format.side_effect = side_effect
+
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}cmd\n"
+        f'{TAB * 2}"""\n'
+    )
+    formatter = setup_formatter(snakecode)
+    # The actual result won't be perfect because we hand-mocked Black,
+    # but it guarantees the code path is executed.
+    result = formatter.get_formatted()
+    assert "(f(" not in result
+    assert "(\n" not in result
+    assert '"""' in result
+    assert "cmd" in result
+
+
+def test_mask_string_collision():
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"`~!@#$%^&*|?" + """\n'
+        f"{TAB * 2}multiline\n"
+        f'{TAB * 2}"""\n'
+    )
+    formatter = setup_formatter(snakecode)
+    result = formatter.get_formatted()
+    assert "`~!@#$%^&*|?" in result
+    assert '"""' in result
+    assert "multiline" in result
+
+
+def test_index_of_first_docstring_none():
+    from snakefmt.formatter import index_of_first_docstring
+
+    assert index_of_first_docstring("no docstring here") is None
+
+
+def test_index_of_first_docstring_match():
+    from snakefmt.formatter import index_of_first_docstring
+
+    assert index_of_first_docstring('"""docstring"""') == 14
 
 
 class TestFmtOffOn:

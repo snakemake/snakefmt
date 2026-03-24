@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0](https://github.com/snakemake/snakefmt/compare/v0.11.5...v1.0.0) (2026-03-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* The underlying `black` formatter has been upgraded to v26. Users will see changes in how implicitly concatenated strings are wrapped (they are now collapsed onto a single line if they fit within the line limit) and other minor formatting adjustments compared to previous versions.
+* The default formatting behaviour has changed. snakefmt will now automatically reorder rule directives. Users can explicitly opt out by using the `--no-sort` CLI flag.
+
+### Features
+
+* enable sorting of rule directives ([#277](https://github.com/snakemake/snakefmt/issues/277)) ([582a155](https://github.com/snakemake/snakefmt/commit/582a1552bc630aa02b68955e65066b53189d63cc))
+
+
+### Styles
+
+* upgrade to Black v26 ([#279](https://github.com/snakemake/snakefmt/issues/279)) ([266c8e4](https://github.com/snakemake/snakefmt/commit/266c8e42a4610e4958d126b3d04087baf9b44cc3))
+
 ## [0.11.5](https://github.com/snakemake/snakefmt/compare/v0.11.4...v0.11.5) (2026-03-13)
 
 
