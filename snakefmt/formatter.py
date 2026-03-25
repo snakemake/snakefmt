@@ -65,8 +65,7 @@ class Formatter(Parser):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
-        self.sort_directives = sort_directives
-        self.fmt_off_sort_next: bool = False  # for # fmt: off[sort]
+        self.fmt_sort_off = None if sort_directives else -1
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
@@ -167,7 +166,7 @@ class Formatter(Parser):
         else:  # not a PythonCode context, collect keywords to sort
             self.previous_result += self.result + formatted
             self.result = ""
-            self.keyword_spec = [] if self.fmt_off_sort_next else self.vocab.ordered()
+            self.keyword_spec = self.vocab.ordered()
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
@@ -178,7 +177,7 @@ class Formatter(Parser):
             context=param_context,
         )
         param_formatted = self.format_params(param_context)
-        if self.sort_directives and not in_global_context and self.keyword_spec:
+        if self.fmt_sort_off is None and not in_global_context and self.keyword_spec:
             self.keywords[param_context.keyword_name] = self.result + param_formatted
             self.result = ""
         else:
@@ -192,14 +191,15 @@ class Formatter(Parser):
         for keyword in self.keyword_spec:
             res = self.keywords.pop(keyword, "")
             self.previous_result += res
-        if self.keywords:
-            raise InvalidParameterSyntax(
-                "Unexpected keywords when sorted keywords: "
-                + (", ".join(self.keywords))
-            )
+        assert not self.keywords, (
+            "All directives should have been consumed; "
+            "if not, this is a bug in snakefmt's handling of snakemake syntax. "
+            "It must be the coder's fault, not the user's. "
+            "So please report this to the developers with the code so we can fix it: "
+            "https://github.com/snakemake/snakefmt/issues"
+        )
         self.result = self.previous_result + self.result
         self.previous_result = ""
-        self.fmt_off_sort_next = False  # reset after each rule/context
         if self.no_formatting_yet and self.result.rstrip("\n"):
             self.no_formatting_yet = False
 
@@ -293,7 +293,7 @@ class Formatter(Parser):
                     "\n\n(Note reported line number may be incorrect, as"
                     " snakefmt could not determine the true line number)"
                 )
-            err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
+            err_msg = f"Black error:\n```\n{str(err_msg)}\n``` from\n```\n{str(string)}\n```\n"
             raise InvalidPython(err_msg) from None
 
         if artificial_nest:

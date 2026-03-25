@@ -1729,15 +1729,29 @@ class TestRunBlockFormatting:
 
 
 class TestSortFormatting:
+    sort_simple = (
+        "rule a:\n"
+        f"{TAB * 1}# annots\n"
+        f"{TAB * 1}threads: 1\n"
+        f'{TAB * 1}log: "b",\n'
+        f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
+        f"{TAB * 1}run:\n"
+        f'{TAB * 2}print("hello world")\n',
+        "rule a:\n"
+        f"{TAB * 1}output:\n"
+        f'{TAB * 2}"a",\n'
+        f'{TAB * 2}"fsdfdsdfd",\n'
+        f'{TAB * 2}"ccc",\n'
+        f"{TAB * 1}log:\n"
+        f'{TAB * 2}"b",\n'
+        f"{TAB * 1}# annots\n"
+        f"{TAB * 1}threads: 1\n"
+        f"{TAB * 1}run:\n"
+        f'{TAB * 2}print("hello world")\n',
+    )
+
     def test_sorting_of_params(self):
-        snakecode = (
-            "rule a:\n"
-            f"{TAB * 1}# annots\n"
-            f"{TAB * 1}threads: 1\n"
-            f'{TAB * 1}log: "b",\n'
-            f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
-            f"{TAB * 1}run:\n"
-            f'{TAB * 2}print("hello world")\n'
+        snakecode = self.sort_simple[0] + (
             "if 2:\n"
             f"{TAB * 1}rule b:\n"
             f'{TAB * 2}output: "b",\n'
@@ -1753,18 +1767,8 @@ class TestSortFormatting:
             f'{TAB * 1}print("error")\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}output:\n"
-            f'{TAB * 2}"a",\n'
-            f'{TAB * 2}"fsdfdsdfd",\n'
-            f'{TAB * 2}"ccc",\n'
-            f"{TAB * 1}log:\n"
-            f'{TAB * 2}"b",\n'
-            f"{TAB * 1}# annots\n"
-            f"{TAB * 1}threads: 1\n"
-            f"{TAB * 1}run:\n"
-            f'{TAB * 2}print("hello world")\n\n\n'
+        expected = self.sort_simple[1] + (
+            f"\n\n"
             "if 2:\n"
             "\n"
             f"{TAB * 1}rule b:\n"
@@ -1787,127 +1791,121 @@ class TestSortFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    sorting_comprehensive = (
+        "rule all:\n"
+        f"{TAB}params: p=1\n"
+        f"{TAB}resources: mem_mb=100\n"
+        f"{TAB}threads: 4\n"
+        f"{TAB}conda: 'env.yaml'\n"
+        f"{TAB}message: 'finishing'\n"
+        f"{TAB}log: 'log.txt'\n"
+        f"{TAB}output: 'out.txt'\n"
+        f"{TAB}# Important input\n"
+        f"{TAB}input: 'in.txt'\n"
+        f"{TAB}name: 'myrule'\n"
+        f"{TAB}shell: 'echo done'\n",
+        "rule all:\n"
+        f"{TAB}name:\n"
+        f'{TAB*2}"myrule"\n'
+        f"{TAB}# Important input\n"
+        f"{TAB}input:\n"
+        f'{TAB*2}"in.txt",\n'
+        f"{TAB}output:\n"
+        f'{TAB*2}"out.txt",\n'
+        f"{TAB}log:\n"
+        f'{TAB*2}"log.txt",\n'
+        f"{TAB}conda:\n"
+        f'{TAB*2}"env.yaml"\n'
+        f"{TAB}threads: 4\n"
+        f"{TAB}resources:\n"
+        f"{TAB*2}mem_mb=100,\n"
+        f"{TAB}params:\n"
+        f"{TAB*2}p=1,\n"
+        f"{TAB}message:\n"
+        f'{TAB*2}"finishing"\n'
+        f"{TAB}shell:\n"
+        f'{TAB*2}"echo done"\n',
+    )
+
     def test_sorting_comprehensive(self):
-        snakecode = (
-            "rule all:\n"
-            f"{TAB}params: p=1\n"
-            f"{TAB}resources: mem_mb=100\n"
-            f"{TAB}threads: 4\n"
-            f"{TAB}conda: 'env.yaml'\n"
-            f"{TAB}message: 'finishing'\n"
-            f"{TAB}log: 'log.txt'\n"
-            f"{TAB}output: 'out.txt'\n"
-            f"{TAB}# Important input\n"
-            f"{TAB}input: 'in.txt'\n"
-            f"{TAB}name: 'myrule'\n"
-            f"{TAB}shell: 'echo done'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "rule all:\n"
-            f"{TAB}name:\n"
-            f'{TAB*2}"myrule"\n'
-            f"{TAB}# Important input\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
-            f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
-            f"{TAB}log:\n"
-            f'{TAB*2}"log.txt",\n'
-            f"{TAB}conda:\n"
-            f'{TAB*2}"env.yaml"\n'
-            f"{TAB}threads: 4\n"
-            f"{TAB}resources:\n"
-            f"{TAB*2}mem_mb=100,\n"
-            f"{TAB}params:\n"
-            f"{TAB*2}p=1,\n"
-            f"{TAB}message:\n"
-            f'{TAB*2}"finishing"\n'
-            f"{TAB}shell:\n"
-            f'{TAB*2}"echo done"\n'
-        )
-        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(self.sorting_comprehensive[0], sort_params=True)
+        assert formatter.get_formatted() == self.sorting_comprehensive[1]
+
+    sort_with_coments = (
+        "rule complex:\n"
+        f"{TAB}# Action comment\n"
+        f"{TAB}shell: 'do something'\n"
+        f"{TAB}# Resource comment\n"
+        f"{TAB}resources: res=1\n"
+        f"{TAB}# Input comment\n"
+        f"{TAB}input: 'i'\n",
+        "rule complex:\n"
+        f"{TAB}# Input comment\n"
+        f"{TAB}input:\n"
+        f'{TAB*2}"i",\n'
+        f"{TAB}# Resource comment\n"
+        f"{TAB}resources:\n"
+        f"{TAB*2}res=1,\n"
+        f"{TAB}# Action comment\n"
+        f"{TAB}shell:\n"
+        f'{TAB*2}"do something"\n',
+    )
 
     def test_sorting_with_comments_preservation(self):
-        snakecode = (
-            "rule complex:\n"
-            f"{TAB}# Action comment\n"
-            f"{TAB}shell: 'do something'\n"
-            f"{TAB}# Resource comment\n"
-            f"{TAB}resources: res=1\n"
-            f"{TAB}# Input comment\n"
-            f"{TAB}input: 'i'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        # Comments stay with their keywords
-        expected = (
-            "rule complex:\n"
-            f"{TAB}# Input comment\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"i",\n'
-            f"{TAB}# Resource comment\n"
-            f"{TAB}resources:\n"
-            f"{TAB*2}res=1,\n"
-            f"{TAB}# Action comment\n"
-            f"{TAB}shell:\n"
-            f'{TAB*2}"do something"\n'
-        )
-        actual = formatter.get_formatted()
-        assert actual == expected
+        """Comments stay with their keywords"""
+        formatter = setup_formatter(self.sort_with_coments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_with_coments[1]
+
+    sort_inline_comments = (
+        "rule inline_comments:\n"
+        f"{TAB}shell: 'echo'\n"
+        f"{TAB}params:\n"
+        f"{TAB*2}p=1,  # parameter comment\n"
+        f"{TAB}input: 'i'\n",
+        "rule inline_comments:\n"
+        f"{TAB}input:\n"
+        f'{TAB*2}"i",\n'
+        f"{TAB}params:\n"
+        f"{TAB*2}p=1,  # parameter comment\n"
+        f"{TAB}shell:\n"
+        f'{TAB*2}"echo"\n',
+    )
 
     def test_sorting_with_inline_parameter_comments(self):
-        snakecode = (
-            "rule inline_comments:\n"
-            f"{TAB}shell: 'echo'\n"
-            f"{TAB}params:\n"
-            f"{TAB*2}p=1,  # parameter comment\n"
-            f"{TAB}input: 'i'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "rule inline_comments:\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"i",\n'
-            f"{TAB}params:\n"
-            f"{TAB*2}p=1,  # parameter comment\n"
-            f"{TAB}shell:\n"
-            f'{TAB*2}"echo"\n'
-        )
-        actual = formatter.get_formatted()
-        assert actual == expected
+        formatter = setup_formatter(self.sort_inline_comments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_inline_comments[1]
+
+    sort_module = (
+        "module other:\n"
+        f"{TAB}meta_wrapper: 'wrapper'\n"
+        f"{TAB}replace_prefix: 'rp'\n"
+        f"{TAB}prefix: 'p'\n"
+        f"{TAB}skip_validation: True\n"
+        f"{TAB}config: 'c'\n"
+        f"{TAB}snakefile: 's'\n"
+        f"{TAB}pathvars: ['pv']\n"
+        f"{TAB}name: 'n'\n",
+        "module other:\n"
+        f'{TAB}name: "n"\n'
+        f"{TAB}pathvars:\n"
+        f'{TAB*2}["pv"],\n'
+        f"{TAB}snakefile:\n"
+        f'{TAB*2}"s"\n'
+        f"{TAB}config:\n"
+        f'{TAB*2}"c"\n'
+        f"{TAB}skip_validation:\n"
+        f"{TAB*2}True\n"
+        f"{TAB}prefix:\n"
+        f'{TAB*2}"p"\n'
+        f"{TAB}replace_prefix:\n"
+        f'{TAB*2}"rp"\n'
+        f"{TAB}meta_wrapper:\n"
+        f'{TAB*2}"wrapper"\n',
+    )
 
     def test_sorting_module(self):
-        snakecode = (
-            "module other:\n"
-            f"{TAB}meta_wrapper: 'wrapper'\n"
-            f"{TAB}replace_prefix: 'rp'\n"
-            f"{TAB}prefix: 'p'\n"
-            f"{TAB}skip_validation: True\n"
-            f"{TAB}config: 'c'\n"
-            f"{TAB}snakefile: 's'\n"
-            f"{TAB}pathvars: ['pv']\n"
-            f"{TAB}name: 'n'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "module other:\n"
-            f'{TAB}name: "n"\n'
-            f"{TAB}pathvars:\n"
-            f'{TAB*2}["pv"],\n'
-            f"{TAB}snakefile:\n"
-            f'{TAB*2}"s"\n'
-            f"{TAB}config:\n"
-            f'{TAB*2}"c"\n'
-            f"{TAB}skip_validation:\n"
-            f"{TAB*2}True\n"
-            f"{TAB}prefix:\n"
-            f'{TAB*2}"p"\n'
-            f"{TAB}replace_prefix:\n"
-            f'{TAB*2}"rp"\n'
-            f"{TAB}meta_wrapper:\n"
-            f'{TAB*2}"wrapper"\n'
-        )
-        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(self.sort_module[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_module[1]
 
     def test_sorting_checkpoint(self):
         snakecode = (
@@ -2015,7 +2013,7 @@ def test_invalid_python_error_no_dedent(mock_format):
     formatter.snakefile = smk
     formatter.black_mode = black.Mode()
     formatter.from_python = False
-    formatter.fmt_off = False
+    formatter.fmt_off = None
     from snakefmt.parser.parser import Context
     from snakefmt.parser.syntax import KeywordSyntax
 
@@ -2138,6 +2136,12 @@ class TestFmtOffOn:
             assert setup_formatter(code1).get_formatted() == expected
             code1 = "\n\n# fmt: on\n" + code
             expected = "# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code + "\n\n# fmt: on\n" + code
+            expected = formatted + "\n\n# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code + "\n\n# fmt: on\n" + code
+            expected = formatted + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
             code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
             expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
@@ -2324,3 +2328,25 @@ class TestFmtOffOn:
             f'{TAB * 2}"0.72.0/meta/bio/bwa_mapping"\n'
         )
         assert formatter.get_formatted() == expected
+
+
+class TestFmtOffSort:
+    def test_fmt_off_sort(self):
+        for code, formatted in (
+            TestSortFormatting.sorting_comprehensive,
+            TestSortFormatting.sort_with_coments,
+            TestSortFormatting.sort_inline_comments,
+            TestSortFormatting.sort_module,
+        ):
+            code1 = code + "\n\n# fmt: on\n" + code
+            expected = formatted + "\n\n# fmt: on\n" + formatted
+            assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+            code1 = "# fmt: off[sort]\n" + code
+            expected = "# fmt: off[sort]\n" + setup_formatter(code).get_formatted()
+            assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+            code2 = code1 + "\n\n# fmt: on[sort]\n" + code
+            expected2 = expected + "\n\n# fmt: on[sort]\n" + formatted
+            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+            code2 = code1 + "\n\n# fmt: on\n" + code
+            expected2 = expected + "\n\n# fmt: on\n" + formatted
+            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2

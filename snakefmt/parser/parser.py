@@ -1,6 +1,7 @@
+import re
 import tokenize
 from abc import ABC, abstractmethod
-from typing import NamedTuple, Optional, Literal
+from typing import Literal, NamedTuple, Optional
 
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.grammar import PythonCode, SnakeGlobal
@@ -16,11 +17,34 @@ from snakefmt.parser.syntax import (
 from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
 
-FMT_OFF_REGION = frozenset({"# fmt: off"})
-FMT_OFF_ONE = frozenset({"# fmt: off[one]"})
-FMT_OFF_SORT = frozenset({"# fmt: off[sort]"})
-FMT_OFF = FMT_OFF_REGION | FMT_OFF_ONE | FMT_OFF_SORT
-FMT_ON = frozenset({"# fmt: on"})
+_FMT_DIRECTIVE_RE = re.compile(
+    r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"
+)
+
+
+class FMT_DIRECTIVE(NamedTuple):
+    disable: bool
+    modifiers: list[str]
+
+    @classmethod
+    def from_token(cls, token: Token):
+        if token.type != tokenize.COMMENT:
+            return None
+        return cls.from_str(token.string)
+
+    @classmethod
+    def from_str(cls, token_string: str):
+        """Parse a fmt directive comment.
+        Returns (disable, modifiers) or None if not a fmt directive.
+        disable:   True | False
+        modifiers: e.g. [] | ['sort'] | ['next'] | ['sort', 'next']
+        """
+        m = _FMT_DIRECTIVE_RE.match(token_string)
+        if m is None:
+            return None
+        disable = m.group(1) == "off"
+        mods = [s.strip() for s in m.group(2).split(",")] if m.group(2) else []
+        return cls(disable, mods)  # type: ignore[arg-type]
 
 
 def split_token_lines(token: tokenize.TokenInfo):
@@ -127,9 +151,9 @@ class Parser(ABC):
         self.queriable = True
         self.in_fstring = False
         self.last_token: Optional[Token] = None
-        self.fmt_off_sort_next: bool = False  # for `# fmt: off[sort]`
-        # for `# fmt: off`, (indent, )
-        self.fmt_off: Literal[False] | tuple[int] = False
+        self.fmt_sort_off: Optional[int]
+        # for `# fmt: off`, (indent, kind); kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
+        self.fmt_off: Optional[tuple[int, Literal["next", "region", "sort"]]] = None
         # True if a new block should be formatted as fmt: off due to a preceding fmt directive
         self.fmt_off_applied: bool = False
 
@@ -149,20 +173,31 @@ class Parser(ABC):
                 break
 
             keyword = status.token.string
-            if self._check_fmt_off_on(status.token):
-                self.fmt_off = False
-                self.fmt_off_sort_next = False
-            elif status.token.string in FMT_OFF:
-                self.fmt_off = (status.cur_indent,)
-                self.fmt_off_sort_next = False
+            if fmt_label := FMT_DIRECTIVE.from_token(status.token):
+                if fmt_label.disable:
+                    if not fmt_label.modifiers:
+                        self.fmt_off = (status.cur_indent, "region")
+                    elif "next" in fmt_label.modifiers:
+                        self.fmt_off = (status.cur_indent, "next")
+                    elif "sort" in fmt_label.modifiers:
+                        self.fmt_sort_off = status.cur_indent
+                elif fmt_on := self._check_fmt_on(status.token):
+                    if fmt_on == "region":
+                        self.fmt_off = None
+                        self.fmt_off_applied = False
+                    elif fmt_on == "sort":
+                        self.fmt_sort_off = None
+                        continue
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
-                self.fmt_off = False
+                self.fmt_off = None
                 self.fmt_off_applied = False
 
             if self.vocab.recognises(keyword) and self.fmt_off:
-                if self.fmt_off:
-                    self.fmt_off_applied = True
+                self.fmt_off_applied = True
                 self._consume_fmt_off(status.token, min_indent=self.keyword_indent)
+                if self.fmt_off and self.fmt_off[1] == "next":
+                    self.fmt_off = None
+                    self.fmt_off_applied = False
                 status = self.get_next_queriable()
                 if self.last_block_was_snakecode and not status.eof:
                     self.block_indent = status.block_indent
@@ -193,7 +228,11 @@ class Parser(ABC):
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.syntax.keyword_name} definition"
                     )
-                elif keyword in FMT_OFF_REGION:
+                elif (
+                    (fmt_label := FMT_DIRECTIVE.from_token(status.token))
+                    and fmt_label.disable
+                    and ("sort" not in fmt_label.modifiers)
+                ):
                     self.flush_buffer(
                         from_python=self.from_python,
                         in_global_context=self.in_global_context,
@@ -365,12 +404,15 @@ class Parser(ABC):
                             self.indents.pop()
                             self.syntax.cur_indent = len(self.indents) - 1
                         break
-            else:
-                if self._check_fmt_off_on(token):
-                    self.fmt_off = False
-                    self.fmt_off_sort_next = False
+            elif fmt_on := self._check_fmt_on(token):
+                if fmt_on == "region":
+                    self.fmt_off = None
+                    self.fmt_off_applied = False
                     lines.update(split_token_lines(token))
                     break
+                elif fmt_on == "sort":
+                    self.fmt_sort_off = None
+                    continue
 
             self.queriable = False
             lines.update(split_token_lines(token))
@@ -544,12 +586,24 @@ class Parser(ABC):
         # highest indent level fitting within the comment's column.
         return max(check_indent(token.line, self.indents), follow_indent)
 
-    def _check_fmt_off_on(self, token: Token) -> bool:
-        if token.type == tokenize.COMMENT and self.fmt_off:
-            if token.string in FMT_ON:
-                if self._determe_comment_indent(token) == self.fmt_off[0]:
-                    return True
-        return False
+    def _check_fmt_on(self, token: Token):
+        """Return True if token ends the current fmt:off region."""
+        if not (fmt_dir := FMT_DIRECTIVE.from_token(token)) or fmt_dir.disable:
+            return
+        if self.fmt_off:
+            # `# fmt: on[sort]` no effect
+            if "sort" in fmt_dir.modifiers:
+                return
+            token_indent = self._determe_comment_indent(token)
+            if token_indent == self.fmt_off[0]:
+                return "region"
+            return
+        if self.fmt_sort_off is not None:
+            if "sort" not in (fmt_dir.modifiers or ["sort"]):
+                return
+            token_indent = self._determe_comment_indent(token)
+            if token_indent == self.fmt_sort_off:
+                return "sort"
 
     def _handle_indent(self, token: Token) -> bool:
         if token.type == tokenize.INDENT:
@@ -596,10 +650,7 @@ class Parser(ABC):
                     token, block_indent, self.cur_indent, buffer, True, pythonable
                 )
             elif token.type == tokenize.COMMENT:
-                if (
-                    not self.last_block_was_snakecode
-                    and (token.string in FMT_OFF or token.string in FMT_ON)
-                ) and col_nb(token) == 0:
+                if FMT_DIRECTIVE.from_token(token) and col_nb(token) == 0:
                     # col-0 comments report cur_indent=0 to trigger context_exit;
                     # fmt directives at other columns report actual cur_indent.
                     return Status(
