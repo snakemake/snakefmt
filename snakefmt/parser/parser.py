@@ -153,7 +153,7 @@ class Parser(ABC):
         self.last_token: Optional[Token] = None
         self.fmt_sort_off: Optional[int]
         # for `# fmt: off`, (indent, kind); kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
-        self.fmt_off: Optional[tuple[int, Literal["next", "region", "sort"]]] = None
+        self.fmt_off: Optional[tuple[int, Literal["next", "region"]]] = None
         # True if a new block should be formatted as fmt: off due to a preceding fmt directive
         self.fmt_off_applied: bool = False
 
@@ -486,6 +486,11 @@ class Parser(ABC):
                     accepts_py=new_vocab is PythonCode,
                 ),
             )
+            # should reset index here
+            line = status.token.line
+            indent = line[: len(line) - len(line.lstrip())]
+            while self.indents and self.indents[-1] != indent:
+                self.indents.pop()
             self.process_keyword_context(in_global_context)
             if self.syntax.enter_context:
                 self.context_stack.append(self.context)
@@ -610,6 +615,8 @@ class Parser(ABC):
             line = token.line
             indent = line[: len(line) - len(line.lstrip())]
             if indent not in self.indents:
+                if len(indent) <= len(self.indents[-1]):
+                    breakpoint()
                 self.indents.append(indent)
         elif token.type == tokenize.DEDENT:
             line = token.line

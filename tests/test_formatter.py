@@ -63,11 +63,11 @@ class TestSimpleParamFormatting:
         assert formatter.get_formatted() == self.example_shell_newline[1]
 
     example_params_newline = (
-        f"rule a: \n"
+        f"rule b: \n"
         f'{TAB * 1}input: "a", "b",\n'
         f'{TAB * 4}"c"\n'
         f'{TAB * 1}wrapper: "mywrapper"',
-        "rule a:\n"
+        f"rule b:\n"
         f"{TAB * 1}input:\n"
         f'{TAB * 2}"a",\n'
         f'{TAB * 2}"b",\n'
@@ -81,13 +81,13 @@ class TestSimpleParamFormatting:
         assert formatter.get_formatted() == self.example_params_newline[1]
 
     example_input_threads_newline = (
-        "rule a: \n"
+        f"rule c: \n"
         f'{TAB * 1}input: "c"\n'
         f"{TAB * 1}threads:\n"
         f"{TAB * 2}20\n"
         f"{TAB * 1}default_target:\n"
         f"{TAB * 2}True\n",
-        f"rule a:\n"
+        f"rule c:\n"
         f"{TAB * 1}input:\n"
         f'{TAB * 2}"c",\n'
         f"{TAB * 1}threads: 20\n"
@@ -2350,3 +2350,157 @@ class TestFmtOffSort:
             code2 = code1 + "\n\n# fmt: on\n" + code
             expected2 = expected + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+
+
+class TestFmtOffNext:
+    # def test_fmt_off_next(self):
+    #     for code, formatted in (
+    #         TestSimpleParamFormatting.example_shell_newline,
+    #         TestSimpleParamFormatting.example_params_newline,
+    #         TestSimpleParamFormatting.example_input_threads_newline,
+    #     ):
+    #         code1 = "\n\n# fmt: off[next]\n" + code + "\n" + code
+    #         expected = "# fmt: off[next]\n" + code.strip("\n") + "\n\n\n" + formatted
+    #         assert setup_formatter(code1).get_formatted() == expected
+    #         code1 = code + "\n# fmt: off[next]\n" + code + "\n\n\n" + code
+    #         expected = (
+    #             formatted
+    #             + "# fmt: off[next]\n"
+    #             + code.strip("\n")
+    #             + "\n\n\n"
+    #             + formatted
+    #         )
+    #         assert setup_formatter(code1).get_formatted() == expected
+    #         code1 = code + "\n# fmt: off[next]\n" + code
+    #         expected = formatted + "# fmt: off[next]\n" + code
+    #         assert setup_formatter(code1).get_formatted() == expected
+    #         code1 = code + "\n# fmt: off[next]\n" + code + "\n\n"
+    #         expected = formatted + "# fmt: off[next]\n" + code + "\n\n"
+    #         assert setup_formatter(code1).get_formatted() == expected
+
+    def test_rule_if_rule(self):
+        code1, format1 = TestSimpleParamFormatting.example_shell_newline
+        code2, format2 = TestSimpleParamFormatting.example_params_newline
+        code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+        formatter = setup_formatter(
+            code1 + f"\n"
+            f"if 1:\n"
+            + "".join(f" " + i for i in code2.splitlines(keepends=True))
+            + f"\n"
+            f"{code3}"
+        )
+        expected = (
+            format1
+            + f"\n\n"
+            + f"if 1:\n\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + f"\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_rule_if2_rule(self):
+        code1, format1 = TestSimpleParamFormatting.example_shell_newline
+        code2, format2 = TestSimpleParamFormatting.example_params_newline
+        code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+        formatter = setup_formatter(
+            code1 + f"\n"
+            f"if 1:\n"
+            f" if 2:\n"
+            + "".join("  " + i for i in code2.splitlines(keepends=True))
+            + f"\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + f"\n"
+            f"{code3}"
+        )
+        expected = (
+            format1
+            + f"\n\n"
+            + f"if 1:\n"
+            + f"{TAB * 1}if 2:\n\n"
+            + "".join(f"{TAB * 2}" + i for i in format2.splitlines(keepends=True))
+            + f"\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + f"\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+
+    # def test_fmt_off_next_in_if(self):
+    #     code1, format1 = TestSimpleParamFormatting.example_shell_newline
+    #     code2, format2 = TestSimpleParamFormatting.example_params_newline
+    #     code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+    #     formatter = setup_formatter(
+    #         code1 + f"\n# fmt: \n"
+    #         f"if 1:\n"
+    #         + "".join(" " + i for i in code2.splitlines(keepends=True))
+    #         + f"\n"
+    #         f"{code3}"
+    #     )
+    #     expected = (
+    #         format1
+    #         + f"\n\n# fmt:\n"
+    #         + f"if 1:\n\n"
+    #         + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+    #         + f"\n"
+    #         + f"\n"
+    #         + format3
+    #     )
+    #     assert formatter.get_formatted() == expected
+    #     formatter = setup_formatter(
+    #         code1 + f"\n# fmt: off[next]\n"
+    #         f"if 1:\n"
+    #         + "".join(" " + i for i in code2.splitlines(keepends=True))
+    #         + f"\n"
+    #         f"{code3}"
+    #     )
+    #     expected = (
+    #         format1 + f"\n\n# fmt: off[next]\n"
+    #         f"if 1:\n"
+    #         + "".join(" " + i for i in code2.splitlines(keepends=True))
+    #         + f"\n"
+    #         + f"\n"
+    #         + format3
+    #     )
+    #     assert formatter.get_formatted() == expected
+
+    # def test_fmt_off_next_in_2if(self):
+    #     code1, format1 = TestSimpleParamFormatting.example_shell_newline
+    #     code2, format2 = TestSimpleParamFormatting.example_params_newline
+    #     code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+    #     formatter = setup_formatter(
+    #         code1 + f"\n"
+    #         f"if 1:\n"
+    #         f" \n# fmt:\n"
+    #         + "".join(" " + i for i in code2.splitlines(keepends=True))
+    #         + f"\n"
+    #         + "".join(" " + i for i in code3.splitlines(keepends=True))
+    #     )
+    #     expected = (
+    #         format1
+    #         + f"\n\n"
+    #         + f"if 1:\n\n"
+    #         + f"{TAB * 1}# fmt:\n"
+    #         + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+    #         + f"\n"
+    #         + "".join(f"{TAB * 1}" + i for i in format3.splitlines(keepends=True))
+    #     )
+    #     assert formatter.get_formatted() == expected
+    #     formatter = setup_formatter(
+    #         code1 + f"\n"
+    #         f"if 1:\n"
+    #         f" \n# fmt: off[next]\n"
+    #         + "".join(" " + i for i in code2.splitlines(keepends=True))
+    #         + f"\n"
+    #         + "".join(" " + i for i in code3.splitlines(keepends=True))
+    #     )
+    #     expected = (
+    #         format1
+    #         + f"\n\n"
+    #         + f"if 1:\n\n"
+    #         + f"{TAB * 1}# fmt: off[next]\n"
+    #         + "".join(f"{TAB * 1}" + i for i in code2.splitlines(keepends=True))
+    #         + f"\n"
+    #         + "".join(f"{TAB * 1}" + i for i in format3.splitlines(keepends=True))
+    #     )
+    #     assert formatter.get_formatted() == expected
