@@ -154,8 +154,7 @@ class Parser(ABC):
         self.fmt_sort_off: Optional[int]
         # for `# fmt: off`, (indent, kind); kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
         self.fmt_off: Optional[tuple[int, Literal["next", "region"]]] = None
-        # True if a new block should be formatted as fmt: off due to a preceding fmt directive
-        self.fmt_off_applied: bool = False
+        self.fmt_off_expected_index: str = ""
 
         self.indents: list[str] = [""]
 
@@ -177,39 +176,51 @@ class Parser(ABC):
                 if fmt_label.disable:
                     if not fmt_label.modifiers:
                         self.fmt_off = (status.cur_indent, "region")
+                        self.fmt_off_expected_index = status.token.line[
+                            : col_nb(status.token)
+                        ]
                     elif "next" in fmt_label.modifiers:
                         self.fmt_off = (status.cur_indent, "next")
+                        self.fmt_off_expected_index = status.token.line[
+                            : col_nb(status.token)
+                        ]
                     elif "sort" in fmt_label.modifiers:
                         self.fmt_sort_off = status.cur_indent
-                elif fmt_on := self._check_fmt_on(status.token):
-                    if fmt_on == "region":
-                        self.fmt_off = None
-                        self.fmt_off_applied = False
-                    elif fmt_on == "sort":
-                        self.fmt_sort_off = None
-                        continue
+                elif self._check_fmt_on(status.token) == "sort":
+                    self.fmt_sort_off = None
+                    continue
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
                 self.fmt_off = None
-                self.fmt_off_applied = False
 
-            if self.vocab.recognises(keyword) and self.fmt_off:
-                if self.keyword_indent < status.cur_indent and (
-                    self.syntax.from_python or status.pythonable
-                ):
-                    self.from_python = True
-                self.flush_buffer(
-                    from_python=self.from_python,
-                    in_global_context=self.in_global_context,
-                )
-                self.fmt_off_applied = True
-                self._consume_fmt_off(status.token, min_indent=status.cur_indent)
-                if self.fmt_off and self.fmt_off[1] == "next":
-                    self.fmt_off = None
-                    self.fmt_off_applied = False
-                status = self.get_next_queriable()
-                if self.last_block_was_snakecode and not status.eof:
-                    self.block_indent = status.block_indent
-                    self.last_block_was_snakecode = False
+            if self.fmt_off:
+                if self.vocab.recognises(keyword):
+                    if self.keyword_indent < status.cur_indent and (
+                        self.syntax.from_python or status.pythonable
+                    ):
+                        self.from_python = True
+                    self.flush_buffer(
+                        from_python=self.from_python,
+                        in_global_context=self.in_global_context,
+                    )
+                    status = self._consume_fmt_off(
+                        status.token, min_indent=status.cur_indent
+                    )
+                else:
+                    self.flush_buffer(
+                        from_python=True,
+                        in_global_context=self.in_global_context,
+                    )
+                    if self.keyword_indent > 0:
+                        self.syntax.add_processed_keyword(status.token, keyword)
+                    status = self._consume_fmt_off(
+                        status.token, min_indent=status.cur_indent
+                    )
+                    self.buffer = ""
+                    if self.last_block_was_snakecode and not status.eof:
+                        self.block_indent = status.block_indent
+                        self.last_block_was_snakecode = False
+                    if self.keyword_indent:
+                        self.last_block_was_snakecode = True
                 self.buffer = status.buffer.lstrip()
             elif self.vocab.recognises(keyword):
                 new_vocab, new_syntax_cls = self.vocab.get(keyword)
@@ -236,29 +247,6 @@ class Parser(ABC):
                         f"L{status.token.start[0]}: Unrecognised keyword '{keyword}' "
                         f"in {self.syntax.keyword_name} definition"
                     )
-                elif (
-                    (fmt_label := FMT_DIRECTIVE.from_token(status.token))
-                    and fmt_label.disable
-                    and ("sort" not in fmt_label.modifiers)
-                ):
-                    self.flush_buffer(
-                        from_python=self.from_python,
-                        in_global_context=self.in_global_context,
-                    )
-                    if self.keyword_indent > 0:
-                        self.syntax.add_processed_keyword(status.token, keyword)
-                    self._consume_fmt_off(status.token, min_indent=status.cur_indent)
-                    if self.fmt_off and self.fmt_off[1] == "next":
-                        self.fmt_off = None
-                        self.fmt_off_applied = False
-                    self.buffer = ""
-                    status = self.get_next_queriable()
-                    if self.last_block_was_snakecode and not status.eof:
-                        self.block_indent = status.block_indent
-                        self.last_block_was_snakecode = False
-                    self.buffer = status.buffer.lstrip()
-                    if self.keyword_indent:
-                        self.last_block_was_snakecode = True
                 else:
                     source, status = self._consume_python(status.token)
                     self.buffer += source
@@ -354,8 +342,9 @@ class Parser(ABC):
         min_indent = -1
         # If stop_at_min is True, also stop when dedenting back to min_indent level
         # (used for fmt: off[next] to consume exactly one block).
-        to_consume_next = self.fmt_off and self.fmt_off[1] == "next"
+        is_next_mode = self.fmt_off and self.fmt_off[1] == "next"
         consuming_next = False  # used with stop_at_min
+        seen_next_block_keyword = False
 
         def _init_min_indent(token: Token):
             nonlocal min_indent
@@ -384,15 +373,14 @@ class Parser(ABC):
             if token.type == tokenize.ENDMARKER:
                 self.snakefile.denext(token)
                 break
-            if token.type == tokenize.INDENT:
+            elif token.type == tokenize.INDENT:
                 self._handle_indent(token)
                 self.syntax.cur_indent = len(self.indents) - 1
                 last_indent_token = token
-                if to_consume_next and len(self.indents) - 1 > min_indent:
+                if is_next_mode and len(self.indents) - 1 > min_indent:
                     consuming_next = True
-                    to_consume_next = False
                 continue
-            if token.type == tokenize.DEDENT:
+            elif token.type == tokenize.DEDENT:
                 saved_indents = list(self.indents)
                 self._handle_indent(token)
                 new_indent = len(self.indents) - 1
@@ -406,37 +394,52 @@ class Parser(ABC):
                     break
                 self.syntax.cur_indent = new_indent
                 continue
-            if is_newline(token):
+            elif is_newline(token):
                 self.queriable = True
                 lines.update(split_token_lines(token))
                 continue
-            if vocab_recognises:
-                if (
-                    (token.type == tokenize.NAME or token.string == "@")
-                    and self.queriable
-                    and not self.in_fstring
-                ):
-                    if self.vocab.recognises(token.string):
-                        # snakemake keyword: stop, let main loop handle it
+            elif (
+                (token.type == tokenize.NAME or token.string == "@")
+                and self.queriable
+                and not self.in_fstring
+                and self.vocab.recognises(token.string)
+            ):
+                if is_next_mode:
+                    if seen_next_block_keyword:
+                        # fmt: off[next] consumed one whole keyword block;
+                        # hand the next same-level block back to main loop.
                         self.snakefile.denext(token)
                         if last_indent_token is not None:
                             self.snakefile.denext(last_indent_token)
                             self.indents.pop()
                             self.syntax.cur_indent = len(self.indents) - 1
                         break
-                # `# fmt: off` may within Python code, apply it to the next snakemake keyword.
-                if fmt_label := FMT_DIRECTIVE.from_token(token):
-                    if fmt_label.disable and "next" in fmt_label.modifiers:
-                        self.fmt_off = (self.syntax.cur_indent, "next")
-            elif fmt_on := self._check_fmt_on(token):
-                if fmt_on == "region":
+                    else:
+                        seen_next_block_keyword = True
+                if vocab_recognises:
+                    # snakemake keyword: stop, let main loop handle it
+                    self.snakefile.denext(token)
+                    if last_indent_token is not None:
+                        self.snakefile.denext(last_indent_token)
+                        self.indents.pop()
+                        self.syntax.cur_indent = len(self.indents) - 1
+                    break
+            # `# fmt: off[next]` within Python code: stop and let main loop handle it.
+            elif fmt_label := FMT_DIRECTIVE.from_token(token):
+                if fmt_label.disable:
+                    if fmt_label.modifiers:
+                        # `# fmt: off[` is not actual format diabler, it affects limited
+                        if not self.fmt_off or (
+                            # two following [next]
+                            self.fmt_off[1] != "region"
+                            and self._determe_comment_indent(token) == self.fmt_off[0]
+                        ):
+                            self.snakefile.denext(token)
+                            break
+                elif self._check_fmt_on(token) == "region":
                     self.fmt_off = None
-                    self.fmt_off_applied = False
                     lines.update(split_token_lines(token))
                     break
-                elif fmt_on == "sort":
-                    self.fmt_sort_off = None
-                    continue
 
             self.queriable = False
             lines.update(split_token_lines(token))
@@ -470,6 +473,9 @@ class Parser(ABC):
         self.handle_fmt_off_region(verbatim)
         self.snakefile.denext(next_status.token)
         self.queriable = True
+        if self.fmt_off and self.fmt_off[1] == "next":
+            self.fmt_off = None
+        return self.get_next_queriable()
 
     def _reindent(
         self,
@@ -485,7 +491,10 @@ class Parser(ABC):
                 newlines.append(line)
             elif line.strip():
                 newline = line.rsplit("\n", 1)
-                newline[0] = added_indent + newline[0][origin_indent:]
+                if newline[0][:origin_indent].strip():
+                    newline[0] = added_indent + newline[0].lstrip()
+                else:
+                    newline[0] = added_indent + newline[0][origin_indent:]
                 newlines.append("\n".join(newline))
             else:
                 newlines.append(line[origin_indent:])
@@ -644,8 +653,6 @@ class Parser(ABC):
             line = token.line
             indent = line[: len(line) - len(line.lstrip())]
             if indent not in self.indents:
-                if len(indent) <= len(self.indents[-1]):
-                    breakpoint()
                 self.indents.append(indent)
         elif token.type == tokenize.DEDENT:
             line = token.line
@@ -686,7 +693,12 @@ class Parser(ABC):
                     token, block_indent, self.cur_indent, buffer, True, pythonable
                 )
             elif token.type == tokenize.COMMENT:
-                if FMT_DIRECTIVE.from_token(token) and col_nb(token) == 0:
+                fmt_dir = FMT_DIRECTIVE.from_token(token)
+                if (
+                    fmt_dir
+                    and col_nb(token) == 0
+                    and not (fmt_dir.disable and "next" in (fmt_dir.modifiers or []))
+                ):
                     # col-0 comments report cur_indent=0 to trigger context_exit;
                     # fmt directives at other columns report actual cur_indent.
                     return Status(
@@ -700,6 +712,12 @@ class Parser(ABC):
                 effective_indent = self._determe_comment_indent(token)
                 self.syntax.cur_indent = effective_indent
                 if effective_indent < max(self.keyword_indent, self.block_indent):
+                    return Status(
+                        token, block_indent, effective_indent, buffer, False, pythonable
+                    )
+                # A `# fmt: off[next]` directive at any indent always triggers verbatim
+                # mode for the next snakemake block — return it so the main loop can act.
+                if fmt_dir and fmt_dir.disable and "next" in (fmt_dir.modifiers or []):
                     return Status(
                         token, block_indent, effective_indent, buffer, False, pythonable
                     )

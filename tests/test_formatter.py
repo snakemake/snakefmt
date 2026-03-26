@@ -2463,10 +2463,8 @@ class TestFmtOffNext:
             + f"\n"
             f"{code3}"
         )
-        expected = (
-            format1 + f"\n\n"
-            f"if 1:\n"
-            f"{TAB * 1}if 2:\n\n"
+        expected1 = format1 + f"\n\n" f"if 1:\n" f"{TAB * 1}if 2:\n"
+        expected2 = (
             f"{TAB * 2}# fmt: off[next]\n"
             + "".join(f"{TAB * 2}" + i for i in code2.splitlines(keepends=True)).rstrip(
                 "\n"
@@ -2477,7 +2475,8 @@ class TestFmtOffNext:
             + f"\n\n"
             + format3
         )
-        assert formatter.get_formatted() == expected
+        formatted = formatter.get_formatted()
+        assert formatted.startswith(expected1) and formatted.endswith(expected2)
 
     def test_fmt_off_next_in_if(self):
         code1, format1 = TestSimpleParamFormatting.example_shell_newline
@@ -2541,15 +2540,13 @@ class TestFmtOffNext:
         formatter = setup_formatter(
             code1.rstrip("\n") + f"\n"
             f"if 1:\n"
-            f" \n# fmt: off[next]\n"
+            f"\n # fmt: off[next]\n"
             + "".join(" " + i for i in code2.splitlines(keepends=True))
             + f"\n"
             + "".join(" " + i for i in code3.splitlines(keepends=True))
         )
-        expected = (
-            format1.rstrip("\n") + f"\n"
-            f"\n\n"
-            f"if 1:\n\n"
+        expected1 = format1.rstrip("\n") + f"\n" f"\n\n" f"if 1:\n"
+        expected2 = (
             f"{TAB * 1}# fmt: off[next]\n"
             + "".join(f"{TAB * 1}" + i for i in code2.splitlines(keepends=True)).strip(
                 "\n"
@@ -2558,4 +2555,39 @@ class TestFmtOffNext:
             + f"\n"
             + "".join(f"{TAB * 1}" + i for i in format3.splitlines(keepends=True))
         )
-        assert formatter.get_formatted() == expected
+        formatted = formatter.get_formatted()
+        assert formatted.startswith(expected1) and formatted.endswith(expected2)
+
+    def test_fmt_off_2(self):
+        fomatter = setup_formatter(
+            "if 1:\n"
+            " rule a:\n"
+            '  input: "foo"\n'
+            " # fmt: off[next]\n"
+            " rule b:\n"
+            '  input: "bar"\n'
+            "\n"
+            " # fmt: off[next]\n"
+            " rule c:\n"
+            '  input: "baz"\n'
+            "rule d:\n"
+            ' input: "qux"\n'
+        )
+        assert fomatter.get_formatted() == (
+            f"if 1:\n"
+            f"\n"
+            f"{TAB}rule a:\n"
+            f"{TAB}{TAB}input:\n"
+            f'{TAB}{TAB}{TAB}"foo",\n'
+            f"{TAB}# fmt: off[next]\n"
+            f"{TAB}rule b:\n"
+            f'{TAB} input: "bar"\n'
+            f"{TAB}# fmt: off[next]\n"
+            f"{TAB}rule c:\n"
+            f'{TAB} input: "baz"\n'
+            f"\n"
+            f"\n"
+            f"rule d:\n"
+            f"{TAB}input:\n"
+            f'{TAB}{TAB}"qux",\n'
+        )

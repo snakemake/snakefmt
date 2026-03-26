@@ -106,6 +106,9 @@ class Formatter(Parser):
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
+            if self.fmt_off_expected_index:
+                self.buffer += self.fmt_off_expected_index
+                self.fmt_off_expected_index = ""
             re_match = contextual_matcher.match(self.buffer)
             if re_match is not None:
                 callback_keyword = re_match.group(2)
@@ -122,11 +125,12 @@ class Formatter(Parser):
                 )
                 formatted = self.run_black_format_str(to_format, self.block_indent)
                 re_rematch = contextual_matcher.match(formatted)
-                if re_rematch is None:
-                    raise ValueError(
-                        "contextual_matcher failed to match for the given "
-                        f"formatted string: {formatted}"
-                    )
+                assert re_rematch, (
+                    "This should always match as we just formatted it with the same regex. "
+                    "If this error is raised, it's a bug in snakefmt's handling of snakemake syntax. "
+                    "Please report this to the developers with the code so we can fix it: "
+                    "https://github.com/snakemake/snakefmt/issues"
+                )
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
                 formatted = (
@@ -251,9 +255,6 @@ class Formatter(Parser):
             and len(string.strip().splitlines()) > 1
             and not no_nesting
         )
-        if self.fmt_off and self.fmt_off_applied:
-            # a `fmt: off` in previous block also affects here, make it work
-            string = "# fmt: off\n" + string
         if artificial_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
@@ -305,18 +306,13 @@ class Formatter(Parser):
                     "\n\n(Note reported line number may be incorrect, as"
                     " snakefmt could not determine the true line number)"
                 )
-            err_msg = f"Black error:\n```\n{str(err_msg)}\n``` from\n```\n{str(string)}\n```\n"
+            err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
             raise InvalidPython(err_msg) from None
 
         if artificial_nest:
             lines = fmted.splitlines(keepends=True)[1:]
             s = "".join(lines).lstrip("\n")
             fmted = textwrap.dedent(s)
-        if self.fmt_off:
-            if self.fmt_off_applied:
-                fmted = fmted.split("# fmt: off\n", 1)[1]
-            else:
-                self.fmt_off_applied = True
         return fmted
 
     def align_strings(self, string: str, target_indent: int) -> str:

@@ -309,7 +309,7 @@ class Syntax(ABC):
         self.keyword_indent = keyword_indent
         self.cur_indent = max(self.keyword_indent - 1, 0)
         self.comment = ""
-        self.token = None
+        self.token: Token
 
         if snakefile is not None:
             self.validate_keyword_line(snakefile)
