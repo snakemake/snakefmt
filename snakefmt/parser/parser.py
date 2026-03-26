@@ -193,8 +193,16 @@ class Parser(ABC):
                 self.fmt_off_applied = False
 
             if self.vocab.recognises(keyword) and self.fmt_off:
+                if self.keyword_indent < status.cur_indent and (
+                    self.syntax.from_python or status.pythonable
+                ):
+                    self.from_python = True
+                self.flush_buffer(
+                    from_python=self.from_python,
+                    in_global_context=self.in_global_context,
+                )
                 self.fmt_off_applied = True
-                self._consume_fmt_off(status.token, min_indent=self.keyword_indent)
+                self._consume_fmt_off(status.token, min_indent=status.cur_indent)
                 if self.fmt_off and self.fmt_off[1] == "next":
                     self.fmt_off = None
                     self.fmt_off_applied = False
@@ -239,7 +247,10 @@ class Parser(ABC):
                     )
                     if self.keyword_indent > 0:
                         self.syntax.add_processed_keyword(status.token, keyword)
-                    self._consume_fmt_off(status.token, min_indent=self.keyword_indent)
+                    self._consume_fmt_off(status.token, min_indent=status.cur_indent)
+                    if self.fmt_off and self.fmt_off[1] == "next":
+                        self.fmt_off = None
+                        self.fmt_off_applied = False
                     self.buffer = ""
                     status = self.get_next_queriable()
                     if self.last_block_was_snakecode and not status.eof:
@@ -341,6 +352,10 @@ class Parser(ABC):
         prev_token = None
         last_indent_token = None
         min_indent = -1
+        # If stop_at_min is True, also stop when dedenting back to min_indent level
+        # (used for fmt: off[next] to consume exactly one block).
+        to_consume_next = self.fmt_off and self.fmt_off[1] == "next"
+        consuming_next = False  # used with stop_at_min
 
         def _init_min_indent(token: Token):
             nonlocal min_indent
@@ -373,13 +388,18 @@ class Parser(ABC):
                 self._handle_indent(token)
                 self.syntax.cur_indent = len(self.indents) - 1
                 last_indent_token = token
+                if to_consume_next and len(self.indents) - 1 > min_indent:
+                    consuming_next = True
+                    to_consume_next = False
                 continue
             if token.type == tokenize.DEDENT:
                 saved_indents = list(self.indents)
                 self._handle_indent(token)
                 new_indent = len(self.indents) - 1
                 last_indent_token = None
-                if new_indent < min_indent:
+                if new_indent < min_indent or (
+                    consuming_next and new_indent == min_indent
+                ):
                     # let get_next_queriable handle dedent below min_indent
                     self.indents = saved_indents
                     self.snakefile.denext(token)
@@ -404,6 +424,10 @@ class Parser(ABC):
                             self.indents.pop()
                             self.syntax.cur_indent = len(self.indents) - 1
                         break
+                # `# fmt: off` may within Python code, apply it to the next snakemake keyword.
+                if fmt_label := FMT_DIRECTIVE.from_token(token):
+                    if fmt_label.disable and "next" in fmt_label.modifiers:
+                        self.fmt_off = (self.syntax.cur_indent, "next")
             elif fmt_on := self._check_fmt_on(token):
                 if fmt_on == "region":
                     self.fmt_off = None
@@ -426,6 +450,11 @@ class Parser(ABC):
             lines, string_interior_lines, origin_indent, added_indent
         )
         next_status = self.get_next_queriable()
+        if consuming_next and verbatim:
+            # Strip extra trailing blank lines; the following block's separator
+            # logic (add_newlines) will provide the correct spacing.
+            while verbatim.endswith("\n\n"):
+                verbatim = verbatim[:-1]
         return verbatim, next_status._replace(
             pythonable=next_status.pythonable or bool(verbatim.strip())
         )
@@ -486,11 +515,6 @@ class Parser(ABC):
                     accepts_py=new_vocab is PythonCode,
                 ),
             )
-            # should reset index here
-            line = status.token.line
-            indent = line[: len(line) - len(line.lstrip())]
-            while self.indents and self.indents[-1] != indent:
-                self.indents.pop()
             self.process_keyword_context(in_global_context)
             if self.syntax.enter_context:
                 self.context_stack.append(self.context)
@@ -548,6 +572,11 @@ class Parser(ABC):
         self.block_indent = self.cur_indent
         if self.keyword_indent > 0:
             self.syntax.keyword_indent = status.cur_indent + 1
+        # ParameterSyntax consumes INDENT/DEDENT tokens without updating
+        # Parser.indents, leaving stale deeper-level entries. Trim them now
+        # so get_next_queriable computes the correct cur_indent for the next block.
+        while len(self.indents) - 1 > status.cur_indent:
+            self.indents.pop()
 
     def _determe_comment_indent(self, token: Token) -> int:
         """

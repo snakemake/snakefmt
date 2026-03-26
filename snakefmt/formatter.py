@@ -210,13 +210,25 @@ class Formatter(Parser):
         self.buffer = ""
         if not verbatim:
             return
+        # When fmt:off[next] is inside a Python block (e.g. `if 1:`), the
+        # directive ends up as a lagging_comment after flushing that block.
+        is_nested_next = self.fmt_off and self.fmt_off[1] == "next"
         if self.lagging_comments:
+            # For nested fmt:off[next], add the same \n separator that
+            # process_keyword_context/add_newlines would normally provide
+            # before the first keyword inside the Python block.
+            if is_nested_next and not self.no_formatting_yet:
+                self.result += "\n"
             self.result += self.lagging_comments
             self.lagging_comments = ""
         self.result += verbatim
-        # Treat the verbatim region as transparent to separator logic:
-        # resume formatting as if nothing preceded (no blank-line separator added).
-        self.no_formatting_yet = True
+        # For fmt: off[next], mark that we've emitted content so the following
+        # block gets its normal blank-line separator.
+        # For fmt: off regions, treat verbatim as transparent to separator logic.
+        if is_nested_next:
+            self.no_formatting_yet = bool(self.lagging_comments)
+        else:
+            self.no_formatting_yet = True
         self.last_recognised_keyword = ""
 
     def run_black_format_str(
