@@ -706,9 +706,7 @@ class Parser(ABC):
                 ):
                     # col-0 comments report cur_indent=0 to trigger context_exit;
                     # fmt directives at other columns report actual cur_indent.
-                    return Status(
-                        token, block_indent, self.cur_indent, buffer, False, pythonable
-                    )
+                    return Status(token, block_indent, 0, buffer, False, pythonable)
                 # Comments arrive in the token stream *before* any following
                 # INDENT/DEDENT tokens, so self.cur_indent still reflects the
                 # previous (potentially higher) level.  Delegate to

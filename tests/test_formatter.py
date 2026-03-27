@@ -1374,8 +1374,7 @@ class TestNewlineSpacing:
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_double_spacing_for_rules(self):
-        formatter = setup_formatter(
-            f"""above_rule = "2spaces"
+        formatter = setup_formatter(f"""above_rule = "2spaces"
 rule a:
 {TAB * 1}threads: 1
 
@@ -1384,8 +1383,7 @@ rule a:
 rule b:
 {TAB * 1}threads: 2
 below_rule = "2spaces"
-"""
-        )
+""")
 
         expected = f"""above_rule = "2spaces"
 
@@ -1484,13 +1482,11 @@ below_rule = "2spaces"
         assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_below_keyword_gets_spaced(self):
-        formatter = setup_formatter(
-            f"""# Rules
+        formatter = setup_formatter(f"""# Rules
 rule all:
 {TAB * 1}input: output_files
 # Comment
-"""
-        )
+""")
 
         actual = formatter.get_formatted()
         expected = f"""# Rules
@@ -1670,13 +1666,11 @@ class TestLineWrapping:
 
 class TestStorage:
     def test_storage(self):
-        code = textwrap.dedent(
-            """
+        code = textwrap.dedent("""
             storage http_local:
                 provider="http",
                 keep_local=True,
-            """
-        )
+            """)
         formatter = setup_formatter(code)
 
         assert formatter.get_formatted() == code
@@ -2415,7 +2409,7 @@ class TestFmtOffNext:
             format1
             + "\n\n"
             + "if 1:\n"
-            + "{TAB * 1}if 2:\n\n"
+            + f"{TAB * 1}if 2:\n\n"
             + "".join(f"{TAB * 2}" + i for i in format2.splitlines(keepends=True))
             + "\n"
             + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
@@ -2461,7 +2455,7 @@ class TestFmtOffNext:
             + "\n"
             f"{code3}"
         )
-        expected1 = format1 + "\n\n" "if 1:\n" "{TAB * 1}if 2:\n"
+        expected1 = format1 + "\n\n" "if 1:\n" f"{TAB * 1}if 2:\n"
         expected2 = (
             f"{TAB * 2}# fmt: off[next]\n"
             + "".join(f"{TAB * 2}" + i for i in code2.splitlines(keepends=True)).rstrip(
