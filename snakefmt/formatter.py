@@ -65,7 +65,9 @@ class Formatter(Parser):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
-        self.fmt_sort_off = None if sort_directives else -1
+        # sorting can be initially disabled,
+        # but will be enabled in contexts with `# fmt: on[sort]`
+        self.sort_off_indent = None if sort_directives else -1
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
@@ -106,9 +108,9 @@ class Formatter(Parser):
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
-            if self.fmt_off_expected_index:
-                self.buffer += self.fmt_off_expected_index
-                self.fmt_off_expected_index = ""
+            if self.fmt_off_expected_indent:
+                self.buffer += self.fmt_off_expected_indent
+                self.fmt_off_expected_indent = ""
             re_match = contextual_matcher.match(self.buffer)
             if re_match is not None:
                 callback_keyword = re_match.group(2)
@@ -182,7 +184,7 @@ class Formatter(Parser):
             context=param_context,
         )
         param_formatted = self.format_params(param_context)
-        if self.fmt_sort_off is None and not in_global_context and self.keyword_spec:
+        if self.sort_off_indent is None and not in_global_context and self.keyword_spec:
             self.keywords[param_context.keyword_name] = self.result + param_formatted
             self.result = ""
         else:
