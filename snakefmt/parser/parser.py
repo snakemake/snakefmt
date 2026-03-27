@@ -422,11 +422,11 @@ class Parser(ABC):
             elif fmt_label := FMT_DIRECTIVE.from_token(token):
                 if fmt_label.disable:
                     if fmt_label.modifiers:
-                        # `# fmt: off[` is not actual format diabler, it affects limited
+                        # `# fmt: off[` is not actual format disabler, it affects limited
                         if not self.fmt_off or (
                             # two following [next]
                             self.fmt_off[1] != "region"
-                            and self._determe_comment_indent(token) == self.fmt_off[0]
+                            and self._determine_comment_indent(token) == self.fmt_off[0]
                         ):
                             self.snakefile.denext(token)
                             break
@@ -554,7 +554,7 @@ class Parser(ABC):
             self.syntax.add_processed_keyword(status.token, status.token.string)
             cur_indent = param_context.cur_indent
             if param_context.token.type == tokenize.COMMENT and not param_context.eof:
-                cur_indent = self._determe_comment_indent(param_context.token)
+                cur_indent = self._determine_comment_indent(param_context.token)
             return Status(
                 param_context.token,
                 cur_indent,
@@ -589,7 +589,7 @@ class Parser(ABC):
         while len(self.indents) - 1 > status.cur_indent:
             self.indents.pop()
 
-    def _determe_comment_indent(self, token: Token) -> int:
+    def _determine_comment_indent(self, token: Token) -> int:
         """
         Treat each line of single-line comment separately,
         it is determined by the following real code line and previous self.indents.
@@ -638,13 +638,13 @@ class Parser(ABC):
         if self.fmt_off:
             # `# fmt: on[sort]` no effect
             if "sort" not in fmt_label.modifiers:
-                token_indent = self._determe_comment_indent(token)
+                token_indent = self._determine_comment_indent(token)
                 if token_indent == self.fmt_off[0]:
                     self.fmt_off = None
                     return "region"
         elif self.fmt_sort_off is not None:
             if "sort" in (fmt_label.modifiers or ["sort"]):
-                token_indent = self._determe_comment_indent(token)
+                token_indent = self._determine_comment_indent(token)
                 if token_indent == self.fmt_sort_off:
                     self.fmt_sort_off = None
                     return "sort"
@@ -706,9 +706,9 @@ class Parser(ABC):
                 # Comments arrive in the token stream *before* any following
                 # INDENT/DEDENT tokens, so self.cur_indent still reflects the
                 # previous (potentially higher) level.  Delegate to
-                # _determe_comment_indent which peeks ahead and applies the
+                # _determine_comment_indent which peeks ahead and applies the
                 # two snapping rules.
-                effective_indent = self._determe_comment_indent(token)
+                effective_indent = self._determine_comment_indent(token)
                 self.syntax.cur_indent = effective_indent
                 if effective_indent < max(self.keyword_indent, self.block_indent):
                     return Status(

@@ -1825,7 +1825,7 @@ class TestSortFormatting:
         formatter = setup_formatter(self.sorting_comprehensive[0], sort_params=True)
         assert formatter.get_formatted() == self.sorting_comprehensive[1]
 
-    sort_with_coments = (
+    sort_with_comments = (
         "rule complex:\n"
         f"{TAB}# Action comment\n"
         f"{TAB}shell: 'do something'\n"
@@ -1847,8 +1847,8 @@ class TestSortFormatting:
 
     def test_sorting_with_comments_preservation(self):
         """Comments stay with their keywords"""
-        formatter = setup_formatter(self.sort_with_coments[0], sort_params=True)
-        assert formatter.get_formatted() == self.sort_with_coments[1]
+        formatter = setup_formatter(self.sort_with_comments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_with_comments[1]
 
     sort_inline_comments = (
         "rule inline_comments:\n"
@@ -2351,7 +2351,7 @@ class TestFmtOffSort:
     def test_fmt_off_sort(self):
         for code, formatted in (
             TestSortFormatting.sorting_comprehensive,
-            TestSortFormatting.sort_with_coments,
+            TestSortFormatting.sort_with_comments,
             TestSortFormatting.sort_inline_comments,
             TestSortFormatting.sort_module,
         ):
@@ -2370,7 +2370,7 @@ class TestFmtOffSort:
 
     def test_fmt_off_sort_dedent(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
-        code2, formatted2 = TestSortFormatting.sort_with_coments
+        code2, formatted2 = TestSortFormatting.sort_with_comments
         formatted2 = setup_formatter(code2).get_formatted()
         code3, formatted3 = TestSortFormatting.sort_inline_comments
         code = (
@@ -2649,7 +2649,7 @@ class TestFmtOffNext:
         assert formatted.startswith(expected1) and formatted.endswith(expected2)
 
     def test_fmt_off_2(self):
-        fomatter = setup_formatter(
+        formatter = setup_formatter(
             "if 1:\n"
             " rule a:\n"
             '  input: "foo"\n'
@@ -2663,7 +2663,7 @@ class TestFmtOffNext:
             "rule d:\n"
             ' input: "qux"\n'
         )
-        assert fomatter.get_formatted() == (
+        assert formatter.get_formatted() == (
             f"if 1:\n"
             f"\n"
             f"{TAB}rule a:\n"
