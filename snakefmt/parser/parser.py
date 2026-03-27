@@ -422,7 +422,7 @@ class Parser(ABC):
             elif fmt_label := FMT_DIRECTIVE.from_token(token):
                 if fmt_label.disable:
                     if fmt_label.modifiers:
-                        # `# fmt: off[` is not actual format disabler, it affects limited
+                        # `# fmt: off[` isn't actual format disabler, affects limited
                         if not self.fmt_off or (
                             # two following [next]
                             self.fmt_off[1] != "region"
