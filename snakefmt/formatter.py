@@ -126,9 +126,10 @@ class Formatter(Parser):
                 formatted = self.run_black_format_str(to_format, self.block_indent)
                 re_rematch = contextual_matcher.match(formatted)
                 assert re_rematch, (
-                    "This should always match as we just formatted it with the same regex. "
-                    "If this error is raised, it's a bug in snakefmt's handling of snakemake syntax. "
-                    "Please report this to the developers with the code so we can fix it: "
+                    "This should always match as we just formatted it with the same "
+                    "regex. If this error is raised, it's a bug in snakefmt's "
+                    "handling of snakemake syntax. Please report this to the "
+                    "developers with the code so we can fix it: "
                     "https://github.com/snakemake/snakefmt/issues"
                 )
                 if condition != "":

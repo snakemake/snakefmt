@@ -16,7 +16,6 @@ from snakefmt.parser.syntax import (
 )
 from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
-
 _FMT_DIRECTIVE_RE = re.compile(
     r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"
 )
@@ -51,9 +50,12 @@ def split_token_lines(token: tokenize.TokenInfo):
     """Token can be multiline.
     e.g., `f'''\\nplaintext\\n'''` has these tokens:
 
-        TokenInfo(type=61 (FSTRING_START), string="f'''", start=(21, 0), end=(21, 4), line="f'''\\n")
-        TokenInfo(type=62 (FSTRING_MIDDLE), string='\\ncccccccc\\n', start=(21, 4), end=(23, 0), line="f'''\\ncccccccc\\n'''\\n")
-        TokenInfo(type=63 (FSTRING_END), string="'''", start=(23, 0), end=(23, 3), line="'''\\n")
+        TokenInfo(type=61 (FSTRING_START), string="f'''",
+                  start=(21, 0), end=(21, 4), line="f'''\\n")
+        TokenInfo(type=62 (FSTRING_MIDDLE), string='\\ncccccccc\\n',
+                  start=(21, 4), end=(23, 0), line="f'''\\ncccccccc\\n'''\\n")
+        TokenInfo(type=63 (FSTRING_END), string="'''",
+                  start=(23, 0), end=(23, 3), line="'''\\n")
 
     lines should be split to drop overlapping lines and keep unique ones.
     """
@@ -152,7 +154,8 @@ class Parser(ABC):
         self.in_fstring = False
         self.last_token: Optional[Token] = None
         self.fmt_sort_off: Optional[int]
-        # for `# fmt: off`, (indent, kind); kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
+        # for `# fmt: off`, (indent, kind)
+        # kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
         self.fmt_off: Optional[tuple[int, Literal["next", "region"]]] = None
         self.fmt_off_expected_index: str = ""
 
@@ -598,9 +601,11 @@ class Parser(ABC):
         rule 1 (always):
             indent of comments >= follow_indent
         rule 2 (if follow_indent < self.indents[-1]):
-            indent of comments = max(i for i in self.indents if i <= comment_indent) + epsilon.
+            indent of comments = max(i for i in self.indents
+                                     if i <= comment_indent) + epsilon.
 
-        next(self.snakefile) until follow_indent is determined, then put all peeked tokens back.
+        next(self.snakefile) until follow_indent is determined,
+        then put all peeked tokens back.
         """
         # ── Step 1: peek ahead to find follow_indent ────────────────────────
         peeked: list[Token] = []
@@ -716,7 +721,7 @@ class Parser(ABC):
                         token, block_indent, effective_indent, buffer, False, pythonable
                     )
                 # A `# fmt: off[next]` directive at any indent always triggers verbatim
-                # mode for the next snakemake block — return it so the main loop can act.
+                # mode for the next snakemake block, return it so the main loop can act.
                 if fmt_dir and fmt_dir.disable and "next" in (fmt_dir.modifiers or []):
                     return Status(
                         token, block_indent, effective_indent, buffer, False, pythonable
