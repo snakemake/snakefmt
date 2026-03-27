@@ -158,7 +158,7 @@ class Parser(ABC):
     and the alternation in `:self.last_block_was_snakecode`.
     """
 
-    def __init__(self, snakefile: Snakefile):
+    def __init__(self, snakefile: Snakefile, sort_directives=False):
         self.context = Context(
             SnakeGlobal(), KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
         )
@@ -171,14 +171,16 @@ class Parser(ABC):
         self.queriable = True
         self.in_fstring = False
         self.last_token: Optional[Token] = None
-        # None: sorting enabled (no active off[sort]).
-        # >=0 : disabled at that indent level and below due to active off[sort]
-        self.sort_off_indent: Optional[int]
         # for `# fmt: off`, (indent, kind)
         # kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
         self.fmt_off: Optional[tuple[int, Literal["next", "region"]]] = None
         self.fmt_off_expected_indent: str = ""
         self.fmt_off_preceded_by_blank_line: bool = False
+        # None: sorting enabled (no active off[sort]).
+        # >=0 : disabled at that indent level and below due to active off[sort]
+        # sorting can be initially disabled (-1),
+        # but will be enabled in contexts with `# fmt: on[sort]`
+        self.sort_off_indent = None if sort_directives else -1
 
         self.indents: list[str] = [""]
 
@@ -431,7 +433,7 @@ class Parser(ABC):
                     self._detent_last_indent(token, last_indent_token)
                     break
             # `# fmt: off[next]` within Python code: stop and let main loop handle it.
-            elif self._comsume_fmt_off_in_python(token, lines):
+            elif self._consume_fmt_off_in_python(token, lines):
                 break
 
             self.queriable = False
@@ -466,7 +468,7 @@ class Parser(ABC):
             self.indents.pop()
             self.syntax.cur_indent = len(self.indents) - 1
 
-    def _comsume_fmt_off_in_python(self, token: Token, lines: dict[int, str]):
+    def _consume_fmt_off_in_python(self, token: Token, lines: dict[int, str]):
         """
         Consume `# fmt: off/on` directives within Python code.
         lines is needed to:
@@ -628,7 +630,7 @@ class Parser(ABC):
         while len(self.indents) - 1 > status.cur_indent:
             self.indents.pop()
 
-    def _determine_comment_indent(self, token: Token) -> int:
+    def _determine_comment_indent(self, comment_token: Token) -> int:
         """
         This function returns the real indent level of a comment token and
         update self.indents if needed,
@@ -679,7 +681,7 @@ class Parser(ABC):
             return follow_indent
         # Rule 2 (dedent is happening, standalone only): snap comment to the
         # highest indent level fitting within the comment's column.
-        return max(check_indent(token.line, self.indents), follow_indent)
+        return max(check_indent(comment_token.line, self.indents), follow_indent)
 
     def _check_fmt_on(self, fmt_label: FMT_DIRECTIVE, token: Token):
         """Determine which fmt: on can turn on formatting"""
@@ -691,7 +693,7 @@ class Parser(ABC):
                     self.fmt_off = None
                     return "region"
         elif self.sort_off_indent is not None:
-            if "sort" in (fmt_label.modifiers or ["sort"]):
+            if not fmt_label.modifiers or "sort" in fmt_label.modifiers:
                 token_indent = self._determine_comment_indent(token)
                 if token_indent == self.sort_off_indent:
                     self.sort_off_indent = None
@@ -729,7 +731,7 @@ class Parser(ABC):
                 if (
                     fmt_dir
                     and col_nb(token) == 0
-                    and not (fmt_dir.disable and "next" in (fmt_dir.modifiers or []))
+                    and not (fmt_dir.disable and "next" in fmt_dir.modifiers)
                 ):
                     # col-0 comments report cur_indent=0 to trigger context_exit;
                     # fmt directives at other columns report actual cur_indent.

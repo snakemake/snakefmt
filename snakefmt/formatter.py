@@ -65,9 +65,6 @@ class Formatter(Parser):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
-        # sorting can be initially disabled,
-        # but will be enabled in contexts with `# fmt: on[sort]`
-        self.sort_off_indent = None if sort_directives else -1
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
@@ -77,7 +74,7 @@ class Formatter(Parser):
         if line_length is not None:
             self.black_mode.line_length = line_length
 
-        super().__init__(snakefile)  # Call to parse snakefile
+        super().__init__(snakefile, sort_directives=sort_directives)
 
     def get_formatted(self) -> str:
         return self.result
