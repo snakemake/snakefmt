@@ -158,6 +158,7 @@ class Parser(ABC):
         # kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
         self.fmt_off: Optional[tuple[int, Literal["next", "region"]]] = None
         self.fmt_off_expected_index: str = ""
+        self.fmt_off_preceded_by_blank_line: bool = False
 
         self.indents: list[str] = [""]
 
@@ -189,11 +190,14 @@ class Parser(ABC):
                         ]
                     elif "sort" in fmt_label.modifiers:
                         self.fmt_sort_off = status.cur_indent
-                elif self._check_fmt_on(status.token) == "sort":
-                    self.fmt_sort_off = None
+                elif self._check_fmt_on(fmt_label, status.token) == "sort":
                     continue
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
                 self.fmt_off = None
+            elif (
+                self.fmt_sort_off is not None and status.cur_indent < self.fmt_sort_off
+            ):
+                self.fmt_sort_off = None
 
             if self.vocab.recognises(keyword):
                 new_vocab, new_syntax_cls = self.vocab.get(keyword)
@@ -426,13 +430,17 @@ class Parser(ABC):
                         ):
                             self.snakefile.denext(token)
                             break
-                elif fmt_on := self._check_fmt_on(token):
-                    if fmt_on == "region":
-                        self.fmt_off = None
-                        lines.update(split_token_lines(token))
-                    elif fmt_on == "sort":
-                        self.fmt_sort_off = None
+                    elif self.in_global_context:
+                        # In global Python context, plain `# fmt: off` starts a parser
+                        # verbatim region. In non-global Python contexts (e.g. run:), it
+                        # stays inside Python and is handled by Black.
+                        last_line = lines[max(lines)] if lines else ""
+                        self.fmt_off_preceded_by_blank_line = not last_line.strip()
                         self.snakefile.denext(token)
+                        break
+                elif fmt_on := self._check_fmt_on(fmt_label, token):
+                    if fmt_on == "region":
+                        lines.update(split_token_lines(token))
                     break
 
             self.queriable = False
@@ -625,24 +633,21 @@ class Parser(ABC):
         # highest indent level fitting within the comment's column.
         return max(check_indent(token.line, self.indents), follow_indent)
 
-    def _check_fmt_on(self, token: Token):
+    def _check_fmt_on(self, fmt_label: FMT_DIRECTIVE, token: Token):
         """Return True if token ends the current fmt:off region."""
-        if not (fmt_dir := FMT_DIRECTIVE.from_token(token)) or fmt_dir.disable:
-            return
         if self.fmt_off:
             # `# fmt: on[sort]` no effect
-            if "sort" in fmt_dir.modifiers:
-                return
-            token_indent = self._determe_comment_indent(token)
-            if token_indent == self.fmt_off[0]:
-                return "region"
-            return
-        if self.fmt_sort_off is not None:
-            if "sort" not in (fmt_dir.modifiers or ["sort"]):
-                return
-            token_indent = self._determe_comment_indent(token)
-            if token_indent == self.fmt_sort_off:
-                return "sort"
+            if "sort" not in fmt_label.modifiers:
+                token_indent = self._determe_comment_indent(token)
+                if token_indent == self.fmt_off[0]:
+                    self.fmt_off = None
+                    return "region"
+        elif self.fmt_sort_off is not None:
+            if "sort" in (fmt_label.modifiers or ["sort"]):
+                token_indent = self._determe_comment_indent(token)
+                if token_indent == self.fmt_sort_off:
+                    self.fmt_sort_off = None
+                    return "sort"
 
     def _handle_indent(self, token: Token) -> bool:
         if token.type == tokenize.INDENT:
@@ -709,9 +714,18 @@ class Parser(ABC):
                     return Status(
                         token, block_indent, effective_indent, buffer, False, pythonable
                     )
-                # A `# fmt: off[next]` directive at any indent always triggers verbatim
-                # mode for the next snakemake block, return it so the main loop can act.
-                if fmt_dir and fmt_dir.disable and "next" in (fmt_dir.modifiers or []):
+                # `# fmt: off[next]` always needs parser-level handling.
+                # Plain `# fmt: off` is parser-level only in global context; in other
+                # Python contexts it is handled by Black.
+                if (
+                    fmt_dir
+                    and fmt_dir.disable
+                    and (
+                        "next" in fmt_dir.modifiers
+                        or "sort" in fmt_dir.modifiers
+                        or (not fmt_dir.modifiers and self.in_global_context)
+                    )
+                ):
                     return Status(
                         token, block_indent, effective_indent, buffer, False, pythonable
                     )

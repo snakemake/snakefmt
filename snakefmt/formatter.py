@@ -205,7 +205,10 @@ class Formatter(Parser):
         )
         self.result = self.previous_result + self.result
         self.previous_result = ""
-        if self.no_formatting_yet and self.result.rstrip("\n"):
+        # Keep no_formatting_yet when there is pending buffered content.
+        # This prevents premature separator insertion after fmt: off/on
+        # verbatim regions before the next flush occurs.
+        if self.no_formatting_yet and self.result.rstrip("\n") and not self.buffer:
             self.no_formatting_yet = False
 
     def handle_fmt_off_region(self, verbatim: str) -> None:
@@ -226,14 +229,15 @@ class Formatter(Parser):
                 self.result += "\n"
             self.result += self.lagging_comments
             self.lagging_comments = ""
+        if self.fmt_off_preceded_by_blank_line:
+            if self.result and not self.result.endswith("\n\n"):
+                self.result += "\n"
+            self.fmt_off_preceded_by_blank_line = False
         self.result += verbatim
         # For fmt: off[next], mark that we've emitted content so the following
         # block gets its normal blank-line separator.
         # For fmt: off regions, treat verbatim as transparent to separator logic.
-        if is_nested_next:
-            self.no_formatting_yet = bool(self.lagging_comments)
-        else:
-            self.no_formatting_yet = True
+        self.no_formatting_yet = not is_nested_next
         self.last_recognised_keyword = ""
 
     def run_black_format_str(

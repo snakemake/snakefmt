@@ -2323,6 +2323,29 @@ class TestFmtOffOn:
         )
         assert formatter.get_formatted() == expected
 
+    def test_fmt_off_lagging_comments(self):
+        expected = (
+            "if 1:\n"
+            "    lagging_comments\n"
+            "\n"
+            "    # fmt: off\n"
+            "    rule a:\n"
+            '        input: "sth"\n'
+            '        name: "sth"\n'
+            "    # fmt: on\n"
+        )
+        assert setup_formatter(expected).get_formatted() == expected
+        expected = (
+            "if 1:\n"
+            "    # lagging_comments\n"
+            "    # fmt: off\n"
+            "    rule a:\n"
+            '        input: "sth"\n'
+            '        name: "sth"\n'
+            "    # fmt: on\n"
+        )
+        assert setup_formatter(expected).get_formatted() == expected
+
 
 class TestFmtOffSort:
     def test_fmt_off_sort(self):
@@ -2344,6 +2367,38 @@ class TestFmtOffSort:
             code2 = code1 + "\n\n# fmt: on\n" + code
             expected2 = expected + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+
+    def test_fmt_off_sort_dedent(self):
+        code1, formatted1 = TestSortFormatting.sorting_comprehensive
+        code2, formatted2 = TestSortFormatting.sort_with_coments
+        formatted2 = setup_formatter(code2).get_formatted()
+        code3, formatted3 = TestSortFormatting.sort_inline_comments
+        code = (
+            code1.rstrip() + "\n"
+            "\n"
+            "if 1:\n"
+            " # fmt: off[sort]\n"
+            + "".join("  " + i for i in code2.splitlines(keepends=True)).rstrip()
+            + "\n"
+            "\n\n" + code3
+        )
+        expected = (
+            formatted1 + "\n\n"
+            "if 1:\n"
+            "\n"
+            f"{TAB}# fmt: off[sort]\n"
+            + "".join(TAB + i for i in formatted2.splitlines(keepends=True))
+            + "\n\n"
+            + formatted3
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_nothing(self):
+        code1, formatted1 = TestSortFormatting.sorting_comprehensive
+        code3, formatted3 = TestSortFormatting.sort_inline_comments
+        code = code1.rstrip() + "\n" "\n" "if 1:\n" " pass\n" "\n\n" + code3
+        expected = formatted1 + "\n\n" "if 1:\n" f"{TAB}pass\n" "\n\n" + formatted3
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive(self):
         code = (
