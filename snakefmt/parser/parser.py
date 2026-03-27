@@ -195,37 +195,7 @@ class Parser(ABC):
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
                 self.fmt_off = None
 
-            if self.fmt_off:
-                if self.vocab.recognises(keyword):
-                    if self.keyword_indent < status.cur_indent and (
-                        self.syntax.from_python or status.pythonable
-                    ):
-                        self.from_python = True
-                    self.flush_buffer(
-                        from_python=self.from_python,
-                        in_global_context=self.in_global_context,
-                    )
-                    status = self._consume_fmt_off(
-                        status.token, min_indent=status.cur_indent
-                    )
-                else:
-                    self.flush_buffer(
-                        from_python=True,
-                        in_global_context=self.in_global_context,
-                    )
-                    if self.keyword_indent > 0:
-                        self.syntax.add_processed_keyword(status.token, keyword)
-                    status = self._consume_fmt_off(
-                        status.token, min_indent=status.cur_indent
-                    )
-                    self.buffer = ""
-                    if self.last_block_was_snakecode and not status.eof:
-                        self.block_indent = status.block_indent
-                        self.last_block_was_snakecode = False
-                    if self.keyword_indent:
-                        self.last_block_was_snakecode = True
-                self.buffer = status.buffer.lstrip()
-            elif self.vocab.recognises(keyword):
+            if self.vocab.recognises(keyword):
                 new_vocab, new_syntax_cls = self.vocab.get(keyword)
                 is_context_kw = new_vocab is not None and issubclass(
                     new_syntax_cls, KeywordSyntax
@@ -244,6 +214,23 @@ class Parser(ABC):
                 status = self.process_keyword(status, self.from_python)
                 self.block_indent = status.cur_indent
                 self.last_block_was_snakecode = True
+            elif self.fmt_off:
+                self.flush_buffer(
+                    from_python=True,
+                    in_global_context=self.in_global_context,
+                )
+                if self.keyword_indent > 0:
+                    self.syntax.add_processed_keyword(status.token, keyword)
+                status = self._consume_fmt_off(
+                    status.token, min_indent=status.cur_indent
+                )
+                self.buffer = ""
+                if self.last_block_was_snakecode and not status.eof:
+                    self.block_indent = status.block_indent
+                    self.last_block_was_snakecode = False
+                if self.keyword_indent:
+                    self.last_block_was_snakecode = True
+                self.buffer = status.buffer.lstrip()
             else:
                 if not self.syntax.accepts_python_code and not comment_start(keyword):
                     raise SyntaxError(
@@ -439,9 +426,13 @@ class Parser(ABC):
                         ):
                             self.snakefile.denext(token)
                             break
-                elif self._check_fmt_on(token) == "region":
-                    self.fmt_off = None
-                    lines.update(split_token_lines(token))
+                elif fmt_on := self._check_fmt_on(token):
+                    if fmt_on == "region":
+                        self.fmt_off = None
+                        lines.update(split_token_lines(token))
+                    elif fmt_on == "sort":
+                        self.fmt_sort_off = None
+                        self.snakefile.denext(token)
                     break
 
             self.queriable = False

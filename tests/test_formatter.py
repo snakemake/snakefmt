@@ -2345,6 +2345,50 @@ class TestFmtOffSort:
             expected2 = expected + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
 
+    def test_fmt_off_sort_between_directive(self):
+        code = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}resources: mem_mb=100\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}conda: 'env.yaml'\n"
+            f"{TAB}message: 'finishing'\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}shell: 'echo done'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}name:\n"
+            f'{TAB*2}"myrule"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}log:\n"
+            f'{TAB*2}"log.txt",\n'
+            f"{TAB}conda:\n"
+            f'{TAB*2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB*2}"finishing"\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo done"\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
 
 class TestFmtOffNext:
     def test_fmt_off_next(self):
