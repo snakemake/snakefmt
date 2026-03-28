@@ -2115,8 +2115,11 @@ class TestFmtOffOn:
             TestSimpleParamFormatting.example_params_newline,
             TestSimpleParamFormatting.example_input_threads_newline,
         ):
+            code1 = code + "\n\n\n# fmtoff\n" + code
+            expected = formatted.strip() + "\n\n\n# fmtoff\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
             code1 = code + "\n\n\n# fmt: off\n" + code
-            expected = formatted.strip() + "\n# fmt: off\n" + code
+            expected = formatted.strip() + "\n\n\n# fmt: off\n" + code
             assert setup_formatter(code1).get_formatted() == expected
 
     def test_fmt_off_on(self):
@@ -2134,9 +2137,6 @@ class TestFmtOffOn:
             code1 = code + "\n\n# fmt: on\n" + code
             expected = formatted + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
-            code1 = code + "\n\n# fmt: on\n" + code
-            expected = formatted + "\n\n# fmt: on\n" + formatted
-            assert setup_formatter(code1).get_formatted() == expected
             code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
             expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
@@ -2147,19 +2147,13 @@ class TestFmtOffOn:
             TestSimpleParamFormatting.example_params_newline,
             TestSimpleParamFormatting.example_input_threads_newline,
         ):
-            code1 = (
-                "\n# fmt: off\n"
-                + code
-                + "\nif 1:\n    a=1\n    # fmt: on\n    b=2\n"
-                + code
-            )
             expected = (
                 "# fmt: off\n"
                 + code
                 + "\nif 1:\n    a=1\n    # fmt: on\n    b=2\n"
                 + code
             )
-            assert setup_formatter(code1).get_formatted() == expected
+            assert setup_formatter(expected).get_formatted() == expected
 
     def test_fmt_off_on_in_run(self):
         """# fmt: off inside Python code is handled by Black."""
@@ -2324,6 +2318,8 @@ class TestFmtOffOn:
         assert formatter.get_formatted() == expected
 
     def test_fmt_off_lagging_comments(self):
+        expected = "if 1:\n" "    lagging_comments\n" "\n" "    # fmtany\n"
+        assert setup_formatter(expected).get_formatted() == expected
         expected = (
             "if 1:\n"
             "    lagging_comments\n"
@@ -2455,9 +2451,15 @@ class TestFmtOffNext:
             code1 = "\n\n# fmt: off[next]\n" + code + "\n" + code
             expected = "# fmt: off[next]\n" + code.strip("\n") + "\n\n\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
-            code1 = code + "\n# fmt: off[next]\n" + code + "\n\n\n" + code
+            code1 = code.rstrip() + "\n\n# fmtnext\n" + "\n\n\n" + code
             expected = (
-                formatted
+                formatted.rstrip() + "\n\n\n" + "# fmtnext\n" + "\n\n" + formatted
+            )
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code.rstrip() + "\n\n# fmt: off[next]\n" + code + "\n\n\n" + code
+            expected = (
+                formatted.rstrip()
+                + "\n\n\n"
                 + "# fmt: off[next]\n"
                 + code.strip("\n")
                 + "\n\n\n"
@@ -2465,10 +2467,10 @@ class TestFmtOffNext:
             )
             assert setup_formatter(code1).get_formatted() == expected
             code1 = code + "\n# fmt: off[next]\n" + code
-            expected = formatted + "# fmt: off[next]\n" + code
+            expected = formatted + "\n\n# fmt: off[next]\n" + code
             assert setup_formatter(code1).get_formatted() == expected
             code1 = code + "\n# fmt: off[next]\n" + code + "\n\n"
-            expected = formatted + "# fmt: off[next]\n" + code.rstrip("\n") + "\n"
+            expected = formatted + "\n\n# fmt: off[next]\n" + code.rstrip("\n") + "\n"
             assert setup_formatter(code1).get_formatted() == expected
 
     def test_rule_if_rule(self):
@@ -2547,6 +2549,27 @@ class TestFmtOffNext:
             code1 + "\n"
             "if 1:\n"
             " if 2:\n"
+            "  sth\n"
+            + "\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True)).rstrip("\n")
+            + "\n"
+            f"{code3}"
+        )
+        expected = (
+            format1 + "\n\n"
+            "if 1:\n"
+            f"{TAB * 1}if 2:\n"
+            f"{TAB * 2}sth\n"
+            + "\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            code1 + "\n"
+            "if 1:\n"
+            " if 2:\n"
             "  # fmt: off[next]\n"
             + "".join("  " + i for i in code2.splitlines(keepends=True))
             + "\n"
@@ -2554,20 +2577,20 @@ class TestFmtOffNext:
             + "\n"
             f"{code3}"
         )
-        expected1 = format1 + "\n\n" "if 1:\n" f"{TAB * 1}if 2:\n"
-        expected2 = (
+        expected = (
+            format1 + "\n\n"
+            "if 1:\n"
+            f"{TAB * 1}if 2:\n"
             f"{TAB * 2}# fmt: off[next]\n"
             + "".join(f"{TAB * 2}" + i for i in code2.splitlines(keepends=True)).rstrip(
                 "\n"
             )
-            + "\n"
-            + "\n"
+            + "\n\n"
             + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
             + "\n\n"
             + format3
         )
-        formatted = formatter.get_formatted()
-        assert formatted.startswith(expected1) and formatted.endswith(expected2)
+        assert formatter.get_formatted() == expected
 
     def test_fmt_off_next_in_if(self):
         code1, format1 = TestSimpleParamFormatting.example_shell_newline
@@ -2598,9 +2621,9 @@ class TestFmtOffNext:
             + code3
         )
         expected = (
-            format1.rstrip("\n") + "\n# fmt: off[next]\n"
+            format1 + "\n\n# fmt: off[next]\n"
             "if 1:\n"
-            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + "".join(" " + i for i in code2.splitlines(keepends=True)).rstrip("\n")
             + "\n\n\n"
             + format3
         )
@@ -2636,8 +2659,10 @@ class TestFmtOffNext:
             + "\n"
             + "".join(" " + i for i in code3.splitlines(keepends=True))
         )
-        expected1 = format1.rstrip("\n") + "\n" "\n\n" "if 1:\n"
-        expected2 = (
+        expected = (
+            format1.rstrip("\n") + "\n"
+            "\n\n"
+            "if 1:\n"
             f"{TAB * 1}# fmt: off[next]\n"
             + "".join(f"{TAB * 1}" + i for i in code2.splitlines(keepends=True)).strip(
                 "\n"
@@ -2645,8 +2670,7 @@ class TestFmtOffNext:
             + "\n\n"
             + "".join(f"{TAB * 1}" + i for i in format3.splitlines(keepends=True))
         )
-        formatted = formatter.get_formatted()
-        assert formatted.startswith(expected1) and formatted.endswith(expected2)
+        assert formatter.get_formatted() == expected
 
     def test_fmt_off_2(self):
         formatter = setup_formatter(

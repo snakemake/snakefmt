@@ -251,12 +251,9 @@ class Parser(ABC):
                 status = self._consume_fmt_off(
                     status.token, min_indent=status.cur_indent
                 )
-                self.buffer = ""
                 if self.last_block_was_snakecode and not status.eof:
                     self.block_indent = status.block_indent
-                    self.last_block_was_snakecode = False
-                if self.keyword_indent:
-                    self.last_block_was_snakecode = True
+                self.last_block_was_snakecode = self.keyword_indent > 0
                 self.buffer = status.buffer.lstrip()
             else:
                 if not self.syntax.accepts_python_code and not comment_start(keyword):
@@ -506,14 +503,14 @@ class Parser(ABC):
         return False
 
     @abstractmethod
-    def handle_fmt_off_region(self, verbatim: str) -> None:
-        """handle unformatted text (just update indent)."""
+    def flush_fmt_off_region(self, verbatim: str) -> None:
+        """Flush unformatted region introduced by a fmt: off directive into result"""
 
     def _consume_fmt_off(self, start_token: Token, min_indent: int):
         verbatim, next_status = self._consume_python(
             start_token, vocab_recognises=False, added_indent=TAB * min_indent
         )
-        self.handle_fmt_off_region(verbatim)
+        self.flush_fmt_off_region(verbatim)
         self.snakefile.denext(next_status.token)
         self.queriable = True
         if self.fmt_off and self.fmt_off[1] == "next":
@@ -554,7 +551,7 @@ class Parser(ABC):
         new_vocab, new_syntax = self.vocab.get(keyword)
         if new_vocab is not None and issubclass(new_syntax, KeywordSyntax):
             in_global_context = self.in_global_context
-            saved_context = self.context
+            saved_context: Context = self.context
             # 'use' keyword can not enter a new context
             self.context = Context(
                 new_vocab(),
@@ -576,8 +573,7 @@ class Parser(ABC):
             self.queriable = True
             self.block_indent = self.syntax.keyword_indent + 1
             status = self.get_next_queriable()
-            # lstrip forces the formatter deal with newlines
-            if self.context.syntax.accepts_python_code:  # type: ignore
+            if self.context.syntax.accepts_python_code:
                 self.buffer += status.buffer.lstrip("\n\r")
             else:
                 self.buffer += status.buffer.lstrip()

@@ -210,16 +210,40 @@ class Formatter(Parser):
         if self.no_formatting_yet and self.result.rstrip("\n") and not self.buffer:
             self.no_formatting_yet = False
 
-    def handle_fmt_off_region(self, verbatim: str) -> None:
+    def flush_fmt_off_region(self, verbatim: str):
+        """Blank-line rules:
+
+        applied before the verbatim block:
+        - At global indent (fmt_off[0] == 0) and result not empty:
+            result should end with exactly 2 blank lines (``\\n\\n\\n``)
+            (standard separation between top-level constructs).
+        - When the preceding Python code had a blank line before ``# fmt: off``
+            (``fmt_off_preceded_by_blank_line``):
+            result should end with >= 1 blank line.
+        - ``# fmt: off[next]`` nested inside a Python block:
+            another ``\\n`` is prepended to any lagging comment
+            so the following keyword gets its normal blank-line separator.
+
+        applied after the verbatim block:
+        - ``# fmt: off[next]``: sets ``no_formatting_yet := False``,
+            so the next formatted block gets its normal blank-line separator.
+        - Plain ``# fmt: off`` regions: sets ``no_formatting_yet := True``,
+            suppressing blank-line insertion in the next ``add_newlines`` call.
+        """
+
         if self.no_formatting_yet:
             self.result = self.result.lstrip("\n")
         self.result += self.buffer
         self.buffer = ""
-        if not verbatim:
-            return
-        # When fmt:off[next] is inside a Python block (e.g. `if 1:`), the
-        # directive ends up as a lagging_comment after flushing that block.
-        is_nested_next = self.fmt_off and self.fmt_off[1] == "next"
+        if self.fmt_off:
+            if self.fmt_off[0] == 0 and not self.no_formatting_yet:
+                if self.fmt_off and not self.result.endswith("\n\n\n"):
+                    self.result += "\n\n"
+            # When fmt:off[next] is inside a Python block (e.g. `if 1:`), the
+            # directive ends up as a lagging_comment after flushing that block.
+            is_nested_next = self.fmt_off[1] == "next"
+        else:
+            is_nested_next = False
         if self.lagging_comments:
             # For nested fmt:off[next], add the same \n separator that
             # process_keyword_context/add_newlines would normally provide
@@ -228,15 +252,12 @@ class Formatter(Parser):
                 self.result += "\n"
             self.result += self.lagging_comments
             self.lagging_comments = ""
+        self.no_formatting_yet = not is_nested_next
         if self.fmt_off_preceded_by_blank_line:
             if self.result and not self.result.endswith("\n\n"):
                 self.result += "\n"
             self.fmt_off_preceded_by_blank_line = False
         self.result += verbatim
-        # For fmt: off[next], mark that we've emitted content so the following
-        # block gets its normal blank-line separator.
-        # For fmt: off regions, treat verbatim as transparent to separator logic.
-        self.no_formatting_yet = not is_nested_next
         self.last_recognised_keyword = ""
 
     def run_black_format_str(
@@ -515,6 +536,10 @@ class Formatter(Parser):
                 if comment_matches > 0:
                     self.lagging_comments = "\n".join(all_lines[comment_break:]) + "\n"
                     if final_flush:
+                        # Preserve one intentional blank line before trailing
+                        # comments at EOF (e.g. indented # fmt-like comments).
+                        if comment_break > 0 and all_lines[comment_break - 1] == "":
+                            self.result += "\n"
                         self.result += self.lagging_comments
         else:
             self.result += formatted_string

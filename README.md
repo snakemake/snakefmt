@@ -51,8 +51,6 @@ design and specifications of [Black][black].
   - [PyPi](#pypi)
   - [Conda](#conda)
   - [Containers](#containers)
-    - [Docker](#docker)
-    - [Singularity](#singularity)
   - [Local](#local)
 - [Example File](#example-file)
 - [Usage](#usage)
@@ -66,8 +64,6 @@ design and specifications of [Black][black].
   - [Version Control Integration](#version-control-integration)
   - [GitHub Actions](#github-actions)
 - [Plug Us](#plug-us)
-    - [Markdown](#markdown)
-    - [ReStructuredText](#restructuredtext)
 - [Changes](#changes)
 - [Contributing](#contributing)
 - [Cite](#cite)
@@ -321,6 +317,10 @@ You can disable this feature using the `--no-sort` flag.
 ### Format Directives
 
 `snakefmt` supports inline comment directives to control formatting behaviour for specific regions of code.
+Format directives are scope-local.
+The design principle is:
+- Only the region selected by `# fmt: off`/`# fmt: on` (or the single block selected by `# fmt: off[next]`) is left untouched.
+- Code before and after that region follows normal `snakefmt` formatting and spacing behavior, equivalent to replacing the directive with a regular comment line.
 
 #### `# fmt: off` / `# fmt: on`
 
@@ -490,13 +490,13 @@ in your project.
 
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 
-#### Markdown
+### Markdown
 
 ```md
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 ```
 
-#### ReStructuredText
+### ReStructuredText
 
 ```rst
 .. image:: https://img.shields.io/badge/code%20style-snakefmt-000000.svg
