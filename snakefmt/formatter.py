@@ -65,7 +65,6 @@ class Formatter(Parser):
         self.result: str = ""
         self.lagging_comments: str = ""
         self.no_formatting_yet: bool = True
-        self.sort_directives = sort_directives
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
@@ -75,7 +74,7 @@ class Formatter(Parser):
         if line_length is not None:
             self.black_mode.line_length = line_length
 
-        super().__init__(snakefile)  # Call to parse snakefile
+        super().__init__(snakefile, sort_directives=sort_directives)
 
     def get_formatted(self) -> str:
         return self.result
@@ -90,10 +89,13 @@ class Formatter(Parser):
         from_python: bool = False,
         final_flush: bool = False,
         in_global_context: bool = False,
+        exiting_keywords: bool = False,
     ) -> None:
         if len(self.buffer) == 0 or self.buffer.isspace():
             self.result += self.buffer
             self.buffer = ""
+            if exiting_keywords and self.no_formatting_yet and self.result.rstrip("\n"):
+                self.no_formatting_yet = False
             return
 
         if not from_python:
@@ -103,6 +105,9 @@ class Formatter(Parser):
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
+            if self.fmt_off_expected_indent:
+                self.buffer += self.fmt_off_expected_indent
+                self.fmt_off_expected_indent = ""
             re_match = contextual_matcher.match(self.buffer)
             if re_match is not None:
                 callback_keyword = re_match.group(2)
@@ -119,11 +124,13 @@ class Formatter(Parser):
                 )
                 formatted = self.run_black_format_str(to_format, self.block_indent)
                 re_rematch = contextual_matcher.match(formatted)
-                if re_rematch is None:
-                    raise ValueError(
-                        "contextual_matcher failed to match for the given "
-                        f"formatted string: {formatted}"
-                    )
+                assert re_rematch, (
+                    "This should always match as we just formatted it with the same "
+                    "regex. If this error is raised, it's a bug in snakefmt's "
+                    "handling of snakemake syntax. Please report this to the "
+                    "developers with the code so we can fix it: "
+                    "https://github.com/snakemake/snakefmt/issues"
+                )
                 if condition != "":
                     callback_keyword += re_rematch.group(3)
                 formatted = (
@@ -174,7 +181,7 @@ class Formatter(Parser):
             context=param_context,
         )
         param_formatted = self.format_params(param_context)
-        if self.sort_directives and not in_global_context and self.keyword_spec:
+        if self.sort_off_indent is None and not in_global_context and self.keyword_spec:
             self.keywords[param_context.keyword_name] = self.result + param_formatted
             self.result = ""
         else:
@@ -188,13 +195,70 @@ class Formatter(Parser):
         for keyword in self.keyword_spec:
             res = self.keywords.pop(keyword, "")
             self.previous_result += res
-        if self.keywords:
-            raise InvalidParameterSyntax(
-                "Unexpected keywords when sorted keywords: "
-                + (", ".join(self.keywords))
-            )
+        assert not self.keywords, (
+            "All directives should have been consumed; "
+            "if not, this is a bug in snakefmt's handling of snakemake syntax. "
+            "It must be the coder's fault, not the user's. "
+            "So please report this to the developers with the code so we can fix it: "
+            "https://github.com/snakemake/snakefmt/issues"
+        )
         self.result = self.previous_result + self.result
         self.previous_result = ""
+        # Keep no_formatting_yet when there is pending buffered content.
+        # This prevents premature separator insertion after fmt: off/on
+        # verbatim regions before the next flush occurs.
+        if self.no_formatting_yet and self.result.rstrip("\n") and not self.buffer:
+            self.no_formatting_yet = False
+
+    def flush_fmt_off_region(self, verbatim: str):
+        """Blank-line rules:
+
+        applied before the verbatim block:
+        - At global indent (fmt_off[0] == 0) and result not empty:
+            result should end with exactly 2 blank lines (``\\n\\n\\n``)
+            (standard separation between top-level constructs).
+        - When the preceding Python code had a blank line before ``# fmt: off``
+            (``fmt_off_preceded_by_blank_line``):
+            result should end with >= 1 blank line.
+        - ``# fmt: off[next]`` nested inside a Python block:
+            another ``\\n`` is prepended to any lagging comment
+            so the following keyword gets its normal blank-line separator.
+
+        applied after the verbatim block:
+        - ``# fmt: off[next]``: sets ``no_formatting_yet := False``,
+            so the next formatted block gets its normal blank-line separator.
+        - Plain ``# fmt: off`` regions: sets ``no_formatting_yet := True``,
+            suppressing blank-line insertion in the next ``add_newlines`` call.
+        """
+
+        if self.no_formatting_yet:
+            self.result = self.result.lstrip("\n")
+        self.result += self.buffer
+        self.buffer = ""
+        if self.fmt_off:
+            if self.fmt_off[0] == 0 and not self.no_formatting_yet:
+                if self.fmt_off and not self.result.endswith("\n\n\n"):
+                    self.result += "\n\n"
+            # When fmt:off[next] is inside a Python block (e.g. `if 1:`), the
+            # directive ends up as a lagging_comment after flushing that block.
+            is_nested_next = self.fmt_off[1] == "next"
+        else:
+            is_nested_next = False
+        if self.lagging_comments:
+            # For nested fmt:off[next], add the same \n separator that
+            # process_keyword_context/add_newlines would normally provide
+            # before the first keyword inside the Python block.
+            if is_nested_next and not self.no_formatting_yet:
+                self.result += "\n"
+            self.result += self.lagging_comments
+            self.lagging_comments = ""
+        self.no_formatting_yet = not is_nested_next
+        if self.fmt_off_preceded_by_blank_line:
+            if self.result and not self.result.endswith("\n\n"):
+                self.result += "\n"
+            self.fmt_off_preceded_by_blank_line = False
+        self.result += verbatim
+        self.last_recognised_keyword = ""
 
     def run_black_format_str(
         self,
@@ -216,7 +280,6 @@ class Formatter(Parser):
             and len(string.strip().splitlines()) > 1
             and not no_nesting
         )
-
         if artificial_nest:
             string = f"if x:\n{textwrap.indent(string, TAB)}"
 
@@ -473,6 +536,10 @@ class Formatter(Parser):
                 if comment_matches > 0:
                     self.lagging_comments = "\n".join(all_lines[comment_break:]) + "\n"
                     if final_flush:
+                        # Preserve one intentional blank line before trailing
+                        # comments at EOF (e.g. indented # fmt-like comments).
+                        if comment_break > 0 and all_lines[comment_break - 1] == "":
+                            self.result += "\n"
                         self.result += self.lagging_comments
         else:
             self.result += formatted_string

@@ -17,10 +17,10 @@ design and specifications of [Black][black].
 > `--diff` or `--check` options. See [Usage](#usage) for more details.
 
 > [!IMPORTANT]
-> **Recent Changes:** 
+> **Recent Changes:**
 > 1. **Rule and module directives are now sorted by default:** `snakefmt` will automatically sort the order of directives inside rules (e.g. `input`, `output`, `shell`) and modules into a consistent order. You can opt out of this by using the `--no-sort` CLI flag.
 > 2. **Black upgraded to v26:** The underlying `black` formatter has been upgraded to v26. You will see changes in how implicitly concatenated strings are wrapped (they are now collapsed onto a single line if they fit within the line limit) and other minor adjustments compared to previous versions.
-> 
+>
 > **Example of expected differences:**
 > ```python
 > # Before (Snakefmt older versions)
@@ -33,7 +33,7 @@ design and specifications of [Black][black].
 >         "b.txt",
 >     input:
 >         "a.txt",
-> 
+>
 > # After (Directives sorted, strings collapsed by Black 26)
 > rule example:
 >     input:
@@ -58,10 +58,11 @@ design and specifications of [Black][black].
   - [Full Usage](#full-usage)
 - [Configuration](#configuration)
   - [Directive Sorting](#directive-sorting)
+  - [Format Directives](#format-directives)
 - [Integration](#integration)
-    - [Editor Integration](#editor-integration)
-    - [Version Control Integration](#version-control-integration)
-    - [Github Actions](#github-actions)
+  - [Editor Integration](#editor-integration)
+  - [Version Control Integration](#version-control-integration)
+  - [GitHub Actions](#github-actions)
 - [Plug Us](#plug-us)
 - [Changes](#changes)
 - [Contributing](#contributing)
@@ -313,6 +314,80 @@ This ordering ensures that the directives most frequently used in execution bloc
 
 You can disable this feature using the `--no-sort` flag.
 
+### Format Directives
+
+`snakefmt` supports inline comment directives to control formatting behaviour for specific regions of code.
+Format directives are scope-local.
+The design principle is:
+- Only the region selected by `# fmt: off`/`# fmt: on` (or the single block selected by `# fmt: off[next]`) is left untouched.
+- Code before and after that region follows normal `snakefmt` formatting and spacing behavior, equivalent to replacing the directive with a regular comment line.
+
+#### `# fmt: off` / `# fmt: on`
+
+Disables all formatting for the region between the two directives. The directives must appear at the same indentation level. A `# fmt: on` at a deeper indent than the matching `# fmt: off` has no effect.
+
+```python
+rule a:
+    input:
+        "a.txt",
+
+
+# fmt: off
+rule b:
+  input: "b.txt"
+  output:
+          "c.txt"
+# fmt: on
+
+
+rule c:
+    input:
+        "d.txt",
+```
+
+Note: inside `run:` blocks and other Python code, `# fmt: off` / `# fmt: on` is passed through to [Black][black] which handles it natively.
+
+#### `# fmt: off[sort]`
+
+Disables only directive sorting for the region, while still applying all other formatting. Useful when you want to preserve a custom directive order for a specific rule.
+
+```python
+# fmt: off[sort]
+rule keep_my_order:
+    output:
+        "result.txt",
+    input:
+        "source.txt",
+    shell:
+        "cp {input} {output}"
+# fmt: on[sort]
+```
+
+A plain `# fmt: on` (without `[sort]`) also ends a `# fmt: off[sort]` region.
+
+#### `# fmt: off[next]`
+
+Disables formatting for the single next Snakemake keyword block (e.g. `rule`, `checkpoint`, `use rule`). Only that one block is left unformatted; subsequent blocks are formatted normally.
+
+```python
+rule formatted:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+
+
+# fmt: off[next]
+rule unformatted:
+  input: "a.txt"
+  output: "b.txt"
+
+
+rule also_formatted:
+    input:
+        "a.txt",
+```
+
 #### Example
 
 `pyproject.toml`
@@ -415,13 +490,13 @@ in your project.
 
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 
-#### Markdown
+### Markdown
 
 ```md
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 ```
 
-#### ReStructuredText
+### ReStructuredText
 
 ```rst
 .. image:: https://img.shields.io/badge/code%20style-snakefmt-000000.svg
