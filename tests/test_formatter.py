@@ -1677,24 +1677,17 @@ class TestStorage:
 
 
 class TestRunBlockFormatting:
-    def test_comment_indentation_in_run_block(self):
+    def test_issue_267_comment_indentation_in_run_block(self):
         """https://github.com/snakemake/snakefmt/issues/267"""
-        expected = (
+        snakecode = (
             "rule fmt_bug_repro:\n"
             f"{TAB * 1}run:\n"
             f'{TAB * 2}if "something nested":\n'
             f"{TAB * 3}pass\n"
             f"{TAB * 2}# Comment gets indented\n"
         )
-        assert setup_formatter(expected).get_formatted() == expected
-        snakecode = (
-            "rule fmt_bug_repro:\n"
-            " run:\n"
-            '  if "something nested":\n'
-            "   pass\n"
-            "  # Comment gets indented\n"
-        )
-        assert setup_formatter(snakecode).get_formatted() == expected
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
 
     def test_double_block_comment(self):
         """https://github.com/snakemake/snakefmt/issues/196"""
@@ -2115,9 +2108,12 @@ class TestFmtOffOn:
             TestSimpleParamFormatting.example_params_newline,
             TestSimpleParamFormatting.example_input_threads_newline,
         ):
+            # baseline
             code1 = code + "\n\n\n# fmtoff\n" + code
             expected = formatted.strip() + "\n\n\n# fmtoff\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
+
+            # before `# fmt: off`, new lines are added as usual
             code1 = code + "\n\n\n# fmt: off\n" + code
             expected = formatted.strip() + "\n\n\n# fmt: off\n" + code
             assert setup_formatter(code1).get_formatted() == expected
@@ -2128,20 +2124,32 @@ class TestFmtOffOn:
             TestSimpleParamFormatting.example_params_newline,
             TestSimpleParamFormatting.example_input_threads_newline,
         ):
+            # baseline
             code1 = "\n# fmton\n" + code
             expected = "# fmton\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
+
+            # before `# fmt: on`, empty lines are removed as usual
             code1 = "\n\n# fmt: on\n" + code
             expected = "# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
+
+            # also assert in `test_fmt_off_sort`
             code1 = code + "\n\n# fmt: on\n" + code
             expected = formatted + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
+
+            # fmt on can enable formatting after fmt off
             code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
             expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
 
     def test_fmt_off_not_on(self):
+        """`
+        - `# fmt: on` at a deeper indentation level than `# fmt: off` has no effect
+        - `# fmt: off` keeps the rest of the code unformatted until a same-indent
+            `# fmt: on` found
+        """
         for code, formatted in (
             TestSimpleParamFormatting.example_shell_newline,
             TestSimpleParamFormatting.example_params_newline,
@@ -2200,10 +2208,10 @@ class TestFmtOffOn:
         code, formatted = TestSimpleParamFormatting.example_shell_newline
         formatter = setup_formatter(
             f"rule:\n"
-            f"    run:\n"
-            f"        # fmt: off\n"
-            f"        x = [ 1,2,3]\n"
-            f"        # fmt: on\n\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
+            f"{TAB * 2}# fmt: on\n\n"
             f"sth=1\n"
             f"{code}"
         )
@@ -2219,9 +2227,9 @@ class TestFmtOffOn:
         assert formatter.get_formatted() == expected
         formatter = setup_formatter(
             f"rule:\n"
-            f"    run:\n"
-            f"        # fmt: off\n"
-            f"        x = [ 1,2,3]\n\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n"
             f"sth=1\n"
             f"{code}"
         )
@@ -2239,9 +2247,9 @@ class TestFmtOffOn:
         code, formatted = TestSimpleParamFormatting.example_shell_newline
         formatter = setup_formatter(
             f"rule:\n"
-            f"    # fmt: off\n"
-            f"    run:\n"
-            f"        x = [ 1,2,3]\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
             f"sth=1\n"
             f"{code}"
         )
@@ -2256,34 +2264,34 @@ class TestFmtOffOn:
         assert formatter.get_formatted() == expected
         formatter = setup_formatter(
             f"rule:\n"
-            f"    message: 'finishing'\n"
-            f"    # Important input\n"
-            f"    input: 'in.txt'\n"
-            f"    # fmt: off\n"
-            f"    log: 'log.txt'\n"
-            f"    name: 'myrule'\n"
-            f"    # fmt: on\n"
-            f"    output: 'out.txt'\n"
-            f"    run:\n"
-            f"        # fmt: off\n"
-            f"        x = [ 1,2,3]\n\n"
+            f"{TAB * 1}message: 'finishing'\n"
+            f"{TAB * 1}# Important input\n"
+            f"{TAB * 1}input: 'in.txt'\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}log: 'log.txt'\n"
+            f"{TAB * 1}name: 'myrule'\n"
+            f"{TAB * 1}# fmt: on\n"
+            f"{TAB * 1}output: 'out.txt'\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n"
             f"sth=1\n"
             f"{code}"
         )
         expected = (
             "rule:\n"
             f"{TAB}message:\n"
-            f'{TAB}{TAB}"finishing"\n'
+            f'{TAB * 2}"finishing"\n'
             f"{TAB}# Important input\n"
             f"{TAB}input:\n"
-            f'{TAB}{TAB}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}# fmt: off\n"
             f"{TAB}log: 'log.txt'\n"
             f"{TAB}name: 'myrule'\n"
             f"{TAB}# fmt: on\n"
             f"{TAB}output:\n"
-            f'{TAB}{TAB}"out.txt",\n'
-            f"{TAB * 1}run:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}run:\n"
             f"{TAB * 2}# fmt: off\n"
             f"{TAB * 2}x = [ 1,2,3]\n\n\n"
             f"sth = 1\n\n\n"
@@ -2318,29 +2326,44 @@ class TestFmtOffOn:
         assert formatter.get_formatted() == expected
 
     def test_fmt_off_lagging_comments(self):
-        expected = "if 1:\n" "    lagging_comments\n" "\n" "    # fmtany\n"
+        expected = "if 1:\n" f"{TAB * 1}lagging_comments\n" "\n" f"{TAB * 1}# fmtany\n"
         assert setup_formatter(expected).get_formatted() == expected
         expected = (
             "if 1:\n"
-            "    lagging_comments\n"
+            f"{TAB * 1}lagging_comments\n"
             "\n"
-            "    # fmt: off\n"
-            "    rule a:\n"
-            '        input: "sth"\n'
-            '        name: "sth"\n'
-            "    # fmt: on\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}input: "sth"\n'
+            f'{TAB * 2}name: "sth"\n'
+            f"{TAB * 1}# fmt: on\n"
         )
         assert setup_formatter(expected).get_formatted() == expected
         expected = (
             "if 1:\n"
-            "    # lagging_comments\n"
-            "    # fmt: off\n"
-            "    rule a:\n"
-            '        input: "sth"\n'
-            '        name: "sth"\n'
-            "    # fmt: on\n"
+            f"{TAB * 1}# lagging_comments\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}input: "sth"\n'
+            f'{TAB * 2}name: "sth"\n'
+            f"{TAB * 1}# fmt: on\n"
         )
         assert setup_formatter(expected).get_formatted() == expected
+
+    def test_fmt_skip_in_python(self):
+        code = (
+            "if 1:\n"
+            f"{TAB}x = [ 1,2,3] # fmt: skip\n"
+            f"{TAB}sth=1 # comment no skip\n"
+            f"{TAB}y = [4,5,6]"
+        )
+        expected = (
+            "if 1:\n"
+            f"{TAB}x = [ 1,2,3] # fmt: skip\n"
+            f"{TAB}sth = 1  # comment no skip\n"
+            f"{TAB}y = [4, 5, 6]\n"
+        )
+        assert setup_formatter(code).get_formatted() == expected
 
 
 class TestFmtOffSort:
@@ -2351,15 +2374,23 @@ class TestFmtOffSort:
             TestSortFormatting.sort_inline_comments,
             TestSortFormatting.sort_module,
         ):
+            # baseline: `# fmt: on` without a preceding `# fmt: off*` is a no-op
+            # and act as a normal comment
             code1 = code + "\n\n# fmt: on\n" + code
             expected = formatted + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+
+            # `# fmt: off[sort]` disables sorting for the rest of the rule
             code1 = "# fmt: off[sort]\n" + code
             expected = "# fmt: off[sort]\n" + setup_formatter(code).get_formatted()
             assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+
+            # `# fmt: on[sort]` re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on[sort]\n" + code
             expected2 = expected + "\n\n# fmt: on[sort]\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+
+            # plain `# fmt: on` also re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on\n" + code
             expected2 = expected + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
@@ -2397,6 +2428,12 @@ class TestFmtOffSort:
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive(self):
+        """
+        if you turn off sorting around one directive half way through the rule,
+        you would sort the half above it and the half below it,
+        the directive(s) that is surrounded by `# fmt: off` remain
+        at the same index within the rule.
+        """
         code = (
             "rule all:\n"
             f"{TAB}params: p=1\n"
@@ -2404,9 +2441,10 @@ class TestFmtOffSort:
             f"{TAB}threads: 4\n"
             f"{TAB}conda: 'env.yaml'\n"
             f"{TAB}message: 'finishing'\n"
-            f"{TAB}log: 'log.txt'\n"
             f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log: 'log.txt'\n"
             f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# before fmt\n"
             f"{TAB}# fmt: on[sort]\n"
             f"{TAB}# Important input\n"
             f"{TAB}input: 'in.txt'\n"
@@ -2415,17 +2453,6 @@ class TestFmtOffSort:
         )
         expected = (
             "rule all:\n"
-            f"{TAB}name:\n"
-            f'{TAB*2}"myrule"\n'
-            f"{TAB}# fmt: off[sort]\n"
-            f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
-            f"{TAB}# fmt: on[sort]\n"
-            f"{TAB}# Important input\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
-            f"{TAB}log:\n"
-            f'{TAB*2}"log.txt",\n'
             f"{TAB}conda:\n"
             f'{TAB*2}"env.yaml"\n'
             f"{TAB}threads: 4\n"
@@ -2435,6 +2462,103 @@ class TestFmtOffSort:
             f"{TAB*2}p=1,\n"
             f"{TAB}message:\n"
             f'{TAB*2}"finishing"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB*2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}# before fmt\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB*2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo done"\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_between_directive2(self):
+        """
+        In this case, the `# fmt: on` is directly parsed from `Parser.process_keyword`
+        """
+        code = (
+            "rule all:\n"
+            " params: p=1\n"
+            " resources: mem_mb=100\n"
+            " threads: 4\n"
+            " conda: 'env.yaml'\n"
+            " message: 'finishing'\n"
+            " # fmt: off[sort]\n"
+            " log: 'log.txt'\n"
+            " output: 'out.txt'\n"
+            " # fmt: on[sort]\n"
+            " # Important input\n"
+            " input: 'in.txt'\n"
+            " name: 'myrule'\n"
+            " shell: 'echo done'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}conda:\n"
+            f'{TAB*2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB*2}"finishing"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB*2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB*2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB*2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB*2}"echo done"\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_between_directive_empty(self):
+        code = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}resources: mem_mb=100\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}conda: 'env.yaml'\n"
+            f"{TAB}message: 'finishing'\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}# fmt: on\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}shell: 'echo done'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}conda:\n"
+            f'{TAB*2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB*2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB*2}"finishing"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}# fmt: on\n"
+            f"{TAB}name:\n"
+            f'{TAB*2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB*2}"in.txt",\n'
             f"{TAB}shell:\n"
             f'{TAB*2}"echo done"\n'
         )
@@ -2691,8 +2815,8 @@ class TestFmtOffNext:
             f"if 1:\n"
             f"\n"
             f"{TAB}rule a:\n"
-            f"{TAB}{TAB}input:\n"
-            f'{TAB}{TAB}{TAB}"foo",\n'
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"foo",\n'
             f"{TAB}# fmt: off[next]\n"
             f"{TAB}rule b:\n"
             f'{TAB} input: "bar"\n'
@@ -2703,5 +2827,5 @@ class TestFmtOffNext:
             f"\n"
             f"rule d:\n"
             f"{TAB}input:\n"
-            f'{TAB}{TAB}"qux",\n'
+            f'{TAB * 2}"qux",\n'
         )

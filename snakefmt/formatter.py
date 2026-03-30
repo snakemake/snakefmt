@@ -260,6 +260,31 @@ class Formatter(Parser):
         self.result += verbatim
         self.last_recognised_keyword = ""
 
+    def flush_sort_signal(self, verbatim):
+        """
+        If "fmt: on sort" directive is in the keyword syntax, e.g.:
+
+            rule:
+                directive1: ...
+                # fmt: off[sort]
+                directive2: ...
+                # fmt: on[sort] <-
+                # other comments
+                directive3: ...
+
+        the "other comments" should be kept with directive3.
+        This function is called when "fmt: on[sort]" reached,
+        and it flushes the pending comments into self.result.
+        """
+        if self.keywords:
+            pending = ""
+            for keyword in self.keyword_spec:
+                pending += self.keywords.pop(keyword, "")
+            self.previous_result += pending
+        self.previous_result += self.result + verbatim
+        self.result = ""
+        self.last_recognised_keyword = ""
+
     def run_black_format_str(
         self,
         string: str,

@@ -213,6 +213,15 @@ class Parser(ABC):
                     elif "sort" in fmt_label.modifiers:
                         self.sort_off_indent = status.cur_indent
                 elif self._check_fmt_on(fmt_label, status.token) == "sort":
+                    if not self.from_python and self.keyword_indent:
+                        # multiline string is impossible here
+                        # and we assume that origin_indent is the same indent
+                        #  of this comment
+                        token_indent = status.cur_indent
+                        sort_on = token_indent * TAB + status.token.line.strip() + "\n"
+                        self.flush_sort_signal(sort_on)
+                        status = self.get_next_queriable()
+                        self.buffer = status.buffer
                     continue
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
                 self.fmt_off = None
@@ -344,7 +353,7 @@ class Parser(ABC):
         or dedent below min_indent, or EOF.
         Returns (source_text, next_status) where next_status carries the stopping token.
         """
-        origin_indent = start_token.start[1]
+        origin_indent = col_nb(start_token)
 
         lines: dict[int, str] = {start_token.start[0]: start_token.line}
         # Lines that are interior to a multiline token (string / f-string body).
@@ -496,15 +505,35 @@ class Parser(ABC):
                 self.fmt_off_preceded_by_blank_line = not last_line.strip()
                 self.snakefile.denext(token)
                 return True
-        elif fmt_on := self._check_fmt_on(fmt_label, token):
-            if fmt_on == "region":
-                lines.update(split_token_lines(token))
-            return True
+        else:
+            sort_off_indent = self.sort_off_indent
+            if fmt_on := self._check_fmt_on(fmt_label, token):
+                if fmt_on == "region":
+                    lines.update(split_token_lines(token))
+                elif fmt_on == "sort":
+                    if not self.from_python and self.keyword_indent:
+                        # multiline string is impossible here
+                        # and we assume that origin_indent is the same indent
+                        #  of this comment
+                        token_indent = sort_off_indent or 0
+                        lines.update(split_token_lines(token))
+                        verbatim = self._reindent(
+                            lines, set(), col_nb(token), token_indent * TAB
+                        )
+                        self.flush_sort_signal(verbatim)
+                        lines.clear()
+                    else:
+                        self.snakefile.denext(token)
+                return True
         return False
 
     @abstractmethod
     def flush_fmt_off_region(self, verbatim: str) -> None:
         """Flush unformatted region introduced by a fmt: off directive into result"""
+
+    @abstractmethod
+    def flush_sort_signal(self, verbatim: str) -> None:
+        """Commit fmt:on sort signal directly."""
 
     def _consume_fmt_off(self, start_token: Token, min_indent: int):
         verbatim, next_status = self._consume_python(
@@ -689,8 +718,12 @@ class Parser(ABC):
                     self.fmt_off = None
                     return "region"
         elif self.sort_off_indent is not None:
+            # `fmt: on[sort]` will turn on sorting
+            # `fmt: on` will also turn on sorting if no `fmt: off` set
             if not fmt_label.modifiers or "sort" in fmt_label.modifiers:
                 token_indent = self._determine_comment_indent(token)
+                # but if sort is globally off, only `# fmt: on[sort]`
+                # can turn it on (self.sort_off_indent := -1)
                 if token_indent == self.sort_off_indent:
                     self.sort_off_indent = None
                     return "sort"
