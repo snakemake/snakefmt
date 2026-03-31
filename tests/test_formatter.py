@@ -2369,9 +2369,9 @@ class TestFmtOffOn:
     def test_fmt_skip_in_directive(self):
         formatter = setup_formatter(
             "rule a:\n"
-            f" params:\n"
-            f"  x = [ 1,2,3] # fmt: skip\n"
-            f" input: a= 'sth'   # fmt: skip\n"
+            " params:\n"
+            "  x = [ 1,2,3] # fmt: skip\n"
+            " input: a= 'sth'   # fmt: skip\n"
         )
         expected = (
             "rule a:\n"
@@ -2381,7 +2381,8 @@ class TestFmtOffOn:
             f'{TAB * 2}a="sth",  # fmt: skip\n'
         )
         # TODO: currently `# fmt: skip` in directives is not supported
-        # assert formatter.get_formatted() == expected
+        assert formatter.get_formatted()  # == expected
+        assert expected
 
 
 class TestFmtOffSort:
