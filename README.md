@@ -56,14 +56,16 @@ design and specifications of [Black][black].
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
-- [Configuration](#configuration)
   - [Directive Sorting](#directive-sorting)
   - [Format Directives](#format-directives)
+  - [Configuration](#configuration)
 - [Integration](#integration)
   - [Editor Integration](#editor-integration)
   - [Version Control Integration](#version-control-integration)
   - [GitHub Actions](#github-actions)
 - [Plug Us](#plug-us)
+  - [Markdown](#markdown)
+  - [ReStructuredText](#restructuredtext)
 - [Changes](#changes)
 - [Contributing](#contributing)
 - [Cite](#cite)
@@ -281,20 +283,6 @@ Options:
   -v, --verbose               Turns on debug-level logger.
 ```
 
-## Configuration
-
-`snakefmt` is able to read project-specific default values for its command line options
-from a `pyproject.toml` file. In addition, it will also load any [`black`
-configurations][black-config] you have in the same file.
-
-By default, `snakefmt` will search in the parent directories of the formatted file(s)
-for a file called `pyproject.toml` and use any configuration there.
-If your configuration file is located somewhere else or called something different,
-specify it using `--config`.
-
-Any options you pass on the command line will take precedence over default values in the
-configuration file.
-
 ### Directive Sorting
 
 By default, `snakefmt` sorts rule and module directives (like `input`, `output`, `shell`, etc.) into a consistent order. This makes rules easier to read and allows for quicker cross-referencing between inputs, outputs, and the resources used by the execution command.
@@ -317,14 +305,12 @@ You can disable this feature using the `--no-sort` flag.
 ### Format Directives
 
 `snakefmt` supports inline comment directives to control formatting behaviour for specific regions of code.
-Format directives are scope-local.
-The design principle is:
-- Only the region selected by `# fmt: off`/`# fmt: on` (or the single block selected by `# fmt: off[next]`) is left untouched.
-- Code before and after that region follows normal `snakefmt` formatting and spacing behavior, equivalent to replacing the directive with a regular comment line.
+All directives are scope-local: only the region they select is affected, while code before and after follows normal `snakefmt` formatting and spacing rules (equivalent to replacing the directive with a plain comment line).
 
 #### `# fmt: off` / `# fmt: on`
 
-Disables all formatting for the region between the two directives. The directives must appear at the same indentation level. A `# fmt: on` at a deeper indent than the matching `# fmt: off` has no effect.
+Disables all formatting for the region between the two directives.
+Both directives *must* appear at the same indentation level; a `# fmt: on` at a deeper indent than the matching `# fmt: off` has no effect.
 
 ```python
 rule a:
@@ -345,11 +331,13 @@ rule c:
         "d.txt",
 ```
 
-Note: inside `run:` blocks and other Python code, `# fmt: off` / `# fmt: on` is passed through to [Black][black] which handles it natively.
+> **Note:** inside `run:` blocks and other Python contexts, `# fmt: off` / `# fmt: on` is passed through to [Black][black], which handles it natively.
 
 #### `# fmt: off[sort]`
 
-Disables only directive sorting for the region, while still applying all other formatting. Useful when you want to preserve a custom directive order for a specific rule.
+Disables directive sorting for the enclosed region while still applying all other formatting.
+Directives between `# fmt: off[sort]` and `# fmt: on[sort]` are kept in their original order.
+A plain `# fmt: on` also closes a `# fmt: off[sort]` region.
 
 ```python
 # fmt: off[sort]
@@ -363,11 +351,10 @@ rule keep_my_order:
 # fmt: on[sort]
 ```
 
-A plain `# fmt: on` (without `[sort]`) also ends a `# fmt: off[sort]` region.
-
 #### `# fmt: off[next]`
 
-Disables formatting for the single next Snakemake keyword block (e.g. `rule`, `checkpoint`, `use rule`). Only that one block is left unformatted; subsequent blocks are formatted normally.
+Disables formatting for the single next Snakemake keyword block (e.g. `rule`, `checkpoint`, `use rule`).
+Only that block is left unformatted; all subsequent blocks are formatted normally.
 
 ```python
 rule formatted:
@@ -388,9 +375,30 @@ rule also_formatted:
         "a.txt",
 ```
 
+#### `# fmt: skip`
+
+`# fmt: skip` preserves a single line exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
+
+> **Note:** `# fmt: skip` is not yet supported for lines containing Snakemake directives (e.g. `input:`, `output:`).
+> It currently applies only to plain Python lines.
+
+### Configuration
+
+`snakefmt` is able to read project-specific default values for its command line options
+from a `pyproject.toml` file. In addition, it will also load any [`black`
+configurations][black-config] you have in the same file.
+
+By default, `snakefmt` will search in the parent directories of the formatted file(s)
+for a file called `pyproject.toml` and use any configuration there.
+If your configuration file is located somewhere else or called something different,
+specify it using `--config`.
+
+Any options you pass on the command line will take precedence over default values in the
+configuration file.
+
 #### Example
 
-`pyproject.toml`
+[`pyproject.toml`][pyproject]
 
 ```toml
 [tool.snakefmt]
@@ -534,6 +542,7 @@ See [CONTRIBUTING.md][contributing].
 [snakemake]: https://snakemake.readthedocs.io/
 [black]: https://black.readthedocs.io/en/stable/
 [black-config]: https://github.com/psf/black#pyprojecttoml
+[black-skip]: https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html#ignoring-sections
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md

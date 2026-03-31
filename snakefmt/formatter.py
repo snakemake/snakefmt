@@ -237,8 +237,8 @@ class Formatter(Parser):
         self.buffer = ""
         if self.fmt_off:
             if self.fmt_off[0] == 0 and not self.no_formatting_yet:
-                if self.fmt_off and not self.result.endswith("\n\n\n"):
-                    self.result += "\n\n"
+                while not self.result.endswith("\n\n\n"):
+                    self.result += "\n"
             # When fmt:off[next] is inside a Python block (e.g. `if 1:`), the
             # directive ends up as a lagging_comment after flushing that block.
             is_nested_next = self.fmt_off[1] == "next"

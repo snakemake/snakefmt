@@ -1793,25 +1793,25 @@ class TestSortFormatting:
         f"{TAB}shell: 'echo done'\n",
         "rule all:\n"
         f"{TAB}name:\n"
-        f'{TAB*2}"myrule"\n'
+        f'{TAB * 2}"myrule"\n'
         f"{TAB}# Important input\n"
         f"{TAB}input:\n"
-        f'{TAB*2}"in.txt",\n'
+        f'{TAB * 2}"in.txt",\n'
         f"{TAB}output:\n"
-        f'{TAB*2}"out.txt",\n'
+        f'{TAB * 2}"out.txt",\n'
         f"{TAB}log:\n"
-        f'{TAB*2}"log.txt",\n'
+        f'{TAB * 2}"log.txt",\n'
         f"{TAB}conda:\n"
-        f'{TAB*2}"env.yaml"\n'
+        f'{TAB * 2}"env.yaml"\n'
         f"{TAB}threads: 4\n"
         f"{TAB}resources:\n"
-        f"{TAB*2}mem_mb=100,\n"
+        f"{TAB * 2}mem_mb=100,\n"
         f"{TAB}params:\n"
-        f"{TAB*2}p=1,\n"
+        f"{TAB * 2}p=1,\n"
         f"{TAB}message:\n"
-        f'{TAB*2}"finishing"\n'
+        f'{TAB * 2}"finishing"\n'
         f"{TAB}shell:\n"
-        f'{TAB*2}"echo done"\n',
+        f'{TAB * 2}"echo done"\n',
     )
 
     def test_sorting_comprehensive(self):
@@ -1829,13 +1829,13 @@ class TestSortFormatting:
         "rule complex:\n"
         f"{TAB}# Input comment\n"
         f"{TAB}input:\n"
-        f'{TAB*2}"i",\n'
+        f'{TAB * 2}"i",\n'
         f"{TAB}# Resource comment\n"
         f"{TAB}resources:\n"
-        f"{TAB*2}res=1,\n"
+        f"{TAB * 2}res=1,\n"
         f"{TAB}# Action comment\n"
         f"{TAB}shell:\n"
-        f'{TAB*2}"do something"\n',
+        f'{TAB * 2}"do something"\n',
     )
 
     def test_sorting_with_comments_preservation(self):
@@ -1847,15 +1847,15 @@ class TestSortFormatting:
         "rule inline_comments:\n"
         f"{TAB}shell: 'echo'\n"
         f"{TAB}params:\n"
-        f"{TAB*2}p=1,  # parameter comment\n"
+        f"{TAB * 2}p=1,  # parameter comment\n"
         f"{TAB}input: 'i'\n",
         "rule inline_comments:\n"
         f"{TAB}input:\n"
-        f'{TAB*2}"i",\n'
+        f'{TAB * 2}"i",\n'
         f"{TAB}params:\n"
-        f"{TAB*2}p=1,  # parameter comment\n"
+        f"{TAB * 2}p=1,  # parameter comment\n"
         f"{TAB}shell:\n"
-        f'{TAB*2}"echo"\n',
+        f'{TAB * 2}"echo"\n',
     )
 
     def test_sorting_with_inline_parameter_comments(self):
@@ -1875,19 +1875,19 @@ class TestSortFormatting:
         "module other:\n"
         f'{TAB}name: "n"\n'
         f"{TAB}pathvars:\n"
-        f'{TAB*2}["pv"],\n'
+        f'{TAB * 2}["pv"],\n'
         f"{TAB}snakefile:\n"
-        f'{TAB*2}"s"\n'
+        f'{TAB * 2}"s"\n'
         f"{TAB}config:\n"
-        f'{TAB*2}"c"\n'
+        f'{TAB * 2}"c"\n'
         f"{TAB}skip_validation:\n"
-        f"{TAB*2}True\n"
+        f"{TAB * 2}True\n"
         f"{TAB}prefix:\n"
-        f'{TAB*2}"p"\n'
+        f'{TAB * 2}"p"\n'
         f"{TAB}replace_prefix:\n"
-        f'{TAB*2}"rp"\n'
+        f'{TAB * 2}"rp"\n'
         f"{TAB}meta_wrapper:\n"
-        f'{TAB*2}"wrapper"\n',
+        f'{TAB * 2}"wrapper"\n',
     )
 
     def test_sorting_module(self):
@@ -1905,11 +1905,11 @@ class TestSortFormatting:
         expected = (
             "checkpoint map_reads:\n"
             f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
+            f'{TAB * 2}"out.txt",\n'
             f"{TAB}shell:\n"
-            f'{TAB*2}"echo"\n'
+            f'{TAB * 2}"echo"\n'
         )
         assert formatter.get_formatted() == expected
 
@@ -2188,8 +2188,9 @@ class TestFmtOffOn:
             "z = [4, 5, 6]\n"
         )
         assert setup_formatter(code).get_formatted() == expected
+        bad_indent = "  "
         snakecode = "rule:\n" " run:\n" + (
-            "".join(f"  {i}\n" for i in code.splitlines())
+            "".join(f"{bad_indent}{i}\n" for i in code.splitlines())
         )
         snakexpected = "rule:\n" f"{TAB * 1}run:\n" + (
             f"{TAB * 2}# ?\n"
@@ -2197,8 +2198,8 @@ class TestFmtOffOn:
             f"{TAB * 2}# fmt: off\n"
             f"{TAB * 2}y = [  1,   2]\n"
             f"{TAB * 2}s = f'''\n"
-            f"{'  '} {{y}} \n"
-            f"{'  '} '''\n"
+            f"{bad_indent} {{y}} \n"
+            f"{bad_indent} '''\n"
             f"{TAB * 2}# fmt: on\n"
             f"{TAB * 2}z = [4, 5, 6]\n"
         )
@@ -2351,7 +2352,7 @@ class TestFmtOffOn:
         assert setup_formatter(expected).get_formatted() == expected
 
     def test_fmt_skip_in_python(self):
-        code = (
+        formatter = setup_formatter(
             "if 1:\n"
             f"{TAB}x = [ 1,2,3] # fmt: skip\n"
             f"{TAB}sth=1 # comment no skip\n"
@@ -2363,7 +2364,24 @@ class TestFmtOffOn:
             f"{TAB}sth = 1  # comment no skip\n"
             f"{TAB}y = [4, 5, 6]\n"
         )
-        assert setup_formatter(code).get_formatted() == expected
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_skip_in_directive(self):
+        formatter = setup_formatter(
+            "rule a:\n"
+            f" params:\n"
+            f"  x = [ 1,2,3] # fmt: skip\n"
+            f" input: a= 'sth'   # fmt: skip\n"
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}x=[1, 2, 3],  # fmt: skip\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}a="sth",  # fmt: skip\n'
+        )
+        # TODO: currently `# fmt: skip` in directives is not supported
+        # assert formatter.get_formatted() == expected
 
 
 class TestFmtOffSort:
@@ -2396,6 +2414,32 @@ class TestFmtOffSort:
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
 
     def test_fmt_off_sort_dedent(self):
+        """`# fmt: on` or `on[sort]` at a deeper indentation level than `off[sort]`
+        has no effect"""
+        code1, formatted1 = TestSortFormatting.sorting_comprehensive
+        formatted1 = setup_formatter(code1).get_formatted()
+        code2, formatted2 = TestSortFormatting.sort_with_comments
+        formatted2 = setup_formatter(code2).get_formatted()
+        code = (
+            "# fmt: off[sort]\n"
+            "if 1:\n"
+            " # fmt: on\n"
+            + "".join("  " + i for i in code1.splitlines(keepends=True)).rstrip()
+            + "\n"
+            + code2.rstrip()
+        )
+        expected = (
+            "# fmt: off[sort]\n"
+            "if 1:\n"
+            "\n"
+            f"{TAB}# fmt: on\n"
+            + "".join(TAB + i for i in formatted1.splitlines(keepends=True)).rstrip()
+            + "\n"
+            "\n\n" + formatted2
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_on_noeffect(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
         code2, formatted2 = TestSortFormatting.sort_with_comments
         formatted2 = setup_formatter(code2).get_formatted()
@@ -2454,28 +2498,28 @@ class TestFmtOffSort:
         expected = (
             "rule all:\n"
             f"{TAB}conda:\n"
-            f'{TAB*2}"env.yaml"\n'
+            f'{TAB * 2}"env.yaml"\n'
             f"{TAB}threads: 4\n"
             f"{TAB}resources:\n"
-            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB * 2}mem_mb=100,\n"
             f"{TAB}params:\n"
-            f"{TAB*2}p=1,\n"
+            f"{TAB * 2}p=1,\n"
             f"{TAB}message:\n"
-            f'{TAB*2}"finishing"\n'
+            f'{TAB * 2}"finishing"\n'
             f"{TAB}# fmt: off[sort]\n"
             f"{TAB}log:\n"
-            f'{TAB*2}"log.txt",\n'
+            f'{TAB * 2}"log.txt",\n'
             f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
+            f'{TAB * 2}"out.txt",\n'
             f"{TAB}# before fmt\n"
             f"{TAB}# fmt: on[sort]\n"
             f"{TAB}name:\n"
-            f'{TAB*2}"myrule"\n'
+            f'{TAB * 2}"myrule"\n'
             f"{TAB}# Important input\n"
             f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}shell:\n"
-            f'{TAB*2}"echo done"\n'
+            f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
 
@@ -2502,27 +2546,27 @@ class TestFmtOffSort:
         expected = (
             "rule all:\n"
             f"{TAB}conda:\n"
-            f'{TAB*2}"env.yaml"\n'
+            f'{TAB * 2}"env.yaml"\n'
             f"{TAB}threads: 4\n"
             f"{TAB}resources:\n"
-            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB * 2}mem_mb=100,\n"
             f"{TAB}params:\n"
-            f"{TAB*2}p=1,\n"
+            f"{TAB * 2}p=1,\n"
             f"{TAB}message:\n"
-            f'{TAB*2}"finishing"\n'
+            f'{TAB * 2}"finishing"\n'
             f"{TAB}# fmt: off[sort]\n"
             f"{TAB}log:\n"
-            f'{TAB*2}"log.txt",\n'
+            f'{TAB * 2}"log.txt",\n'
             f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
+            f'{TAB * 2}"out.txt",\n'
             f"{TAB}# fmt: on[sort]\n"
             f"{TAB}name:\n"
-            f'{TAB*2}"myrule"\n'
+            f'{TAB * 2}"myrule"\n'
             f"{TAB}# Important input\n"
             f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}shell:\n"
-            f'{TAB*2}"echo done"\n'
+            f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
 
@@ -2544,23 +2588,23 @@ class TestFmtOffSort:
         expected = (
             "rule all:\n"
             f"{TAB}conda:\n"
-            f'{TAB*2}"env.yaml"\n'
+            f'{TAB * 2}"env.yaml"\n'
             f"{TAB}threads: 4\n"
             f"{TAB}resources:\n"
-            f"{TAB*2}mem_mb=100,\n"
+            f"{TAB * 2}mem_mb=100,\n"
             f"{TAB}params:\n"
-            f"{TAB*2}p=1,\n"
+            f"{TAB * 2}p=1,\n"
             f"{TAB}message:\n"
-            f'{TAB*2}"finishing"\n'
+            f'{TAB * 2}"finishing"\n'
             f"{TAB}# fmt: off[sort]\n"
             f"{TAB}# fmt: on\n"
             f"{TAB}name:\n"
-            f'{TAB*2}"myrule"\n'
+            f'{TAB * 2}"myrule"\n'
             f"{TAB}# Important input\n"
             f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}shell:\n"
-            f'{TAB*2}"echo done"\n'
+            f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
 
