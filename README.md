@@ -304,7 +304,8 @@ You can disable this feature using the `--no-sort` flag.
 
 ### Format Directives
 
-`snakefmt` supports inline comment directives to control formatting behaviour for specific regions of code.
+`snakefmt` supports comment directives to control formatting behaviour for specific regions of code.
+Directives should appear as standalone comment lines, an inline occurrence (e.g. `input:  # fmt: off`) is treated as a plain comment and has no effect.
 All directives are scope-local: only the region they select is affected, while code before and after follows normal `snakefmt` formatting and spacing rules (equivalent to replacing the directive with a plain comment line).
 
 #### `# fmt: off` / `# fmt: on`
@@ -379,8 +380,8 @@ rule also_formatted:
 
 `# fmt: skip` preserves a single line exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
 
-> **Note:** `# fmt: skip` is not yet supported for lines containing Snakemake directives (e.g. `input:`, `output:`).
-> It currently applies only to plain Python lines.
+> **Note:** `# fmt: skip` is not yet supported within Snakemake rule blocks.
+> It currently applies only to plain Python lines outside of rules, checkpoints, and similar Snakemake constructs.
 
 ### Configuration
 
