@@ -1,6 +1,7 @@
 import re
 import tokenize
 from abc import ABC, abstractmethod
+from tokenize import TokenInfo
 from typing import Literal, NamedTuple, Optional
 
 from snakefmt.exceptions import UnsupportedSyntax
@@ -14,7 +15,7 @@ from snakefmt.parser.syntax import (
     is_newline,
     re_add_curly_bracket_if_needed,
 )
-from snakefmt.types import TAB, Token, TokenIterator, col_nb
+from snakefmt.types import TAB, TokenIterator, col_nb
 
 _FMT_DIRECTIVE_RE = re.compile(
     r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"
@@ -26,7 +27,7 @@ class FMT_DIRECTIVE(NamedTuple):
     modifiers: list[str]
 
     @classmethod
-    def from_token(cls, token: Token):
+    def from_token(cls, token: TokenInfo):
         if token.type != tokenize.COMMENT:
             return None
         return cls.from_str(token.string)
@@ -46,7 +47,7 @@ class FMT_DIRECTIVE(NamedTuple):
         return cls(disable, mods)  # type: ignore[arg-type]
 
 
-def split_token_lines(token: tokenize.TokenInfo):
+def split_token_lines(token: TokenInfo):
     """Token can be multiline.
     e.g., `f'''\\nplaintext\\n'''` has these tokens:
 
@@ -64,7 +65,7 @@ def split_token_lines(token: tokenize.TokenInfo):
     )
 
 
-def not_a_comment_related_token(token: Token):
+def not_a_comment_related_token(token: TokenInfo):
     return token.type not in {
         tokenize.COMMENT,
         tokenize.NEWLINE,
@@ -82,7 +83,7 @@ def check_indent(line: str, indents: list[str]) -> int:
     raise SyntaxError("Unexpected indent")
 
 
-def token_indents_updated(token: Token, indents: list[str]) -> bool:
+def token_indents_updated(token: TokenInfo, indents: list[str]) -> bool:
     if token.type == tokenize.INDENT:
         line = token.line
         indent = line[: len(line) - len(line.lstrip())]
@@ -116,12 +117,12 @@ class Snakefile(TokenIterator):
         self.rulecount = rulecount
         self.lines = 0
 
-    def __next__(self) -> Token:
+    def __next__(self) -> TokenInfo:
         if self._buffered_tokens:
             return self._buffered_tokens.pop()
         return next(self._live_tokens)
 
-    def denext(self, token: Token) -> None:
+    def denext(self, token: TokenInfo) -> None:
         self._buffered_tokens.append(token)
 
 
@@ -132,7 +133,7 @@ def comment_start(string: str) -> bool:
 class Status(NamedTuple):
     """Communicates the result of parsing a chunk of code"""
 
-    token: Token
+    token: TokenInfo
     block_indent: int  # indent of the start of the parsed block
     cur_indent: int  # indent of the end of the parsed block
     buffer: str
@@ -170,7 +171,7 @@ class Parser(ABC):
         self.block_indent = 0
         self.queriable = True
         self.in_fstring = False
-        self.last_token: Optional[Token] = None
+        self.last_token: Optional[TokenInfo] = None
         # for `# fmt: off`, (indent, kind)
         # kind: "region" = off/on, "sort" = off[sort]/on[sort], "next"
         self.fmt_off: Optional[tuple[int, Literal["next", "region"]]] = None
@@ -347,7 +348,7 @@ class Parser(ABC):
         eg after finishing parsing a 'rule:'"""
 
     def _consume_python(
-        self, start_token: Token, vocab_recognises=True, added_indent: str = ""
+        self, start_token: TokenInfo, vocab_recognises=True, added_indent: str = ""
     ) -> tuple[str, Status]:
         """Collect Python source lines until a snakemake keyword at correct indent,
         or dedent below min_indent, or EOF.
@@ -369,7 +370,7 @@ class Parser(ABC):
         consuming_next = False  # used with stop_at_min
         seen_next_block_keyword = False
 
-        def _init_min_indent(token: Token):
+        def _init_min_indent(token: TokenInfo):
             nonlocal min_indent
             if not comment_start(token.string):
                 while not token.line.startswith(self.indents[-1]):
@@ -381,7 +382,7 @@ class Parser(ABC):
             try:
                 token = next(self.snakefile)
             except StopIteration:
-                eof_token = Token(tokenize.ENDMARKER, "", (0, 0), (0, 0), "")
+                eof_token = TokenInfo(tokenize.ENDMARKER, "", (0, 0), (0, 0), "")
                 self.snakefile.denext(eof_token)
                 break
             if min_indent == -1:
@@ -463,7 +464,9 @@ class Parser(ABC):
             pythonable=next_status.pythonable or bool(verbatim.strip())
         )
 
-    def _detent_last_indent(self, token: Token, last_indent_token: Optional[Token]):
+    def _detent_last_indent(
+        self, token: TokenInfo, last_indent_token: Optional[TokenInfo]
+    ):
         """
         A whole keyword block consumed,
         hand the next same-level block back to main loop.
@@ -474,7 +477,7 @@ class Parser(ABC):
             self.indents.pop()
             self.syntax.cur_indent = len(self.indents) - 1
 
-    def _consume_fmt_off_in_python(self, token: Token, lines: dict[int, str]):
+    def _consume_fmt_off_in_python(self, token: TokenInfo, lines: dict[int, str]):
         """
         Consume `# fmt: off/on` directives within Python code.
         lines is needed to:
@@ -535,7 +538,7 @@ class Parser(ABC):
     def flush_sort_signal(self, verbatim: str) -> None:
         """Commit fmt:on sort signal directly."""
 
-    def _consume_fmt_off(self, start_token: Token, min_indent: int):
+    def _consume_fmt_off(self, start_token: TokenInfo, min_indent: int):
         verbatim, next_status = self._consume_python(
             start_token, vocab_recognises=False, added_indent=TAB * min_indent
         )
@@ -655,7 +658,7 @@ class Parser(ABC):
         while len(self.indents) - 1 > status.cur_indent:
             self.indents.pop()
 
-    def _determine_comment_indent(self, comment_token: Token) -> int:
+    def _determine_comment_indent(self, comment_token: TokenInfo) -> int:
         """
         This function returns the real indent level of a comment token and
         update self.indents if needed,
@@ -679,7 +682,7 @@ class Parser(ABC):
         then put all peeked tokens back.
         """
         # ── Step 1: peek ahead to find follow_indent ────────────────────────
-        peeked: list[Token] = []
+        peeked: list[TokenInfo] = []
         saved_indents = list(self.indents)
         follow_indent = len(self.indents) - 1
         try:
@@ -708,7 +711,7 @@ class Parser(ABC):
         # highest indent level fitting within the comment's column.
         return max(check_indent(comment_token.line, self.indents), follow_indent)
 
-    def _check_fmt_on(self, fmt_label: FMT_DIRECTIVE, token: Token):
+    def _check_fmt_on(self, fmt_label: FMT_DIRECTIVE, token: TokenInfo):
         """Determine which fmt: on can turn on formatting"""
         if self.fmt_off:
             # `# fmt: on[sort]` no effect
@@ -739,7 +742,9 @@ class Parser(ABC):
         newline = False
         pythonable = False
         block_indent = -1
-        prev_token: Optional[Token] = Token(tokenize.NAME, "", (-1, -1), (-1, -1), "")
+        prev_token: Optional[TokenInfo] = TokenInfo(
+            tokenize.NAME, "", (-1, -1), (-1, -1), ""
+        )
         while True:
             token = next(self.snakefile)
             self.last_token = token
