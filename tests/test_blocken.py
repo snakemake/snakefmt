@@ -6,6 +6,7 @@ from snakefmt.blocken import (
     tokenize,
     is_fstring_start,
     UnsupportedSyntax,
+    parse,
 )
 
 
@@ -227,3 +228,21 @@ class TestTokenIterator:
         ]
         assert contents[-4].line == contents[-3].line == "           # 2\n"
         assert contents[-2].line == "\n"
+
+
+class TestBlock:
+    example1 = (
+        "def f():\n"  #
+        "    return 1\n"
+        "\n"
+        "\n"
+        "b = f'''\n"
+        "{b =} f'''\n"
+        "# comment\n"
+        "with d: # comment\n"
+        "   pass"
+    )
+
+    def test_parse_python_block(self):
+        block = parse(self.example1)
+        assert "".join(block.raw()) == self.example1

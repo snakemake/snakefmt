@@ -1,7 +1,7 @@
 import sys
 import tokenize
 from abc import ABC, abstractmethod
-from typing import Callable, Iterator, NamedTuple, Optional
+from typing import Callable, Iterable, Iterator, NamedTuple, Optional
 from tokenize import TokenInfo
 
 
@@ -127,8 +127,7 @@ class TokenIterator:
                             *reversed(indents[indent_level:]),
                         )
                         break
-            elif token.type == tokenize.ENDMARKER and indent_level == 1:
-                # no indents (guaranteed) and no content (should be)
+            if token.type == tokenize.ENDMARKER and indent_level == 1:
                 self.denext(token, *reversed(contents))
                 break
             block_contents.extend(head_empty_lines + indents + contents + [token])
@@ -152,6 +151,8 @@ class TokenIterator:
             - this COMMENT belongs to this block
         - else: afterwards, all COMMENT belongs to parent (or grand-parents) block
         """
+        if not tokens:
+            return []
         for i, token in enumerate(tokens):
             if token.type == tokenize.COMMENT:
                 if not extract_indent(token).startswith(block_indent):
@@ -213,6 +214,33 @@ def split_token_lines(token: TokenInfo):
     return zip(
         range(token.start[0], token.end[0] + 1), token.line.splitlines(keepends=True)
     )
+
+
+def block_lines(tokens: Iterator[TokenInfo]):
+    lines: dict[int, str] = {}
+    # Lines that are interior to a multiline token (string / f-string body).
+    # Their content must not be reindented.
+    string_interior_lines: set[int] = set()
+    for token in tokens:
+        if not_indent(token) and token.end[0] not in lines:
+            lines.update(split_token_lines(token))
+            if token.start[0] != token.end[0]:
+                string_interior_lines.update(
+                    range(token.start[0] + 1, token.end[0] + 1)
+                )
+    newlines: list[str] = []
+    for i in sorted(lines):
+        line = lines[i]
+        if i in string_interior_lines:
+            assert newlines, "block cannot start inner a multiline-string"
+            newlines[-1] += line
+        else:
+            newlines.append(line)
+    return newlines
+
+
+def not_indent(token: TokenInfo) -> bool:
+    return token.type != tokenize.INDENT and token.type != tokenize.DEDENT
 
 
 class Block(ABC):
@@ -293,13 +321,13 @@ class Block(ABC):
 
     def extend_tail_noncoding(self, tokens: list[TokenInfo]):
         self.tail_noncoding.extend(tokens)
-        del self.extend_tail_noncoding  # should never be called again
         return []
 
     def extend_head_noncoding(self, tokens: list[TokenInfo]):
         """Test if the tokens are all non-coding, and if so, extend head_noncoding with them and return True.
         Otherwise, return False and do not modify head_noncoding.
         """
+        assert not self.head_noncoding, "head_noncoding should be empty before extend"
         if {i.type for i in tokens} <= {tokenize.NL, tokenize.COMMENT}:
             self.head_noncoding = tokens
             return True
@@ -320,40 +348,20 @@ class Block(ABC):
         assert self.start_token is not None, "start_token should be set after consume()"
         return self.start_token.line[: self.start_token.start[1]]
 
-    def block_lines(self) -> list[str]:
-        lines: dict[int, str] = {}
-        # Lines that are interior to a multiline token (string / f-string body).
-        # Their content must not be reindented.
-        string_interior_lines: set[int] = set()
-        for token in self.head_tokens:
-            if token.end[0] not in lines:
-                lines.update(split_token_lines(token))
-                if token.start[0] != token.end[0]:
-                    string_interior_lines.update(
-                        range(token.start[0] + 1, token.end[0] + 1)
-                    )
-        newlines: list[str] = []
-        for i in sorted(lines):
-            line = lines[i]
-            if i in string_interior_lines:
-                assert newlines, "block cannot start inner a multiline-string"
-                newlines[-1] += line
-            else:
-                newlines.append(line)
-        return newlines
+    def block_lines(self):
+        return block_lines(iter(self.head_tokens))
 
-    def raw(self) -> list[str]:
+    def raw(self):
         """return the code splited by lines, but should keep multiline-string or multiline-f-string complete,
         to make trimming and reformatting easier.
 
         Should and Only should be rewrite for pure python blocks.
         """
-
         lines = (
-            [comment.line for comment in self.head_noncoding]
+            block_lines(filter(not_indent, self.head_noncoding))
             + self.block_lines()
             + [line for block in self.sub_blocks for line in block.raw()]
-            + [token.line for token in self.tail_noncoding]
+            + block_lines(filter(not_indent, self.tail_noncoding))
         )
         return lines
 
@@ -396,13 +404,15 @@ class DocumentSymbol(NamedTuple):
 
 
 class PythonBlock(Block):
+    """Hold `head_tokens` only, no tokens comments, no sub-blocks"""
+
     def consume(self, tokens):
         "Do nothing, win"
 
-    def formatted(self) -> str:
+    def formatted(self):
         raise NotImplementedError
 
-    def compilation(self) -> str:
+    def compilation(self):
         raise NotImplementedError
 
     def components(self):
@@ -441,13 +451,22 @@ class ColonBlock(Block):
             self.consume_body(tokens)
 
     @abstractmethod
-    def consume_body(self, tokens) -> None: ...
+    def consume_body(self, tokens: TokenIterator) -> None: ...
 
-    def recognises(self, token: TokenInfo) -> bool:
+    def recognises(self, token: TokenInfo):
         return token.type == tokenize.NAME and token.string == self.keyword
 
 
-class FunctionClassBlock(ColonBlock): ...
+class FunctionClassBlock(ColonBlock):
+    def consume_body(self, tokens):
+        contents = tokens.next_block()
+        self.sub_blocks.append(PythonBlock(tokens, self.indent_level + 1, contents))
+
+    def formatted(self):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
 
 
 function_class_blocks: dict[str, type[FunctionClassBlock]] = {
@@ -460,6 +479,12 @@ class IfForTryWithBlock(ColonBlock):
         """Consume tokens until the end of the block head line (the line with `:`)"""
         global_block = GlobalBlock(tokens, self.indent_level + 1, [])
         self.sub_blocks.append(global_block)
+
+    def formatted(self):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
 
 
 if_for_try_with_blocks: dict[str, type[IfForTryWithBlock]] = {
@@ -542,6 +567,7 @@ class GlobalBlock(Block):
                         tokens.denext(*reversed(list(head_empty_)))
                         head_empty_lines = head_empty_lines1
                         break
+            had_plain_python = len(plain_python_tokens)
             if head_empty_lines:
                 if self.sub_blocks and not plain_python_tokens:
                     plain_python_tokens = self.sub_blocks[-1].extend_tail_noncoding(
@@ -556,9 +582,11 @@ class GlobalBlock(Block):
                     colon_block = self.subautomata[token.string](
                         tokens, indent_level, [*contents_, end_token]
                     )
-                    if not colon_block.extend_head_noncoding(head_empty_lines):
+                    if colon_block.extend_head_noncoding(head_empty_lines):
+                        plain_python_tokens = plain_python_tokens[:had_plain_python]
+                    if plain_python_tokens:
                         self.sub_blocks.append(
-                            PythonBlock(tokens, indent_level, plain_python_tokens)
+                            PythonBlock(tokens, self.indent_level, plain_python_tokens)
                         )
                     self.sub_blocks.append(colon_block)
                     plain_python_tokens = []
@@ -571,10 +599,10 @@ class GlobalBlock(Block):
                 PythonBlock(tokens, self.indent_level, plain_python_tokens)
             )
 
-    def formatted(self) -> str:
+    def formatted(self):
         raise NotImplementedError
 
-    def compilation(self) -> str:
+    def compilation(self):
         raise NotImplementedError
 
 
@@ -586,44 +614,6 @@ def parse(input: str | Callable[[], str], name: str = "<string>") -> GlobalBlock
     else:
         tokens = tokenize.generate_tokens(input)
     return GlobalBlock(TokenIterator(name, tokens), 0, [])
-
-
-def _determine_comment_indent(
-    comment_token: TokenInfo, previous_indents: list[str], current_len: int
-) -> int:
-    """
-    This function returns the real indent level of a comment token and
-    update self.indents if needed,
-    which is determined by the following real code line and previous indents.
-
-    Durning parsing self.snakefile, when a comment token is encountered,
-    its effective indent level is not directly knowable.
-
-    principles:
-        follow_indent = indent of the following real code line
-        if EOF:
-            follow_indent = 0
-        rule 1 (always):
-            indent of comments >= follow_indent
-        rule 2 (if follow_indent < self.indents[-1]):
-            indent of comments = epsilon + max(
-                i for i in self.indents if i <= comment_indent
-            )
-
-    next(self.snakefile) until follow_indent is determined,
-    then put all peeked tokens back.
-    """
-    previous_len = len(previous_indents) - 1
-    if previous_len <= current_len:
-        return current_len
-    # Rule 2 (dedent is happening, standalone only): snap comment to the
-    # highest indent level fitting within the comment's column.
-    for i, indent in enumerate(reversed(previous_indents)):
-        if comment_token.line.startswith(indent):
-            break
-    else:
-        raise SyntaxError("Unexpected indent")
-    return max(previous_len - i, current_len)
 
 
 def token_indents_updated(token: TokenInfo, indents: list[str]) -> bool:
