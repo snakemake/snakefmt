@@ -1,6 +1,10 @@
 import pytest
 
 from snakefmt.blocken import (
+    FunctionClassBlock,
+    GlobalBlock,
+    IfForTryWithBlock,
+    PythonBlock,
     consume_fstring,
     TokenIterator,
     tokenize,
@@ -200,27 +204,33 @@ class TestTokenIterator:
         tokens = generate_tokens(self.example3)
         assert [i for i, t in enumerate(tokens) if t.type == tokenize.INDENT] == [6, 15]
         # from the first line to the last content line
-        contents = TokenIterator("", iter(tokens[3:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[3:])).next_block()
+        contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "with a as b:\n"
-        assert contents == tokens[3:][:34]
-        assert contents[-1].type == tokenize.NEWLINE
-        assert contents[-1].line == "7# 7\n"
+        assert contents == tokens[3:][:35]
+        assert contents[-1].type == tokenize.NL
+        assert contents[-2].type == tokenize.NEWLINE
+        assert contents[-2].line == "7# 7\n"
         # from the second line, to the last line before
         #  `  # 5\n`, whose indent out of the block
-        contents = contents_ = TokenIterator("", iter(tokens[6:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[6:])).next_block()
+        contents = contents_ = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "    b\n" and contents[0].type == tokenize.INDENT
         assert contents == tokens[6:][:22] + tokens[32:][:2]
         assert {t.type for t in contents[-2:]} == {tokenize.DEDENT}
         assert contents[:-2][-1].line == "       \n"
         # even skip the heading indent, block ends at the same line
-        contents = TokenIterator("", iter(tokens[7:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[7:])).next_block()
+        contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents == contents_[1:]
         # so does the COMMENT line
-        contents = TokenIterator("", iter(tokens[9:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[9:])).next_block()
+        contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "    # 0\n" and contents[0].type == tokenize.COMMENT
         assert contents == contents_[3:]
         # enter the third block: exit before `      # 3\n` with 1 DEDENT only
-        contents = TokenIterator("", iter(tokens[15:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[15:])).next_block()
+        contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "        d\n" and tokens[14].type == tokenize.NEWLINE
         assert contents == tokens[15:][:8] + tokens[32:][:1]
         assert [t.type for t in contents[-4:]] == [
@@ -245,4 +255,48 @@ class TestBlock:
 
     def test_parse_python_block(self):
         block = parse(self.example1)
-        assert "".join(block.raw()) == self.example1
+        assert "".join(block.full_linestrs) == self.example1
+        assert isinstance(block, GlobalBlock)
+        assert not block.head_lines
+        assert not block.tail_noncoding
+        assert (
+            {block.deindent_level}
+            == {i.deindent_level for i in block.body_blocks}
+            == {0}
+        )
+        assert ["".join(i.full_linestrs) for i in block.body_blocks] == [
+            "def f():\n    return 1\n\n\n",
+            "b = f'''\n{b =} f'''\n",
+            "# comment\nwith d: # comment\n   pass",
+            "",
+        ]
+        fun1 = block.body_blocks[0]
+        assert isinstance(fun1, FunctionClassBlock)
+        assert [i.string for i in fun1.colon_line.body] == ["def", "f", "(", ")", ":"]
+        assert [tuple(i) for i in fun1.tail_noncoding] == [
+            (tokenize.NL, "\n", (3, 0), (3, 1), "\n"),
+            (tokenize.NL, "\n", (4, 0), (4, 1), "\n"),
+            (tokenize.DEDENT, "", (5, 0), (5, 0), "b = f'''\n"),
+        ]
+        assert ["".join(i.full_linestrs) for i in fun1.body_blocks] == [
+            "    return 1\n"
+        ]
+        fun11 = fun1.body_blocks[0]
+        assert isinstance(fun11, PythonBlock)
+        assert [line.linestrs for line in fun11.head_lines] == [["    return 1\n"]]
+        assert not fun11.body_blocks
+        assert not fun11.tail_noncoding
+        if3 = block.body_blocks[2]
+        assert isinstance(if3, IfForTryWithBlock)
+        assert [i.string for i in if3.colon_line.body] == [
+            *("with", "d", ":", "# comment"),
+        ]
+        assert not if3.tail_noncoding
+        assert ["".join(i.full_linestrs) for i in if3.body_blocks] == ["   pass"]
+        if31 = if3.body_blocks[0]
+        assert isinstance(if31, PythonBlock)
+        assert [line.linestrs for line in if31.head_lines] == [["   pass"]]
+        assert not if31.body_blocks
+        assert [tuple(i) for i in if31.tail_noncoding] == [
+            (tokenize.DEDENT, "", (10, 0), (10, 0), "")
+        ]
