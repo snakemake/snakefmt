@@ -300,3 +300,50 @@ class TestBlock:
         assert [tuple(i) for i in if31.tail_noncoding] == [
             (tokenize.DEDENT, "", (10, 0), (10, 0), "")
         ]
+
+    example2 = (
+        "rule A:\n"  # L1
+        "    input:\n"
+        "        a = '1'\n"
+        "    output:\n"
+        "        'b = 2'\n"
+        "    run:\n"
+        "        print(1)\n"
+        "\n"
+        "\n"
+        "checkpoint:\n"
+        "   name: 'check'\n"  # L11
+        "   params:\n"
+        "       c = '''\n"
+        "       c = '''\n"
+        "   conda: 'conda.yaml'\n"
+        "   shell: 'touch d'\n"
+        "\n"
+        "\n"
+        "onsuccess:\n"
+        "   for i in range(10):\n"
+        "       print(i)\n"  # L21
+        "\n"
+        "\n"
+        "wildcard_constraints:\n"
+        "   sth = r'a|b|c',\n"
+        "   sth2 = r'a|b|c',\n"
+        "   sth3 = r'a|b|c'\n"
+        "\n"
+        "\n"
+        "Report:\n"
+        "   'report'\n"  # L31
+    )
+
+    def test_parse_snakefile(self):
+        block = parse(self.example2)
+        assert "".join(block.full_linestrs) == self.example2
+        assert isinstance(block, GlobalBlock)
+        assert ["".join(i.full_linestrs) for i in block.body_blocks] == [
+            "rule A:\n    input:\n        a = '1'\n    output:\n        'b = 2'\n    run:\n        print(1)\n\n\n",
+            "checkpoint:\n   name: 'check'\n   params:\n       c = '''\n       c = '''\n   conda: 'conda.yaml'\n   shell: 'touch d'\n\n\n",
+            "onsuccess:\n   for i in range(10):\n       print(i)\n\n\n",
+            "wildcard_constraints:\n   sth = r'a|b|c',\n   sth2 = r'a|b|c',\n   sth3 = r'a|b|c'\n\n\n",
+            "Report:\n   'report'\n",
+            "",
+        ]

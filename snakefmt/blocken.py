@@ -1,8 +1,9 @@
 import sys
 import tokenize
 from abc import ABC, abstractmethod
-from typing import Callable, Iterator, NamedTuple, Optional
+from typing import Callable, Iterator, NamedTuple, Optional, Mapping
 from tokenize import TokenInfo
+from collections import OrderedDict
 
 
 from snakefmt.exceptions import UnsupportedSyntax
@@ -121,8 +122,8 @@ class TokenIterator:
          as the block_indent.
         """
         head, dedents, body, end = line
-        self.denext(end, *reversed(body), *reversed(dedents[1:]))
-        if body:
+        self.denext(end, *reversed(body), *reversed(dedents[deindelta:]))
+        if body and indent:
             assert not body[0].line.startswith(indent), (
                 f"indent of ending block(`{indent!r}`) should longer "
                 f"than the next line(`{body[0].line!r}`)"
@@ -348,6 +349,8 @@ class Block(ABC):
     """
 
     __slots__ = ("deindent_level", "head_lines", "body_blocks", "tail_noncoding")
+    subautomata: Mapping[str, "type[ColonBlock]"] = {}
+    deprecated: Mapping[str, str] = {}
 
     def __init__(
         self,
@@ -367,6 +370,84 @@ class Block(ABC):
 
     @abstractmethod
     def consume(self, tokens: TokenIterator) -> None: ...
+
+    def recognize(self, token: TokenInfo):
+        """Whether the block can be recognized by the first token of its head lines"""
+        if token.type == tokenize.NAME:
+            if token.string in self.subautomata:
+                return self.subautomata[token.string]
+            if token.string in self.deprecated:
+                raise UnsupportedSyntax(
+                    f"Keyword {token.string!r} is deprecated, "
+                    f"{self.deprecated[token.string]!r}."
+                )
+
+    def consume_subblocks(self, tokens: TokenIterator, ender_subblock=False):
+        """Split all lines of same indent into plain Python blocks and indent blocks,
+        until the end of file or DEDENT out.
+
+        - select subautomata to consume indent blocks
+        - denext_by_indent when DEDENT out
+
+        Used in GlobalBlock and SnakemakeKeywordBlock, to consume their body blocks.
+        """
+        deindent_level = self.deindent_level + int(ender_subblock)
+        blocks: list[Block] = []
+
+        plain_python_lines: list[LogicalLine] = []
+        tail_noncoding: list[TokenInfo] = []
+        indent_str = "[TBD]"
+
+        def append_sub(block_type: type[ColonBlock], header_lines: list[LogicalLine]):
+            if plain_python_lines:
+                blocks.append(
+                    PythonBlock(deindent_level, tokens, list(plain_python_lines))
+                )
+                plain_python_lines.clear()
+            blocks.append(block_type(deindent_level, tokens, header_lines))
+
+        while True:
+            line = tokens.next_new_line()
+            if line.deindelta > 0 and indent_str != "[TBD]":
+                tokens.denext(*reversed(list(line.iter)))
+                assert plain_python_lines, "Unexpected INDENT without any content"
+                header_line = plain_python_lines.pop()
+                append_sub(UnknownIndentBlock, [header_line])
+                continue
+            elif line.deindelta < 0:
+                assert indent_str and indent_str != "[TBD]"
+                tail_noncoding = tokens.denext_by_indent(line, indent_str, 1)
+                break
+            elif line.end.type == tokenize.ENDMARKER:
+                plain_python_lines.append(
+                    LogicalLine(line.head_noncoding, [], [], line.end)
+                )
+                blocks.append(PythonBlock(deindent_level, tokens, plain_python_lines))
+                plain_python_lines = []
+                break
+            else:
+                if indent_str == "[TBD]":
+                    assert (
+                        line.body
+                    ), "Unexpected empty line at the beginning of a block"
+                    indent_str = extract_deindents(line.body[0])
+                if block := self.recognize(line.body[0]):
+                    append_sub(block, [line])
+                elif line.body[0].string == "@":
+                    headers = [line]
+                    while True:
+                        headers.append(tokens.next_new_line())
+                        if block := self.recognize(headers[-1].body[0]):
+                            break
+                    append_sub(block, headers)
+                else:
+                    plain_python_lines.append(line)
+        if plain_python_lines:
+            blocks.append(PythonBlock(deindent_level, tokens, plain_python_lines))
+        if tail_noncoding:
+            assert blocks
+            blocks[-1].extend_tail_noncoding(tail_noncoding)
+        return blocks
 
     @property
     def start_token(self) -> TokenInfo | None:
@@ -474,7 +555,14 @@ class ColonBlock(Block):
 
     @property
     def keyword(self) -> str:
+        """Used such as `yield f"workflow.{self.keyword}("`"""
         return self._keyword()
+
+    @property
+    def prior_colon(self): ...
+
+    @property
+    def post_colon(self): ...
 
     @property
     def colon_line(self):
@@ -483,10 +571,9 @@ class ColonBlock(Block):
 
     def consume(self, tokens):
         """Consume tokens until the end of the block head line (the line with `:`)"""
-        if self.colon_line.end_op != ":":
-            # single line indent such as `else: pass` or `except: pass`
-            return
-        self.consume_body(tokens)
+        if self.colon_line.end_op == ":":
+            self.consume_body(tokens)
+        # else: single line indent such as `else: pass` or `except: pass`
 
     @abstractmethod
     def consume_body(self, tokens: TokenIterator) -> None: ...
@@ -519,10 +606,8 @@ function_class_blocks: dict[str, type[FunctionClassBlock]] = {
 
 class IfForTryWithBlock(ColonBlock):
     def consume_body(self, tokens):
-        """Consume tokens until the end of the block head line (the line with `:`)"""
-        global_block = GlobalBlock(self.deindent_level + 1, tokens, [])
-        self.body_blocks.extend(global_block.body_blocks)
-        self.extend_tail_noncoding(global_block.tail_noncoding)
+        blocks = GlobalBlock(self.deindent_level + 1, tokens, []).body_blocks
+        self.body_blocks.extend(blocks)
 
     def formatted(self):
         raise NotImplementedError
@@ -550,12 +635,9 @@ if_for_try_with_blocks: dict[str, type[IfForTryWithBlock]] = {
 }
 
 
-class SnakemakeBlock(ColonBlock):
+class NamedBlock(ColonBlock):
     __slots__ = ("name",)
     name: str
-
-    subautomata: dict[str, Block] = {}
-    deprecated: dict[str, str] = {}
 
     def components(self):
         this_symbol = DocumentSymbol(
@@ -569,7 +651,377 @@ class SnakemakeBlock(ColonBlock):
         yield this_symbol
 
 
-global_snakemake_blocks: dict[str, type[SnakemakeBlock]] = {}
+class SnakemakeBlock(ColonBlock):
+    subautomata = {}
+    deprecated = {}
+
+    def components(self) -> Iterator[DocumentSymbol]:
+        yield from []
+
+    def formatted(self):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
+
+
+class PythonArgumentsBlock(PythonBlock):
+    """Block inside snakemake directives,
+    such as `data.txt` in `input: \n    "data.txt"`
+
+    Only allow:
+    - simple expressions on the right, e.g. `"data.txt",`
+    - assignment with simple names on the left, e.g. `a = 1,`
+    - Specally, allow `*args` and `**kwargs` as normal function
+
+    Enhancement could be done: accepth expressions without trailing comma,
+    because each expression is already splitted by lines,
+    and we can add a trailing comma only if needed.
+    If we want to support expressions without trailing comma,
+    cases where two lines can makesense without a comma between them
+      should be carefully considered,
+    e.g.:
+        input:
+            "data.txt"
+            "data2.txt"
+        params:
+            sth
+            (a, b)
+    Although in our view this is naturally two expressions,
+    the action do change with the proposed enhancement.
+    """
+
+
+class PythonOneLineArgument(PythonArgumentsBlock):
+    """Only allow simple expressions on the right"""
+
+
+class PythonListArguments(PythonArgumentsBlock):
+    """Only allow simple expressions on the right, and the whole block should be a list"""
+
+
+class PythonListDictArguments(PythonArgumentsBlock):
+    """Parsed as *args, **kwargs"""
+
+
+class SnakemakeOneLineArgumentsBlock(SnakemakeBlock):
+    def consume_body(self, tokens):
+        lines, tail_noncoding = tokens.next_block()
+        self.body_blocks.append(
+            PythonOneLineArgument(self.deindent_level + 1, tokens, lines)
+        )
+        self.extend_tail_noncoding(tail_noncoding)
+
+    def formatted(self):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
+
+
+def init_block_register():
+    def register_block(name: Optional[str] = None):
+        def decorator(type_: type[SnakemakeBlock]):
+            keyword = name or type_._keyword()
+            namespace[keyword] = type_
+            return type_
+
+        return decorator
+
+    namespace: OrderedDict[str, type[SnakemakeBlock]] = OrderedDict()
+    return namespace, register_block
+
+
+global_snakemake_subautomata, _register = init_block_register()
+
+
+@_register()
+class Include(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register()
+class Workdir(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register()
+class Configfile(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register("pepfile")
+class Set_Pepfile(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register()
+class Pepschema(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register()
+class Report(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register()
+class Ruleorder(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register("singularity")
+@_register("container")
+class Global_Container(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register("containerized")
+class Global_Containerized(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register("conda")
+class Global_Conda(SnakemakeOneLineArgumentsBlock): ...
+
+
+class SnakemakeListArgumentsBlock(SnakemakeBlock):
+    def consume_body(self, tokens):
+        lines, tail_noncoding = tokens.next_block()
+        self.body_blocks.append(
+            PythonListArguments(self.deindent_level + 1, tokens, lines)
+        )
+        self.extend_tail_noncoding(tail_noncoding)
+
+    def formatted(self):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
+
+
+@_register("envvars")
+class Register_Envvars(SnakemakeListArgumentsBlock): ...
+
+
+@_register()
+class Localrules(SnakemakeListArgumentsBlock): ...
+
+
+@_register()
+class InputFlags(SnakemakeListArgumentsBlock): ...
+
+
+@_register()
+class OutputFlags(SnakemakeListArgumentsBlock): ...
+
+
+class SnakemakeListDictArgumentsBlock(SnakemakeBlock):
+    """Block of snakemake directives, such as `input:`, `output:`, etc.
+    The content is pure python.
+    """
+
+    def consume_body(self, tokens):
+        lines, tail_noncoding = tokens.next_block()
+        self.body_blocks.append(
+            PythonListDictArguments(self.deindent_level + 1, tokens, lines)
+        )
+        self.extend_tail_noncoding(tail_noncoding)
+
+    def formatted(self):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
+
+
+@_register("wildcard_constraints")
+class Global_Wildcard_Constraints(SnakemakeListDictArgumentsBlock): ...
+
+
+@_register()
+class Scattergather(SnakemakeListDictArgumentsBlock): ...
+
+
+@_register("resource_scope")
+class ResourceScope(SnakemakeListDictArgumentsBlock): ...
+
+
+@_register("storage")
+class Storage(SnakemakeListDictArgumentsBlock): ...
+
+
+@_register("pathvars")
+class Register_Pathvars(SnakemakeListDictArgumentsBlock): ...
+
+
+class SnakemakeExecutableBlock(SnakemakeBlock):
+    """Block of snakemake directives, such as `run:`, `onstart:`, etc.
+    The content is pure python.
+    """
+
+    def consume_body(self, tokens):
+        lines, tail_noncoding = tokens.next_block()
+        self.body_blocks.append(PythonBlock(self.deindent_level + 1, tokens, lines))
+        self.extend_tail_noncoding(tail_noncoding)
+
+
+@_register()
+class OnStart(SnakemakeExecutableBlock): ...
+
+
+@_register()
+class OnSuccess(SnakemakeExecutableBlock): ...
+
+
+@_register()
+class OnError(SnakemakeExecutableBlock): ...
+
+
+class SnakemakeKeywordBlock(SnakemakeBlock):
+    """Block of snakemake directives, such as `rule:`, `module:`, etc.
+    The contents are other snakemake blocks.
+    """
+
+    def consume_body(self, tokens):
+        blocks = self.consume_subblocks(tokens, ender_subblock=True)
+        if any(not isinstance(i, SnakemakeBlock) for i in blocks):
+            raise UnsupportedSyntax(
+                f"Unexpected content in {self.keyword} block: "
+                f"only snakemake blocks are allowed, but got {blocks}"
+            )
+        self.body_blocks = blocks
+
+
+@_register()
+class Module(NamedBlock, SnakemakeKeywordBlock):
+    subautomata, _register = init_block_register()
+
+    @_register()
+    class Name(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Snakefile(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Meta_Wrapper(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Skip_Validation(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Config(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Pathvars(SnakemakeListDictArgumentsBlock): ...
+
+    @_register()
+    class Prefix(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Replace_Prefix(SnakemakeOneLineArgumentsBlock): ...
+
+
+@_register("use")
+class UseRule(NamedBlock, SnakemakeKeywordBlock):
+    subautomata, _register = init_block_register()
+
+    @_register()
+    class Name(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register("default_target")
+    class Default_Target_Rule(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Input(SnakemakeListDictArgumentsBlock): ...
+
+    @_register()
+    class Output(SnakemakeListDictArgumentsBlock): ...
+
+    @_register()
+    class Log(SnakemakeListDictArgumentsBlock): ...
+
+    @_register()
+    class Benchmark(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class RulePathvars(SnakemakeListDictArgumentsBlock): ...
+
+    @_register("wildcard_constraints")
+    class Register_Wildcard_Constraints(SnakemakeListDictArgumentsBlock): ...
+
+    @_register("cache")
+    class Cache_Rule(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Priority(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Retries(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Group(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class LocalRule(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Handover(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Shadow(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Conda(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register("singularity")
+    @_register()
+    class Container(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Containerized(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class EnvModules(SnakemakeListArgumentsBlock): ...
+
+    @_register()
+    class Threads(SnakemakeOneLineArgumentsBlock): ...
+
+    @_register()
+    class Resources(SnakemakeListDictArgumentsBlock): ...
+
+    @_register()
+    class Params(SnakemakeListDictArgumentsBlock): ...
+
+    @_register()
+    class Message(SnakemakeOneLineArgumentsBlock): ...
+
+    deprecated = {"version": "Use conda or container directive instead (see docs)."}
+
+
+@_register()
+class Rule(UseRule):
+    exec_subautomata, _register = init_block_register()
+
+    @_register()
+    class Run(SnakemakeExecutableBlock): ...
+
+    class AbstractCmd(SnakemakeOneLineArgumentsBlock, Run): ...
+
+    @_register()
+    class Shell(AbstractCmd): ...
+
+    @_register()
+    class Script(AbstractCmd): ...
+
+    @_register()
+    class Notebook(Script): ...
+
+    @_register()
+    class Wrapper(Script): ...
+
+    @_register("template_engine")
+    class TemplateEngine(Script): ...
+
+    @_register()
+    class CWL(Script): ...
+
+    subautomata = {**UseRule.subautomata, **exec_subautomata}
+
+
+@_register()
+class Checkpoint(Rule): ...
 
 
 class GlobalBlock(Block):
@@ -580,73 +1032,14 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    subautomata = (
-        function_class_blocks | if_for_try_with_blocks | global_snakemake_blocks
-    )
+    subautomata = {
+        **function_class_blocks,
+        **if_for_try_with_blocks,
+        **global_snakemake_subautomata,
+    }
 
     def consume(self, tokens):
-        """Split all lines of same indent into plain Python blocks and indent blocks,
-        until the end of file or DEDENT out.
-
-        - select subautomata to consume indent blocks
-        - denext_by_indent when DEDENT out
-        """
-
-        plain_python_lines: list[LogicalLine] = []
-        tail_noncoding: list[TokenInfo] = []
-        indent_str = "[TBD]"
-
-        def append_sub(block_type: type[ColonBlock], header_lines: list[LogicalLine]):
-            if plain_python_lines:
-                self.body_blocks.append(
-                    PythonBlock(self.deindent_level, tokens, list(plain_python_lines))
-                )
-                plain_python_lines.clear()
-            self.body_blocks.append(
-                block_type(self.deindent_level, tokens, header_lines)
-            )
-
-        while True:
-            line = tokens.next_new_line()
-            if line.deindelta > 0 and indent_str != "[TBD]":
-                tokens.denext(*reversed(list(line.iter)))
-                assert plain_python_lines, "Unexpected INDENT without any content"
-                header_line = plain_python_lines.pop()
-                append_sub(UnknownIndentBlock, [header_line])
-                continue
-            elif line.deindelta < 0:
-                assert indent_str != "[TBD]"
-                tail_noncoding = tokens.denext_by_indent(line, indent_str, 1)
-                break
-            elif line.end.type == tokenize.ENDMARKER:
-                plain_python_lines.append(
-                    LogicalLine(line.head_noncoding, [], [], line.end)
-                )
-                self.body_blocks.append(
-                    PythonBlock(self.deindent_level, tokens, plain_python_lines)
-                )
-                plain_python_lines = []
-                break
-            else:
-                if indent_str == "[TBD]":
-                    assert (
-                        line.body
-                    ), "Unexpected empty line at the beginning of a block"
-                    indent_str = extract_deindents(line.body[0])
-                if (
-                    line.body[0].type == tokenize.NAME
-                    and line.body[0].string in self.subautomata
-                ):
-                    append_sub(self.subautomata[line.body[0].string], [line])
-                else:
-                    plain_python_lines.append(line)
-        if plain_python_lines:
-            self.body_blocks.append(
-                PythonBlock(self.deindent_level, tokens, plain_python_lines)
-            )
-        if tail_noncoding:
-            assert self.body_blocks
-            self.body_blocks[-1].extend_tail_noncoding(tail_noncoding)
+        self.body_blocks = self.consume_subblocks(tokens)
 
     def formatted(self):
         raise NotImplementedError
