@@ -1,12 +1,16 @@
 import sys
 import tokenize
 from abc import ABC, abstractmethod
-from typing import Callable, Iterator, NamedTuple, Optional, Mapping
+from typing import Callable, Iterator, Literal, NamedTuple, Optional, Mapping
 from tokenize import TokenInfo
 from collections import OrderedDict
+import black.parsing
+
+from snakefmt.config import read_black_config, Mode
 
 
 from snakefmt.exceptions import UnsupportedSyntax
+from snakefmt.types import TAB
 
 if sys.version_info < (3, 12):
     is_fstring_start = lambda token: False
@@ -27,8 +31,7 @@ else:
         return finished
 
 
-def extract_deindents(token: TokenInfo) -> str:
-    line = token.line
+def extract_line_indent(line: str) -> str:
     return line[: len(line) - len(line.lstrip())]
 
 
@@ -94,7 +97,7 @@ class TokenIterator:
             lines.append(line)
         # there must be somewhere a DEDENT token to end the block, otherwise raise from __next__
         # now check comments
-        indent = extract_deindents(lines[0].body[0])
+        indent = extract_line_indent(lines[0].body[0].line)
         tail_noncoding = self.denext_by_indent(line, indent, deindelta)
         return lines, tail_noncoding
 
@@ -112,7 +115,7 @@ class TokenIterator:
 
         Return: the head_noncoding tokens belongs to the ending block
                 according to indents:
-            - if block_indent <= extract_deindents(comments):
+            - if block_indent <= extract_line_indent(comments.line):
                 - this COMMENT belongs to this block
             - else: afterwards, all COMMENT belongs to parent (or grand-parents) block
                 - all NL before this COMMENT belongs to this block
@@ -132,7 +135,7 @@ class TokenIterator:
             return dedents[:deindelta]
         for i, token in enumerate(head):
             if token.type == tokenize.COMMENT:
-                if not extract_deindents(token).startswith(indent):
+                if not extract_line_indent(token.line).startswith(indent):
                     break
             else:
                 assert token.type == tokenize.NL, f"Unexpected token {token!r}"
@@ -290,6 +293,15 @@ def not_deindent(token: TokenInfo) -> bool:
     return token.type != tokenize.INDENT and token.type != tokenize.DEDENT
 
 
+class FormatState(NamedTuple):
+    fmt_off: bool = False
+    sort_direcives: bool = False
+
+    def update(self, *str):
+        # TODO: implement state update logic
+        return self._replace()
+
+
 class Block(ABC):
     """
     A block can be:
@@ -430,7 +442,7 @@ class Block(ABC):
                     assert (
                         line.body
                     ), "Unexpected empty line at the beginning of a block"
-                    indent_str = extract_deindents(line.body[0])
+                    indent_str = extract_line_indent(line.body[0].line)
                 if block := self.recognize(line.body[0]):
                     append_sub(block, [line])
                 elif line.body[0].string == "@":
@@ -480,7 +492,7 @@ class Block(ABC):
         lines = (
             self.head_linestrs
             + [line for block in self.body_blocks for line in block.full_linestrs]
-            + tokens2linestrs(filter(not_deindent, self.tail_noncoding))
+            + tokens2linestrs(iter(self.tail_noncoding))
         )
         return lines
 
@@ -505,11 +517,11 @@ class Block(ABC):
             yield from block.components()
 
     @abstractmethod
-    def formatted(self) -> str:
+    def formatted(self, mode: Mode, state: FormatState) -> tuple[str, FormatState]:
         """return formatted code of the block"""
 
     @abstractmethod
-    def compilation(self) -> str:
+    def compilation(self):
         """return pure python code compiled from the block, without snakemake keywords and comments"""
 
 
@@ -522,14 +534,63 @@ class DocumentSymbol(NamedTuple):
     block: "Block"
 
 
+def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] = ""):
+    """Format a string using Black formatter.
+
+    if indent:
+        prefix = make series of `{' ' * i}if 1:\\n` to increase indent level
+        format(prefix + string)
+        remove first `indent` lines
+    if partial == ":":
+        safe_indent = longest(prefix spacing)
+        format(string + f"\\n{safe_indent} pass")
+        remove the last line
+    if partial == "(":
+        format("f(" + string + ")")
+        if string.startswith("f(\\n"):
+            remove the first line and the last line
+        else:
+            remove first three characters and the last character
+    """
+    prefix = ""
+    for i in range(indent):
+        prefix += " " * i + "if 1:\n"
+    if partial == ":":
+        # for block such as if/else/...
+        safe_indent = max(extract_line_indent(line) for line in prefix.splitlines())
+        string = raw + f"\n{safe_indent} pass"
+    elif partial == "(":
+        string = "f(\n" + raw + "\n)"
+    else:
+        string = raw
+    try:
+        fmted = black.format_str(prefix + string, mode=mode)
+    except black.parsing.InvalidInput as e:
+        raise e
+    if indent:
+        fix = fmted.split("\n", indent)[-1]
+    else:
+        fix = fmted
+    if partial == ":":
+        fix = fix.rstrip().rsplit("\n", 1)[0] + "\n"
+    elif partial == "(":
+        if string.startswith("f(\n"):
+            fix = fix.split("\n", 1)[1].rsplit("\n", 1)[0] + "\n"
+        else:
+            fix = fix[2:-1]
+    return fix
+
+
 class PythonBlock(Block):
     """Hold `head_lines` and `tail_noncoding`, no `body_blocks`"""
 
     def consume(self, tokens):
         "Do nothing, win"
 
-    def formatted(self):
-        raise NotImplementedError
+    def formatted(self, mode, state):
+        raw = "".join(self.full_linestrs)
+        formatted = format_black(raw, mode, self.deindent_level)
+        return formatted, state
 
     def compilation(self):
         raise NotImplementedError
@@ -582,9 +643,14 @@ class ColonBlock(Block):
         return token.type == tokenize.NAME and token.string == self.keyword
 
 
-class FunctionClassBlock(ColonBlock):
+class NoSnakemakeBlock(ColonBlock):
     """A block starting with `def` or `class`, and only has a single body PythonBlock
     Also contain heading decorators (`@` lines)
+
+    Also, snakemake keywords should not be used in `async` blocks
+
+    TODO: although not recommended, snakemake keywords can be used in function/class body
+    Should handle that cases in the future
     """
 
     def consume_body(self, tokens):
@@ -592,15 +658,17 @@ class FunctionClassBlock(ColonBlock):
         self.body_blocks.append(PythonBlock(self.deindent_level + 1, tokens, lines))
         self.extend_tail_noncoding(tail_noncoding)
 
-    def formatted(self):
-        raise NotImplementedError
+    def formatted(self, mode, state):
+        raw = "".join(self.full_linestrs)
+        formatted = format_black(raw, mode, self.deindent_level)
+        return formatted, state
 
     def compilation(self):
         raise NotImplementedError
 
 
-function_class_blocks: dict[str, type[FunctionClassBlock]] = {
-    i.lower(): type(i.capitalize(), (FunctionClassBlock,), {}) for i in ("def", "class")
+function_class_blocks: dict[str, type[NoSnakemakeBlock]] = {
+    i.lower(): type(i.capitalize(), (NoSnakemakeBlock,), {}) for i in ("def", "class")
 }
 
 
@@ -609,8 +677,28 @@ class IfForTryWithBlock(ColonBlock):
         blocks = GlobalBlock(self.deindent_level + 1, tokens, []).body_blocks
         self.body_blocks.extend(blocks)
 
-    def formatted(self):
-        raise NotImplementedError
+    def formatted(self, mode, state):
+        formatted = []
+        if self.body_blocks:
+            raw = "".join(self.full_linestrs)
+            return format_black(raw, mode, self.deindent_level), state
+        raw_head = "".join(self.head_linestrs)
+        head = format_black(raw_head, mode, self.deindent_level, partial=":")
+        formatted.append(head)
+        state_ = state
+        if isinstance(
+            self.body_blocks[0],
+            (NoSnakemakeBlock, NamedBlock, SnakemakeExecutableBlock),
+        ):
+            formatted.append("\n")
+        for block in self.body_blocks:
+            block_formatted, state_ = block.formatted(mode, state_)
+            formatted.append(block_formatted)
+            formatted.append("\n")
+        formatted.pop()  # remove the last "\n"
+        for comment in tokens2linestrs(iter(self.tail_noncoding)):
+            formatted.append(TAB * self.deindent_level + comment.lstrip())
+        return "".join(formatted), state_
 
     def compilation(self):
         raise NotImplementedError
@@ -632,6 +720,39 @@ PYTHON_INDENT_KEYWORDS = {
 if_for_try_with_blocks: dict[str, type[IfForTryWithBlock]] = {
     i.lower(): type(i.capitalize(), (IfForTryWithBlock,), {})
     for i in PYTHON_INDENT_KEYWORDS
+}
+
+
+class CaseBlock(IfForTryWithBlock): ...
+
+
+class MatchBlock(ColonBlock):
+    subautomata = {"case": CaseBlock}
+
+    def consume_body(self, tokens):
+        blocks = self.consume_subblocks(tokens, ender_subblock=True)
+        if any(not isinstance(i, CaseBlock) for i in blocks):
+            raise UnsupportedSyntax(
+                f"Unexpected content in {self.keyword} block: "
+                f"only `Case` keyword is allowed, but got {blocks}"
+            )
+        self.body_blocks = blocks
+
+    def formatted(self, mode, state):
+        raise NotImplementedError
+
+    def compilation(self):
+        raise NotImplementedError
+
+
+class AsyncBlock(NoSnakemakeBlock): ...
+
+
+python_subautomata: dict[str, type[ColonBlock]] = {
+    **function_class_blocks,
+    **if_for_try_with_blocks,
+    "match": MatchBlock,
+    "async": AsyncBlock,
 }
 
 
@@ -658,7 +779,7 @@ class SnakemakeBlock(ColonBlock):
     def components(self) -> Iterator[DocumentSymbol]:
         yield from []
 
-    def formatted(self):
+    def formatted(self, mode, state):
         raise NotImplementedError
 
     def compilation(self):
@@ -712,7 +833,7 @@ class SnakemakeOneLineArgumentsBlock(SnakemakeBlock):
         )
         self.extend_tail_noncoding(tail_noncoding)
 
-    def formatted(self):
+    def formatted(self, mode, state):
         raise NotImplementedError
 
     def compilation(self):
@@ -784,7 +905,7 @@ class SnakemakeListArgumentsBlock(SnakemakeBlock):
         )
         self.extend_tail_noncoding(tail_noncoding)
 
-    def formatted(self):
+    def formatted(self, mode, state):
         raise NotImplementedError
 
     def compilation(self):
@@ -819,7 +940,7 @@ class SnakemakeListDictArgumentsBlock(SnakemakeBlock):
         )
         self.extend_tail_noncoding(tail_noncoding)
 
-    def formatted(self):
+    def formatted(self, mode, state):
         raise NotImplementedError
 
     def compilation(self):
@@ -1032,17 +1153,22 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    subautomata = {
-        **function_class_blocks,
-        **if_for_try_with_blocks,
-        **global_snakemake_subautomata,
-    }
+    subautomata = {**python_subautomata, **global_snakemake_subautomata}
 
     def consume(self, tokens):
         self.body_blocks = self.consume_subblocks(tokens)
 
-    def formatted(self):
-        raise NotImplementedError
+    def formatted(self, mode, state):
+        formatted = []
+        state_ = state
+        linesep = "\n" if self.deindent_level else "\n\n"
+        for block in self.body_blocks:
+            block_formatted, state_ = block.formatted(mode, state_)
+            formatted.append(block_formatted)
+            formatted.append(linesep)
+        if formatted:
+            formatted.pop()  # remove the last "\n"
+        return "".join(formatted), state_
 
     def compilation(self):
         raise NotImplementedError

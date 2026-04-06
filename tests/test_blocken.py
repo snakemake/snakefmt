@@ -1,7 +1,8 @@
 import pytest
 
 from snakefmt.blocken import (
-    FunctionClassBlock,
+    FormatState,
+    NoSnakemakeBlock,
     GlobalBlock,
     IfForTryWithBlock,
     PythonBlock,
@@ -11,7 +12,9 @@ from snakefmt.blocken import (
     is_fstring_start,
     UnsupportedSyntax,
     parse,
+    black,
 )
+from snakefmt.config import read_black_config
 
 
 def generate_tokens(input: str):
@@ -271,7 +274,7 @@ class TestBlock:
             "",
         ]
         fun1 = block.body_blocks[0]
-        assert isinstance(fun1, FunctionClassBlock)
+        assert isinstance(fun1, NoSnakemakeBlock)
         assert [i.string for i in fun1.colon_line.body] == ["def", "f", "(", ")", ":"]
         assert [tuple(i) for i in fun1.tail_noncoding] == [
             (tokenize.NL, "\n", (3, 0), (3, 1), "\n"),
@@ -347,3 +350,59 @@ class TestBlock:
             "Report:\n   'report'\n",
             "",
         ]
+
+
+class TestBlockFormat:
+
+    example1 = (
+        "\n"
+        "@decorator\n"
+        "\n"
+        "#def f(\n"
+        "def f(\n"
+        "    a, b:int\n"
+        "):\n"  #
+        "    return   1\n"
+        "b = f'''\n"
+        "{b =} f'''\n"
+        "  # comment\n"
+        "c = [i for j in k] if m else (\n"
+        "   lambda: None\n"
+        "   )\n"
+    )
+
+    mode = read_black_config(None)
+    state = FormatState()
+
+    def test_format_python_block(self):
+        block = parse(self.example1)
+        # fun11.formatted(self.mode, self.state)
+        assert "".join(block.full_linestrs) == self.example1
+        assert [i.full_linestrs for i in block.body_blocks] == [
+            [
+                "\n",
+                "@decorator\n",
+                "\n",
+                "#def f(\n",
+                "def f(\n",
+                "    a, b:int\n",
+                "):\n",
+                "    return   1\n",
+            ],
+            [
+                "b = f'''\n{b =} f'''\n",
+                "  # comment\n",
+                "c = [i for j in k] if m else (\n",
+                "   lambda: None\n",
+                "   )\n",
+            ],
+        ]
+        py2 = block.body_blocks[1]
+        assert len(py2.head_lines) == 3
+        assert (
+            py2.formatted(self.mode, self.state)[0]
+            == 'b = f"""\n{b =} f"""\n# comment\nc = [i for j in k] if m else (lambda: None)\n'
+        )
+        assert block.formatted(self.mode, self.state)[0] == black.format_str(
+            self.example1, mode=self.mode
+        )
