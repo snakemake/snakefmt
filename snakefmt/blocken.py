@@ -1,7 +1,16 @@
 import sys
 import tokenize
 from abc import ABC, abstractmethod
-from typing import Callable, Iterator, Literal, NamedTuple, Optional, Mapping
+from typing import (
+    Any,
+    Callable,
+    Iterator,
+    Literal,
+    NamedTuple,
+    Optional,
+    Mapping,
+    TypeVar,
+)
 from tokenize import TokenInfo
 from collections import OrderedDict
 import black.parsing
@@ -161,6 +170,12 @@ class TokenIterator:
                     ) from e
         self._last_token = token
         return token
+
+    @property
+    def rest(self):
+        while self._buffered_tokens:
+            yield self._buffered_tokens.pop()
+        yield from self._live_tokens
 
     def denext(self, *tokens: TokenInfo) -> None:
         """.denext(a, b, c): next(token) will return c, then b, then a.
@@ -557,15 +572,17 @@ def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] 
         prefix += " " * i + "if 1:\n"
     if partial == ":":
         # for block such as if/else/...
-        safe_indent = max(extract_line_indent(line) for line in prefix.splitlines())
-        string = raw + f"\n{safe_indent} pass"
+        safe_indent = max(extract_line_indent(line) for line in raw.splitlines())
+        string = raw + f"{safe_indent} pass"
     elif partial == "(":
-        string = "f(\n" + raw + "\n)"
+        # Tb() effects equals to a entire new indent
+        string = " " * indent + "Tb(\n" + raw + "\n)"
     else:
         string = raw
     try:
         fmted = black.format_str(prefix + string, mode=mode)
     except black.parsing.InvalidInput as e:
+        breakpoint()
         raise e
     if indent:
         fix = fmted.split("\n", indent)[-1]
@@ -574,10 +591,11 @@ def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] 
     if partial == ":":
         fix = fix.rstrip().rsplit("\n", 1)[0] + "\n"
     elif partial == "(":
-        if string.startswith("f(\n"):
+        fix = fix.strip()
+        if fix.startswith("Tb(\n"):
             fix = fix.split("\n", 1)[1].rsplit("\n", 1)[0] + "\n"
         else:
-            fix = fix[2:-1]
+            fix = TAB * (indent + 1) + fix[3:-1] + "\n"
     return fix
 
 
@@ -589,6 +607,8 @@ class PythonBlock(Block):
 
     def formatted(self, mode, state):
         raw = "".join(self.full_linestrs)
+        if not raw.strip():
+            return "", state
         formatted = format_black(raw, mode, self.deindent_level)
         return formatted, state
 
@@ -619,11 +639,19 @@ class ColonBlock(Block):
         """Used such as `yield f"workflow.{self.keyword}("`"""
         return self._keyword()
 
-    @property
-    def prior_colon(self): ...
-
-    @property
-    def post_colon(self): ...
+    def split_colon_line(self):
+        token_iter = TokenIterator("", iter(self.head_lines[-1].iter))
+        last_line_tokens = []
+        while True:
+            component = token_iter.next_component()
+            if [(i.type, i.string) for i in component] == [(tokenize.OP, ":")]:
+                break
+            last_line_tokens.extend(component)
+        (colon_token,) = component
+        prior = tokens2linestrs(iter(last_line_tokens))
+        prior[-1] = prior[-1][: colon_token.start[1]]
+        token_iter.denext(colon_token)
+        return prior, token_iter
 
     @property
     def colon_line(self):
@@ -679,7 +707,7 @@ class IfForTryWithBlock(ColonBlock):
 
     def formatted(self, mode, state):
         formatted = []
-        if self.body_blocks:
+        if not self.body_blocks:
             raw = "".join(self.full_linestrs)
             return format_black(raw, mode, self.deindent_level), state
         raw_head = "".join(self.head_linestrs)
@@ -697,7 +725,8 @@ class IfForTryWithBlock(ColonBlock):
             formatted.append("\n")
         formatted.pop()  # remove the last "\n"
         for comment in tokens2linestrs(iter(self.tail_noncoding)):
-            formatted.append(TAB * self.deindent_level + comment.lstrip())
+            if comment.strip():
+                formatted.append(TAB * self.deindent_level + comment.lstrip())
         return "".join(formatted), state_
 
     def compilation(self):
@@ -780,7 +809,37 @@ class SnakemakeBlock(ColonBlock):
         yield from []
 
     def formatted(self, mode, state):
-        raise NotImplementedError
+        formatted_prior, post_colon = self.format_head(mode)
+        formatted_body = self.format_body(mode, state, post_colon)
+        formatted = [formatted_prior, formatted_body]
+        for comment in tokens2linestrs(iter(self.tail_noncoding)):
+            if comment.strip():
+                formatted.append(TAB * self.deindent_level + comment.lstrip())
+        return "".join(formatted), state
+
+    def format_head(self, mode: Mode) -> tuple[str, list[TokenInfo]]:
+        assert (
+            len(self.head_lines) == 1
+        ), "Snakemake keywords should only have one head line"
+        prior_colon, post_colon = self.split_colon_line()
+        (head,) = prior_colon
+        assert len(prior_colon) == 1, "Snakemake keywords should be single line"
+        components = head.strip().split()
+        formatted_head = TAB * self.deindent_level + " ".join(components) + ":"
+        if self.colon_line.end_op == ":":
+            # only a single line comment or empty is possible here, add directly
+            colon_token = next(post_colon)
+            post = tokens2linestrs(post_colon.rest)
+            post[0] = post[0][colon_token.end[1] :]
+            fake_str = f"if 1:" + "".join(post) + "   ..."
+            fake_fmt = format_black(fake_str, mode).strip()
+            formatted_head += fake_fmt.split(":", 1)[1].rsplit("\n", 1)[0] + "\n"
+            return formatted_head, []
+        else:
+            return formatted_head + "\n", list(post_colon.rest)
+
+    @abstractmethod
+    def format_body(self, mode, state, post_colon: list[TokenInfo]) -> str: ...
 
     def compilation(self):
         raise NotImplementedError
@@ -813,36 +872,155 @@ class PythonArgumentsBlock(PythonBlock):
     """
 
 
-class PythonOneLineArgument(PythonArgumentsBlock):
-    """Only allow simple expressions on the right"""
+class PythonArguments(PythonArgumentsBlock):
+    """Parsed as *args, **kwargs"""
+
+    def formatted(self, mode, state):
+        """PythonArguments and its subclasses always at the terminal
+        of the snakemake keyword tree,
+        so returned state never used anymore
+        """
+        assert not self.body_blocks, "PythonArguments should not have body blocks"
+        raw = "".join(self.head_linestrs)
+        if not self.head_lines[-1].end_op == ",":
+            raw += "\n,"
+        tail_noncoding = tokens2linestrs(iter(self.tail_noncoding))
+        raw += "".join(i for i in tail_noncoding if i.strip())
+        formatted = format_black(raw, mode, self.deindent_level - 1, partial="(")
+        return formatted, state
+
+    @classmethod
+    def format_post_colon(
+        cls, post_colon: list[TokenInfo], deindent_level: int, mode: Mode
+    ):
+        """If the params are in the same line as the keyword,
+            e.g. `input: "data.txt"`,
+        then self.body_blocks is empty, should take those from post_colon
+        """
+        assert (
+            post_colon and post_colon[-1].type == tokenize.NEWLINE
+        ), "Unexpected post_colon without a new line at the end"
+        colon_token = post_colon[0]
+        partial_line = LogicalLine([], [], post_colon[1:-1], post_colon[-1])
+        post = tokens2linestrs(iter(partial_line.body))
+        post[0] = post[0][colon_token.end[1] :]
+        raw = "".join(post)
+        if not partial_line.end_op == ",":
+            raw += "\n,"
+        formatted = format_black(raw, mode, deindent_level, partial="(")
+        return formatted
 
 
-class PythonListArguments(PythonArgumentsBlock):
+class PythonUnnamedArguments(PythonArguments):
     """Only allow simple expressions on the right, and the whole block should be a list"""
 
 
-class PythonListDictArguments(PythonArgumentsBlock):
-    """Parsed as *args, **kwargs"""
-
-
-class SnakemakeOneLineArgumentsBlock(SnakemakeBlock):
-    def consume_body(self, tokens):
-        lines, tail_noncoding = tokens.next_block()
-        self.body_blocks.append(
-            PythonOneLineArgument(self.deindent_level + 1, tokens, lines)
-        )
-        self.extend_tail_noncoding(tail_noncoding)
+class PythonOneLineArgument(PythonUnnamedArguments):
+    """Only allow simple expressions on the right"""
 
     def formatted(self, mode, state):
-        raise NotImplementedError
+        """Only a single expression, trim the trailing comma"""
+        assert not self.body_blocks, "PythonArguments should not have body blocks"
+        raw = "".join(self.head_linestrs)
+        if self.head_lines[-1].end_op == ",":
+            last_line = self.head_lines[-1]
+            comma_token = (
+                last_line.body[-2]
+                if last_line.body[-1].type == tokenize.COMMENT
+                else last_line.body[-1]
+            )
+            comma_start = comma_token.start[1] - len(comma_token.line)
+            raw = raw[:comma_start] + raw[comma_start + 1 :]
+        tail_noncoding = tokens2linestrs(iter(self.tail_noncoding))
+        raw += "".join(i for i in tail_noncoding if i.strip())
+        formatted = format_black(raw, mode, self.deindent_level - 1, partial="(")
+        return formatted, state
+
+    @classmethod
+    def format_post_colon(
+        cls, post_colon: list[TokenInfo], deindent_level: int, mode: Mode
+    ):
+        assert (
+            post_colon and post_colon[-1].type == tokenize.NEWLINE
+        ), "Unexpected post_colon without a new line at the end"
+        colon_token = post_colon[0]
+        partial_line = LogicalLine([], [], post_colon[1:-1], post_colon[-1])
+        post = tokens2linestrs(iter(partial_line.body))
+        post[0] = post[0][colon_token.end[1] :]
+        raw = "".join(post)
+        if partial_line.end_op == ",":
+            comma_token = (
+                partial_line.body[-2]
+                if partial_line.body[-1].type == tokenize.COMMENT
+                else partial_line.body[-1]
+            )
+            comma_start = comma_token.start[1] - len(comma_token.line)
+            raw = raw[:comma_start] + raw[comma_start + 1 :]
+        formatted = format_black(raw, mode, deindent_level, partial="(")
+        return formatted
+
+
+class SnakemakeArgumentsBlock(SnakemakeBlock):
+    """Block of snakemake directives, such as `input:`, `output:`, etc.
+    The content is pure python.
+    """
+
+    Argument = PythonArguments
+
+    def consume_body(self, tokens):
+        lines, tail_noncoding = tokens.next_block()
+        self.body_blocks.append(self.Argument(self.deindent_level + 1, tokens, lines))
+        self.extend_tail_noncoding(tail_noncoding)
+
+    def format_body(self, mode, state, post_colon) -> str:
+        """Format body as in the function call,
+        e.g. `input: "data.txt",` -> `input("data.txt")`
+        """
+        if post_colon:
+            return self.Argument.format_post_colon(
+                post_colon, self.deindent_level, mode
+            )
+        else:
+            (param_space,) = self.body_blocks
+            return param_space.formatted(mode, state)[0]
 
     def compilation(self):
         raise NotImplementedError
 
 
+class SnakemakeUnnamedArgumentsBlock(SnakemakeArgumentsBlock):
+    Argument = PythonUnnamedArguments
+
+
+class SnakemakeUnnamedArgumentBlock(SnakemakeUnnamedArgumentsBlock):
+    Argument = PythonOneLineArgument
+
+
+class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
+
+    def formatted(self, mode, state):
+        """Try to merge the inline argument into the head line.
+        If the line is too long after merging, then keep them separate.
+        """
+        formatted_prior, post_colon = self.format_head(mode)
+        formatted_body = self.format_body(mode, state, post_colon)
+        formatted = [formatted_prior, formatted_body]
+        if formatted_body.count("\n") == 1 and formatted_body.endswith("\n"):
+            if formatted_prior.endswith(":\n") and "#" not in formatted_prior:
+                formatted_merge = formatted_prior[:-1] + " " + formatted_body.lstrip()
+                if len(formatted_merge) <= mode.line_length:
+                    formatted = [formatted_merge]
+        for comment in tokens2linestrs(iter(self.tail_noncoding)):
+            if comment.strip():
+                formatted.append(TAB * self.deindent_level + comment.lstrip())
+        return "".join(formatted), state
+
+
 def init_block_register():
+    T = TypeVar("T", bound=SnakemakeBlock)
+
     def register_block(name: Optional[str] = None):
-        def decorator(type_: type[SnakemakeBlock]):
+        def decorator(type_: type[T]) -> type[T]:
             keyword = name or type_._keyword()
             namespace[keyword] = type_
             return type_
@@ -857,114 +1035,80 @@ global_snakemake_subautomata, _register = init_block_register()
 
 
 @_register()
-class Include(SnakemakeOneLineArgumentsBlock): ...
+class Include(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Workdir(SnakemakeOneLineArgumentsBlock): ...
+class Workdir(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Configfile(SnakemakeOneLineArgumentsBlock): ...
+class Configfile(SnakemakeInlineArgumentBlock): ...
 
 
 @_register("pepfile")
-class Set_Pepfile(SnakemakeOneLineArgumentsBlock): ...
+class Set_Pepfile(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Pepschema(SnakemakeOneLineArgumentsBlock): ...
+class Pepschema(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Report(SnakemakeOneLineArgumentsBlock): ...
+class Report(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Ruleorder(SnakemakeOneLineArgumentsBlock): ...
+class Ruleorder(SnakemakeInlineArgumentBlock): ...
 
 
 @_register("singularity")
 @_register("container")
-class Global_Container(SnakemakeOneLineArgumentsBlock): ...
+class Global_Container(SnakemakeInlineArgumentBlock): ...
 
 
 @_register("containerized")
-class Global_Containerized(SnakemakeOneLineArgumentsBlock): ...
+class Global_Containerized(SnakemakeInlineArgumentBlock): ...
 
 
 @_register("conda")
-class Global_Conda(SnakemakeOneLineArgumentsBlock): ...
-
-
-class SnakemakeListArgumentsBlock(SnakemakeBlock):
-    def consume_body(self, tokens):
-        lines, tail_noncoding = tokens.next_block()
-        self.body_blocks.append(
-            PythonListArguments(self.deindent_level + 1, tokens, lines)
-        )
-        self.extend_tail_noncoding(tail_noncoding)
-
-    def formatted(self, mode, state):
-        raise NotImplementedError
-
-    def compilation(self):
-        raise NotImplementedError
+class Global_Conda(SnakemakeInlineArgumentBlock): ...
 
 
 @_register("envvars")
-class Register_Envvars(SnakemakeListArgumentsBlock): ...
+class Register_Envvars(SnakemakeUnnamedArgumentsBlock): ...
 
 
 @_register()
-class Localrules(SnakemakeListArgumentsBlock): ...
+class Localrules(SnakemakeUnnamedArgumentsBlock): ...
 
 
 @_register()
-class InputFlags(SnakemakeListArgumentsBlock): ...
+class InputFlags(SnakemakeUnnamedArgumentsBlock): ...
 
 
 @_register()
-class OutputFlags(SnakemakeListArgumentsBlock): ...
-
-
-class SnakemakeListDictArgumentsBlock(SnakemakeBlock):
-    """Block of snakemake directives, such as `input:`, `output:`, etc.
-    The content is pure python.
-    """
-
-    def consume_body(self, tokens):
-        lines, tail_noncoding = tokens.next_block()
-        self.body_blocks.append(
-            PythonListDictArguments(self.deindent_level + 1, tokens, lines)
-        )
-        self.extend_tail_noncoding(tail_noncoding)
-
-    def formatted(self, mode, state):
-        raise NotImplementedError
-
-    def compilation(self):
-        raise NotImplementedError
+class OutputFlags(SnakemakeUnnamedArgumentsBlock): ...
 
 
 @_register("wildcard_constraints")
-class Global_Wildcard_Constraints(SnakemakeListDictArgumentsBlock): ...
+class Global_Wildcard_Constraints(SnakemakeArgumentsBlock): ...
 
 
 @_register()
-class Scattergather(SnakemakeListDictArgumentsBlock): ...
+class Scattergather(SnakemakeArgumentsBlock): ...
 
 
 @_register("resource_scope")
-class ResourceScope(SnakemakeListDictArgumentsBlock): ...
+class ResourceScope(SnakemakeArgumentsBlock): ...
 
 
 @_register("storage")
-class Storage(SnakemakeListDictArgumentsBlock): ...
+class Storage(SnakemakeArgumentsBlock): ...
 
 
 @_register("pathvars")
-class Register_Pathvars(SnakemakeListDictArgumentsBlock): ...
+class Register_Pathvars(SnakemakeArgumentsBlock): ...
 
 
 class SnakemakeExecutableBlock(SnakemakeBlock):
@@ -976,6 +1120,15 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
         lines, tail_noncoding = tokens.next_block()
         self.body_blocks.append(PythonBlock(self.deindent_level + 1, tokens, lines))
         self.extend_tail_noncoding(tail_noncoding)
+
+    def format_body(self, mode, state, post_colon):
+        if post_colon:
+            return PythonOneLineArgument.format_post_colon(
+                post_colon, self.deindent_level, mode
+            )
+        else:
+            (param_space,) = self.body_blocks
+            return param_space.formatted(mode, state)[0]
 
 
 @_register()
@@ -1004,34 +1157,43 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
             )
         self.body_blocks = blocks
 
+    def format_body(self, mode, state, post_colon):
+        assert not post_colon, "Invalid inline contents"
+        formatted = []
+        for block in self.body_blocks:
+            block_formatted, state_ = block.formatted(mode, state)
+            formatted.append(block_formatted)
+            # no `\n` between
+        return "".join(formatted)
+
 
 @_register()
 class Module(NamedBlock, SnakemakeKeywordBlock):
     subautomata, _register = init_block_register()
 
     @_register()
-    class Name(SnakemakeOneLineArgumentsBlock): ...
+    class Name(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Snakefile(SnakemakeOneLineArgumentsBlock): ...
+    class Snakefile(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Meta_Wrapper(SnakemakeOneLineArgumentsBlock): ...
+    class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Skip_Validation(SnakemakeOneLineArgumentsBlock): ...
+    class Skip_Validation(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Config(SnakemakeOneLineArgumentsBlock): ...
+    class Config(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Pathvars(SnakemakeListDictArgumentsBlock): ...
+    class Pathvars(SnakemakeArgumentsBlock): ...
 
     @_register()
-    class Prefix(SnakemakeOneLineArgumentsBlock): ...
+    class Prefix(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Replace_Prefix(SnakemakeOneLineArgumentsBlock): ...
+    class Replace_Prefix(SnakemakeUnnamedArgumentBlock): ...
 
 
 @_register("use")
@@ -1039,74 +1201,74 @@ class UseRule(NamedBlock, SnakemakeKeywordBlock):
     subautomata, _register = init_block_register()
 
     @_register()
-    class Name(SnakemakeOneLineArgumentsBlock): ...
+    class Name(SnakemakeUnnamedArgumentBlock): ...
 
     @_register("default_target")
-    class Default_Target_Rule(SnakemakeOneLineArgumentsBlock): ...
+    class Default_Target_Rule(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Input(SnakemakeListDictArgumentsBlock): ...
+    class Input(SnakemakeArgumentsBlock): ...
 
     @_register()
-    class Output(SnakemakeListDictArgumentsBlock): ...
+    class Output(SnakemakeArgumentsBlock): ...
 
     @_register()
-    class Log(SnakemakeListDictArgumentsBlock): ...
+    class Log(SnakemakeArgumentsBlock): ...
 
     @_register()
-    class Benchmark(SnakemakeOneLineArgumentsBlock): ...
+    class Benchmark(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class RulePathvars(SnakemakeListDictArgumentsBlock): ...
+    class RulePathvars(SnakemakeArgumentsBlock): ...
 
     @_register("wildcard_constraints")
-    class Register_Wildcard_Constraints(SnakemakeListDictArgumentsBlock): ...
+    class Register_Wildcard_Constraints(SnakemakeArgumentsBlock): ...
 
     @_register("cache")
-    class Cache_Rule(SnakemakeOneLineArgumentsBlock): ...
+    class Cache_Rule(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Priority(SnakemakeOneLineArgumentsBlock): ...
+    class Priority(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Retries(SnakemakeOneLineArgumentsBlock): ...
+    class Retries(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Group(SnakemakeOneLineArgumentsBlock): ...
+    class Group(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class LocalRule(SnakemakeOneLineArgumentsBlock): ...
+    class LocalRule(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Handover(SnakemakeOneLineArgumentsBlock): ...
+    class Handover(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Shadow(SnakemakeOneLineArgumentsBlock): ...
+    class Shadow(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Conda(SnakemakeOneLineArgumentsBlock): ...
+    class Conda(SnakemakeUnnamedArgumentBlock): ...
 
     @_register("singularity")
     @_register()
-    class Container(SnakemakeOneLineArgumentsBlock): ...
+    class Container(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Containerized(SnakemakeOneLineArgumentsBlock): ...
+    class Containerized(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class EnvModules(SnakemakeListArgumentsBlock): ...
+    class EnvModules(SnakemakeUnnamedArgumentsBlock): ...
 
     @_register()
-    class Threads(SnakemakeOneLineArgumentsBlock): ...
+    class Threads(SnakemakeInlineArgumentBlock): ...
 
     @_register()
-    class Resources(SnakemakeListDictArgumentsBlock): ...
+    class Resources(SnakemakeArgumentsBlock): ...
 
     @_register()
-    class Params(SnakemakeListDictArgumentsBlock): ...
+    class Params(SnakemakeArgumentsBlock): ...
 
     @_register()
-    class Message(SnakemakeOneLineArgumentsBlock): ...
+    class Message(SnakemakeUnnamedArgumentBlock): ...
 
     deprecated = {"version": "Use conda or container directive instead (see docs)."}
 
@@ -1118,7 +1280,7 @@ class Rule(UseRule):
     @_register()
     class Run(SnakemakeExecutableBlock): ...
 
-    class AbstractCmd(SnakemakeOneLineArgumentsBlock, Run): ...
+    class AbstractCmd(SnakemakeUnnamedArgumentBlock, Run): ...
 
     @_register()
     class Shell(AbstractCmd): ...
@@ -1164,8 +1326,9 @@ class GlobalBlock(Block):
         linesep = "\n" if self.deindent_level else "\n\n"
         for block in self.body_blocks:
             block_formatted, state_ = block.formatted(mode, state_)
-            formatted.append(block_formatted)
-            formatted.append(linesep)
+            if block_formatted:  # avoid adding extra blank lines for empty blocks
+                formatted.append(block_formatted)
+                formatted.append(linesep)
         if formatted:
             formatted.pop()  # remove the last "\n"
         return "".join(formatted), state_

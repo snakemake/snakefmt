@@ -8,6 +8,7 @@ from snakefmt.blocken import (
     PythonBlock,
     consume_fstring,
     TokenIterator,
+    format_black,
     tokenize,
     is_fstring_start,
     UnsupportedSyntax,
@@ -15,6 +16,7 @@ from snakefmt.blocken import (
     black,
 )
 from snakefmt.config import read_black_config
+from snakefmt.types import TAB
 
 
 def generate_tokens(input: str):
@@ -352,6 +354,28 @@ class TestBlock:
         ]
 
 
+mode = read_black_config(None)
+state = FormatState()
+
+
+class TestFormat:
+    def test_format_colon(self):
+        raw = "if 1:   #comment\n"
+        fmted = format_black(raw, mode=mode, partial=":")
+        assert fmted == "if 1:  # comment\n"
+
+    def test_format_paren(self):
+        raw = "   'b', a=1\n,"
+        fmted = format_black(raw, mode=mode, indent=2, partial="(")
+        assert fmted == (
+            f'{TAB * 3}"b",\n'  #
+            f"{TAB * 3}a=1,\n"
+        )
+        raw = "        'b =    2'\n\n,"
+        fmted = format_black(raw, mode=mode, indent=1, partial="(")
+        assert fmted == (f'{TAB * 2}"b =    2",\n')
+
+
 class TestBlockFormat:
 
     example1 = (
@@ -371,12 +395,9 @@ class TestBlockFormat:
         "   )\n"
     )
 
-    mode = read_black_config(None)
-    state = FormatState()
-
     def test_format_python_block(self):
         block = parse(self.example1)
-        # fun11.formatted(self.mode, self.state)
+        # fun11.formatted(mode, state)
         assert "".join(block.full_linestrs) == self.example1
         assert [i.full_linestrs for i in block.body_blocks] == [
             [
@@ -400,9 +421,84 @@ class TestBlockFormat:
         py2 = block.body_blocks[1]
         assert len(py2.head_lines) == 3
         assert (
-            py2.formatted(self.mode, self.state)[0]
+            py2.formatted(mode, state)[0]
             == 'b = f"""\n{b =} f"""\n# comment\nc = [i for j in k] if m else (lambda: None)\n'
         )
-        assert block.formatted(self.mode, self.state)[0] == black.format_str(
-            self.example1, mode=self.mode
+        assert block.formatted(mode, state)[0] == black.format_str(
+            self.example1, mode=mode
         )
+
+    example2 = (
+        "rule A:\n"  # L1
+        "    input:  a = '1'\n"
+        "    output:\n"
+        "        'b =    2'\n"
+        "    run:\n"
+        "        print ( 1 \n      )\n"
+        "\n"
+        "\n"
+        "checkpoint:\n"
+        "   name:   'check'\n"  # L11
+        "   params:\n"
+        "       c = [i for \n"
+        "       i in range(1) if 3],\n"
+        "       conda = 'conda.yaml'\n"
+        "   shell: 'touch d'\n"
+        "\n"
+        "\n"
+        "onsuccess:\n"
+        "   for i in range(10):\n"
+        "       print(i)\n"  # L21
+        "\n"
+        "\n"
+        "wildcard_constraints:\n"
+        "   sth =    r'a|b|c',\n"
+        "   sth2 = r'a|b|c',\n"
+        "   sth3 = r'a|b|c'\n"
+        "\n"
+        "\n"
+        "report:\n"
+        "\n"
+        "      'report'\n"  # L31
+        "\n"
+        "\n"
+        "\n",
+        "rule A:\n"
+        "    input:\n"
+        '        a="1",\n'
+        "    output:\n"
+        '        "b =    2",\n'
+        "    run:\n"
+        "        print(1)\n"
+        "\n"
+        "\n"
+        "checkpoint:\n"
+        "    name:\n"
+        '        "check"\n'
+        "    params:\n"
+        "        c=[i for i in range(1) if 3],\n"
+        '        conda="conda.yaml",\n'
+        "    shell:\n"
+        '        "touch d"\n'
+        "\n"
+        "\n"
+        "onsuccess:\n"
+        "    for i in range(10):\n"
+        "        print(i)\n"
+        "\n"
+        "\n"
+        "wildcard_constraints:\n"
+        '    sth=r"a|b|c",\n'
+        '    sth2=r"a|b|c",\n'
+        '    sth3=r"a|b|c",\n'
+        "\n"
+        "\n"
+        'report: "report"\n',
+    )
+
+    def test_format_snakefile(self):
+        code, formatted = self.example2
+        block = parse(code)
+        assert block.formatted(mode, state)[0].replace("\n", "<\n") == (
+            formatted
+        ).replace("\n", "<\n")
