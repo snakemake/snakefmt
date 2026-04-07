@@ -564,34 +564,17 @@ def format_python_colon_head(
         fake_head = indent_str + "try: pass\n"
         fake_head_lines = 2  # black always expands "try: pass" to 2 lines
     elif keyword == "match":
-        # match needs at least one case, add a dummy case
+        # match needs at least one case
         dummy_case = indent_str + "    case _: pass\n"
         formatted = format_black(raw + dummy_case, mode, indent, "")
-        # Keep only the match line (first line before case)
-        match_line = formatted.split("\n")[0]
-        return match_line + "\n" if match_line else raw
+        # Keep only the match line
+        return formatted.rsplit("\n", 3)[0] + "\n"
     elif keyword == "case":
         # case needs to be inside a match, construct the full block
-        case_content = raw.lstrip()  # Remove indentation
-        # Create match-case block with case inside
-        full_block = indent_str + "match 1:\n" + indent_str + "    " + case_content
-        formatted = format_black(full_block, mode, 0, ":")
-        # Extract just the case line(s) and restore original indent
-        lines = formatted.split("\n")
-        result_lines = []
-        case_started = False
-        for line in lines:
-            if line.strip().startswith("case"):
-                case_started = True
-            if case_started:
-                if line.strip() and line.strip() != "pass":
-                    # Remove the extra indentation added by format_black and keep just the case
-                    result_lines.append(indent_str + line.lstrip())
-                elif line.strip() == "pass":
-                    break
-        if result_lines:
-            return "\n".join(result_lines) + "\n"
-        return raw
+        assert indent_str and indent, "`case` block must be indented"
+        dummy_match = indent_str[:-1] + "match 1:\n" + raw
+        formatted = format_black(dummy_match, mode, indent - 1, ":")
+        return formatted.split("\n", 1)[-1]
     else:
         return format_black(raw, mode, indent, ":" if partial else "")
     formatted = format_black(fake_head + raw, mode, indent, ":")
@@ -620,7 +603,7 @@ def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] 
     """
     prefix = ""
     for i in range(indent):
-        prefix += " " * i + "if 1:\n"
+        prefix += " " * i + "def a():\n"
     if partial == ":":
         # for block such as if/else/...
         safe_indent = max(extract_line_indent(line) for line in raw.splitlines())

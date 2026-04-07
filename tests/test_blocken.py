@@ -365,6 +365,11 @@ class TestFormat:
         fmted = format_black(raw, mode=mode, partial=":")
         assert fmted == "if 1:  # comment\n"
 
+    def test_format_def(self):
+        raw = f"{TAB}def s(a):\n" f"{TAB*2}if a:\n" f'{TAB* 3}return "Hello World"\n'
+        fmted = format_black(raw, mode=mode, indent=1)
+        assert fmted == raw
+
     def test_format_paren(self):
         raw = "   'b', a=1\n,"
         fmted = format_black(raw, mode=mode, indent=2, partial="(")
@@ -386,23 +391,38 @@ class TestFormat:
             "match val:\n",
         ):
             fmted = format_python_colon_head(
-                i, mode, i.strip().split()[0].replace(":", "")
+                i, mode, i.strip().split()[0].replace(":", ""), partial=True
             )
             assert fmted == i
+
+    def test_format_partial_colon_indent(self):
         for i in (
             f"{TAB}else:\n",
             f"{TAB}elif x > 0:\n",
             f"{TAB}except (ValueError, KeyError):\n",
             f"{TAB}finally:\n",
+            f"{TAB}match val:\n",
             f"{TAB}case Point(x, 0):\n",
         ):
             fmted = format_python_colon_head(
-                i, mode, i.strip().split()[0].replace(":", ""), indent_str=TAB, indent=1
+                i,
+                mode,
+                i.strip().split()[0].replace(":", ""),
+                indent_str=TAB,
+                indent=1,
+                partial=True,
             )
             assert fmted == i
-        i = "    elif (\n        x > 0\n    ):\n"
-        fmted = format_python_colon_head(i, mode, "elif", indent_str=TAB, indent=1)
+        i = f"{TAB}elif (\n        x > 0\n    ):\n"
+        fmted = format_python_colon_head(
+            i, mode, "elif", indent_str=TAB, indent=1, partial=True
+        )
         assert fmted == "    elif x > 0:\n"
+        i = f"{TAB*2}case Point(x, 0):\n"
+        fmted = format_python_colon_head(
+            i, mode, "case", indent_str=TAB * 2, indent=2, partial=True
+        )
+        assert fmted == i
 
 
 class TestBlockFormat:
