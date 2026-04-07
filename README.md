@@ -17,10 +17,10 @@ design and specifications of [Black][black].
 > `--diff` or `--check` options. See [Usage](#usage) for more details.
 
 > [!IMPORTANT]
-> **Recent Changes:** 
+> **Recent Changes:**
 > 1. **Rule and module directives are now sorted by default:** `snakefmt` will automatically sort the order of directives inside rules (e.g. `input`, `output`, `shell`) and modules into a consistent order. You can opt out of this by using the `--no-sort` CLI flag.
 > 2. **Black upgraded to v26:** The underlying `black` formatter has been upgraded to v26. You will see changes in how implicitly concatenated strings are wrapped (they are now collapsed onto a single line if they fit within the line limit) and other minor adjustments compared to previous versions.
-> 
+>
 > **Example of expected differences:**
 > ```python
 > # Before (Snakefmt older versions)
@@ -33,7 +33,7 @@ design and specifications of [Black][black].
 >         "b.txt",
 >     input:
 >         "a.txt",
-> 
+>
 > # After (Directives sorted, strings collapsed by Black 26)
 > rule example:
 >     input:
@@ -56,13 +56,16 @@ design and specifications of [Black][black].
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
-- [Configuration](#configuration)
   - [Directive Sorting](#directive-sorting)
+  - [Format Directives](#format-directives)
+  - [Configuration](#configuration)
 - [Integration](#integration)
-    - [Editor Integration](#editor-integration)
-    - [Version Control Integration](#version-control-integration)
-    - [Github Actions](#github-actions)
+  - [Editor Integration](#editor-integration)
+  - [Version Control Integration](#version-control-integration)
+  - [GitHub Actions](#github-actions)
 - [Plug Us](#plug-us)
+  - [Markdown](#markdown)
+  - [ReStructuredText](#restructuredtext)
 - [Changes](#changes)
 - [Contributing](#contributing)
 - [Cite](#cite)
@@ -280,20 +283,6 @@ Options:
   -v, --verbose               Turns on debug-level logger.
 ```
 
-## Configuration
-
-`snakefmt` is able to read project-specific default values for its command line options
-from a `pyproject.toml` file. In addition, it will also load any [`black`
-configurations][black-config] you have in the same file.
-
-By default, `snakefmt` will search in the parent directories of the formatted file(s)
-for a file called `pyproject.toml` and use any configuration there.
-If your configuration file is located somewhere else or called something different,
-specify it using `--config`.
-
-Any options you pass on the command line will take precedence over default values in the
-configuration file.
-
 ### Directive Sorting
 
 By default, `snakefmt` sorts rule and module directives (like `input`, `output`, `shell`, etc.) into a consistent order. This makes rules easier to read and allows for quicker cross-referencing between inputs, outputs, and the resources used by the execution command.
@@ -313,9 +302,104 @@ This ordering ensures that the directives most frequently used in execution bloc
 
 You can disable this feature using the `--no-sort` flag.
 
+### Format Directives
+
+`snakefmt` supports comment directives to control formatting behaviour for specific regions of code.
+Directives should appear as standalone comment lines, an inline occurrence (e.g. `input:  # fmt: off`) is treated as a plain comment and has no effect.
+All directives are scope-local: only the region they select is affected, while code before and after follows normal `snakefmt` formatting and spacing rules (equivalent to replacing the directive with a plain comment line).
+
+#### `# fmt: off` / `# fmt: on`
+
+Disables all formatting for the region between the two directives.
+Both directives *must* appear at the same indentation level; a `# fmt: on` at a deeper indent than the matching `# fmt: off` has no effect.
+
+```python
+rule a:
+    input:
+        "a.txt",
+
+
+# fmt: off
+rule b:
+  input: "b.txt"
+  output:
+          "c.txt"
+# fmt: on
+
+
+rule c:
+    input:
+        "d.txt",
+```
+
+> **Note:** inside `run:` blocks and other Python contexts, `# fmt: off` / `# fmt: on` is passed through to [Black][black], which handles it natively.
+
+#### `# fmt: off[sort]`
+
+Disables directive sorting for the enclosed region while still applying all other formatting.
+Directives between `# fmt: off[sort]` and `# fmt: on[sort]` are kept in their original order.
+A plain `# fmt: on` also closes a `# fmt: off[sort]` region.
+
+```python
+# fmt: off[sort]
+rule keep_my_order:
+    output:
+        "result.txt",
+    input:
+        "source.txt",
+    shell:
+        "cp {input} {output}"
+# fmt: on[sort]
+```
+
+#### `# fmt: off[next]`
+
+Disables formatting for the single next Snakemake keyword block (e.g. `rule`, `checkpoint`, `use rule`).
+Only that block is left unformatted; all subsequent blocks are formatted normally.
+
+```python
+rule formatted:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+
+
+# fmt: off[next]
+rule unformatted:
+  input: "a.txt"
+  output: "b.txt"
+
+
+rule also_formatted:
+    input:
+        "a.txt",
+```
+
+#### `# fmt: skip`
+
+`# fmt: skip` preserves a single line exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
+
+> **Note:** `# fmt: skip` is not yet supported within Snakemake rule blocks.
+> It currently applies only to plain Python lines outside of rules, checkpoints, and similar Snakemake constructs.
+
+### Configuration
+
+`snakefmt` is able to read project-specific default values for its command line options
+from a `pyproject.toml` file. In addition, it will also load any [`black`
+configurations][black-config] you have in the same file.
+
+By default, `snakefmt` will search in the parent directories of the formatted file(s)
+for a file called `pyproject.toml` and use any configuration there.
+If your configuration file is located somewhere else or called something different,
+specify it using `--config`.
+
+Any options you pass on the command line will take precedence over default values in the
+configuration file.
+
 #### Example
 
-`pyproject.toml`
+[`pyproject.toml`][pyproject]
 
 ```toml
 [tool.snakefmt]
@@ -415,13 +499,13 @@ in your project.
 
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 
-#### Markdown
+### Markdown
 
 ```md
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
 ```
 
-#### ReStructuredText
+### ReStructuredText
 
 ```rst
 .. image:: https://img.shields.io/badge/code%20style-snakefmt-000000.svg
@@ -459,6 +543,7 @@ See [CONTRIBUTING.md][contributing].
 [snakemake]: https://snakemake.readthedocs.io/
 [black]: https://black.readthedocs.io/en/stable/
 [black-config]: https://github.com/psf/black#pyprojecttoml
+[black-skip]: https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html#ignoring-sections
 [pyproject]: https://github.com/snakemake/snakefmt/blob/master/pyproject.toml
 [contributing]: CONTRIBUTING.md
 [changes]: CHANGELOG.md

@@ -8,6 +8,7 @@ import textwrap
 from unittest import mock
 
 import black
+import black.parsing
 import pytest
 
 from snakefmt.exceptions import InvalidPython
@@ -47,58 +48,55 @@ class TestSimpleParamFormatting:
 
         assert actual == expected
 
+    example_shell_newline = (
+        "rule a:\n"
+        f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
+        f'{TAB * 2}"do echo $i;"\n'
+        f'{TAB * 2}"done"',
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"for i in $(seq 1 5);" "do echo $i;" "done"\n',
+    )
+
     def test_shell_param_newline_indented(self):
-        formatter = setup_formatter(
-            "rule a:\n"
-            f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
-            f'{TAB * 2}"do echo $i;"\n'
-            f'{TAB * 2}"done"'
-        )
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}shell:\n"
-            f'{TAB * 2}"for i in $(seq 1 5);" "do echo $i;" "done"\n'
-        )
-        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(self.example_shell_newline[0])
+        assert formatter.get_formatted() == self.example_shell_newline[1]
+
+    example_params_newline = (
+        f"rule b: \n"
+        f'{TAB * 1}input: "a", "b",\n'
+        f'{TAB * 4}"c"\n'
+        f'{TAB * 1}wrapper: "mywrapper"',
+        f"rule b:\n"
+        f"{TAB * 1}input:\n"
+        f'{TAB * 2}"a",\n'
+        f'{TAB * 2}"b",\n'
+        f'{TAB * 2}"c",\n'
+        f"{TAB * 1}wrapper:\n"
+        f'{TAB * 2}"mywrapper"\n',
+    )
 
     def test_single_param_keyword_in_rule_gets_newline_indented(self):
-        formatter = setup_formatter(
-            f"rule a: \n"
-            f'{TAB * 1}input: "a", "b",\n'
-            f'{TAB * 4}"c"\n'
-            f'{TAB * 1}wrapper: "mywrapper"'
-        )
+        formatter = setup_formatter(self.example_params_newline[0])
+        assert formatter.get_formatted() == self.example_params_newline[1]
 
-        actual = formatter.get_formatted()
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}input:\n"
-            f'{TAB * 2}"a",\n'
-            f'{TAB * 2}"b",\n'
-            f'{TAB * 2}"c",\n'
-            f"{TAB * 1}wrapper:\n"
-            f'{TAB * 2}"mywrapper"\n'
-        )
-
-        assert actual == expected
+    example_input_threads_newline = (
+        f"rule c: \n"
+        f'{TAB * 1}input: "c"\n'
+        f"{TAB * 1}threads:\n"
+        f"{TAB * 2}20\n"
+        f"{TAB * 1}default_target:\n"
+        f"{TAB * 2}True\n",
+        f"rule c:\n"
+        f"{TAB * 1}input:\n"
+        f'{TAB * 2}"c",\n'
+        f"{TAB * 1}threads: 20\n"
+        f"{TAB * 1}default_target: True\n",
+    )
 
     def test_single_numeric_param_keyword_in_rule_stays_on_same_line(self):
-        formatter = setup_formatter(
-            "rule a: \n"
-            f'{TAB * 1}input: "c"\n'
-            f"{TAB * 1}threads:\n"
-            f"{TAB * 2}20\n"
-            f"{TAB * 1}default_target:\n"
-            f"{TAB * 2}True\n"
-        )
-
-        actual = formatter.get_formatted()
-        expected = (
-            f'rule a:\n{TAB * 1}input:\n{TAB * 2}"c",\n{TAB * 1}threads: 20\n'
-            f"{TAB * 1}default_target: True\n"
-        )
-
-        assert actual == expected
+        formatter = setup_formatter(self.example_input_threads_newline[0])
+        assert formatter.get_formatted() == self.example_input_threads_newline[1]
 
 
 class TestModuleFormatting:
@@ -567,7 +565,7 @@ class TestComplexPythonFormatting:
                 'f("a")', 0, 3, no_nesting=True
             )
 
-            assert mock_m.call_args_list[2] == mock.call("b = 2\n", 0)
+            assert mock_m.call_args_list[2] == mock.call("b=2\n", 0)
 
         formatter = setup_formatter(snakecode)
         expected = (
@@ -1718,15 +1716,29 @@ class TestRunBlockFormatting:
 
 
 class TestSortFormatting:
+    sort_simple = (
+        "rule a:\n"
+        f"{TAB * 1}# annots\n"
+        f"{TAB * 1}threads: 1\n"
+        f'{TAB * 1}log: "b",\n'
+        f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
+        f"{TAB * 1}run:\n"
+        f'{TAB * 2}print("hello world")\n',
+        "rule a:\n"
+        f"{TAB * 1}output:\n"
+        f'{TAB * 2}"a",\n'
+        f'{TAB * 2}"fsdfdsdfd",\n'
+        f'{TAB * 2}"ccc",\n'
+        f"{TAB * 1}log:\n"
+        f'{TAB * 2}"b",\n'
+        f"{TAB * 1}# annots\n"
+        f"{TAB * 1}threads: 1\n"
+        f"{TAB * 1}run:\n"
+        f'{TAB * 2}print("hello world")\n',
+    )
+
     def test_sorting_of_params(self):
-        snakecode = (
-            "rule a:\n"
-            f"{TAB * 1}# annots\n"
-            f"{TAB * 1}threads: 1\n"
-            f'{TAB * 1}log: "b",\n'
-            f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
-            f"{TAB * 1}run:\n"
-            f'{TAB * 2}print("hello world")\n'
+        snakecode = self.sort_simple[0] + (
             "if 2:\n"
             f"{TAB * 1}rule b:\n"
             f'{TAB * 2}output: "b",\n'
@@ -1742,18 +1754,8 @@ class TestSortFormatting:
             f'{TAB * 1}print("error")\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "rule a:\n"
-            f"{TAB * 1}output:\n"
-            f'{TAB * 2}"a",\n'
-            f'{TAB * 2}"fsdfdsdfd",\n'
-            f'{TAB * 2}"ccc",\n'
-            f"{TAB * 1}log:\n"
-            f'{TAB * 2}"b",\n'
-            f"{TAB * 1}# annots\n"
-            f"{TAB * 1}threads: 1\n"
-            f"{TAB * 1}run:\n"
-            f'{TAB * 2}print("hello world")\n\n\n'
+        expected = self.sort_simple[1] + (
+            f"\n\n"
             "if 2:\n"
             "\n"
             f"{TAB * 1}rule b:\n"
@@ -1776,127 +1778,121 @@ class TestSortFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    sorting_comprehensive = (
+        "rule all:\n"
+        f"{TAB}params: p=1\n"
+        f"{TAB}resources: mem_mb=100\n"
+        f"{TAB}threads: 4\n"
+        f"{TAB}conda: 'env.yaml'\n"
+        f"{TAB}message: 'finishing'\n"
+        f"{TAB}log: 'log.txt'\n"
+        f"{TAB}output: 'out.txt'\n"
+        f"{TAB}# Important input\n"
+        f"{TAB}input: 'in.txt'\n"
+        f"{TAB}name: 'myrule'\n"
+        f"{TAB}shell: 'echo done'\n",
+        "rule all:\n"
+        f"{TAB}name:\n"
+        f'{TAB * 2}"myrule"\n'
+        f"{TAB}# Important input\n"
+        f"{TAB}input:\n"
+        f'{TAB * 2}"in.txt",\n'
+        f"{TAB}output:\n"
+        f'{TAB * 2}"out.txt",\n'
+        f"{TAB}log:\n"
+        f'{TAB * 2}"log.txt",\n'
+        f"{TAB}conda:\n"
+        f'{TAB * 2}"env.yaml"\n'
+        f"{TAB}threads: 4\n"
+        f"{TAB}resources:\n"
+        f"{TAB * 2}mem_mb=100,\n"
+        f"{TAB}params:\n"
+        f"{TAB * 2}p=1,\n"
+        f"{TAB}message:\n"
+        f'{TAB * 2}"finishing"\n'
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"echo done"\n',
+    )
+
     def test_sorting_comprehensive(self):
-        snakecode = (
-            "rule all:\n"
-            f"{TAB}shell: 'echo done'\n"
-            f"{TAB}params: p=1\n"
-            f"{TAB}resources: mem_mb=100\n"
-            f"{TAB}threads: 4\n"
-            f"{TAB}conda: 'env.yaml'\n"
-            f"{TAB}message: 'finishing'\n"
-            f"{TAB}log: 'log.txt'\n"
-            f"{TAB}output: 'out.txt'\n"
-            f"{TAB}# Important input\n"
-            f"{TAB}input: 'in.txt'\n"
-            f"{TAB}name: 'myrule'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "rule all:\n"
-            f"{TAB}name:\n"
-            f'{TAB*2}"myrule"\n'
-            f"{TAB}# Important input\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
-            f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
-            f"{TAB}log:\n"
-            f'{TAB*2}"log.txt",\n'
-            f"{TAB}conda:\n"
-            f'{TAB*2}"env.yaml"\n'
-            f"{TAB}threads: 4\n"
-            f"{TAB}resources:\n"
-            f"{TAB*2}mem_mb=100,\n"
-            f"{TAB}params:\n"
-            f"{TAB*2}p=1,\n"
-            f"{TAB}message:\n"
-            f'{TAB*2}"finishing"\n'
-            f"{TAB}shell:\n"
-            f'{TAB*2}"echo done"\n'
-        )
-        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(self.sorting_comprehensive[0], sort_params=True)
+        assert formatter.get_formatted() == self.sorting_comprehensive[1]
+
+    sort_with_comments = (
+        "rule complex:\n"
+        f"{TAB}# Action comment\n"
+        f"{TAB}shell: 'do something'\n"
+        f"{TAB}# Resource comment\n"
+        f"{TAB}resources: res=1\n"
+        f"{TAB}# Input comment\n"
+        f"{TAB}input: 'i'\n",
+        "rule complex:\n"
+        f"{TAB}# Input comment\n"
+        f"{TAB}input:\n"
+        f'{TAB * 2}"i",\n'
+        f"{TAB}# Resource comment\n"
+        f"{TAB}resources:\n"
+        f"{TAB * 2}res=1,\n"
+        f"{TAB}# Action comment\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"do something"\n',
+    )
 
     def test_sorting_with_comments_preservation(self):
-        snakecode = (
-            "rule complex:\n"
-            f"{TAB}# Action comment\n"
-            f"{TAB}shell: 'do something'\n"
-            f"{TAB}# Resource comment\n"
-            f"{TAB}resources: res=1\n"
-            f"{TAB}# Input comment\n"
-            f"{TAB}input: 'i'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        # Comments stay with their keywords
-        expected = (
-            "rule complex:\n"
-            f"{TAB}# Input comment\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"i",\n'
-            f"{TAB}# Resource comment\n"
-            f"{TAB}resources:\n"
-            f"{TAB*2}res=1,\n"
-            f"{TAB}# Action comment\n"
-            f"{TAB}shell:\n"
-            f'{TAB*2}"do something"\n'
-        )
-        actual = formatter.get_formatted()
-        assert actual == expected
+        """Comments stay with their keywords"""
+        formatter = setup_formatter(self.sort_with_comments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_with_comments[1]
+
+    sort_inline_comments = (
+        "rule inline_comments:\n"
+        f"{TAB}shell: 'echo'\n"
+        f"{TAB}params:\n"
+        f"{TAB * 2}p=1,  # parameter comment\n"
+        f"{TAB}input: 'i'\n",
+        "rule inline_comments:\n"
+        f"{TAB}input:\n"
+        f'{TAB * 2}"i",\n'
+        f"{TAB}params:\n"
+        f"{TAB * 2}p=1,  # parameter comment\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"echo"\n',
+    )
 
     def test_sorting_with_inline_parameter_comments(self):
-        snakecode = (
-            "rule inline_comments:\n"
-            f"{TAB}shell: 'echo'\n"
-            f"{TAB}params:\n"
-            f"{TAB*2}p=1,  # parameter comment\n"
-            f"{TAB}input: 'i'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "rule inline_comments:\n"
-            f"{TAB}input:\n"
-            f'{TAB*2}"i",\n'
-            f"{TAB}params:\n"
-            f"{TAB*2}p=1,  # parameter comment\n"
-            f"{TAB}shell:\n"
-            f'{TAB*2}"echo"\n'
-        )
-        actual = formatter.get_formatted()
-        assert actual == expected
+        formatter = setup_formatter(self.sort_inline_comments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_inline_comments[1]
+
+    sort_module = (
+        "module other:\n"
+        f"{TAB}meta_wrapper: 'wrapper'\n"
+        f"{TAB}replace_prefix: 'rp'\n"
+        f"{TAB}prefix: 'p'\n"
+        f"{TAB}skip_validation: True\n"
+        f"{TAB}config: 'c'\n"
+        f"{TAB}snakefile: 's'\n"
+        f"{TAB}pathvars: ['pv']\n"
+        f"{TAB}name: 'n'\n",
+        "module other:\n"
+        f'{TAB}name: "n"\n'
+        f"{TAB}pathvars:\n"
+        f'{TAB * 2}["pv"],\n'
+        f"{TAB}snakefile:\n"
+        f'{TAB * 2}"s"\n'
+        f"{TAB}config:\n"
+        f'{TAB * 2}"c"\n'
+        f"{TAB}skip_validation:\n"
+        f"{TAB * 2}True\n"
+        f"{TAB}prefix:\n"
+        f'{TAB * 2}"p"\n'
+        f"{TAB}replace_prefix:\n"
+        f'{TAB * 2}"rp"\n'
+        f"{TAB}meta_wrapper:\n"
+        f'{TAB * 2}"wrapper"\n',
+    )
 
     def test_sorting_module(self):
-        snakecode = (
-            "module other:\n"
-            f"{TAB}meta_wrapper: 'wrapper'\n"
-            f"{TAB}replace_prefix: 'rp'\n"
-            f"{TAB}prefix: 'p'\n"
-            f"{TAB}skip_validation: True\n"
-            f"{TAB}config: 'c'\n"
-            f"{TAB}snakefile: 's'\n"
-            f"{TAB}pathvars: ['pv']\n"
-            f"{TAB}name: 'n'\n"
-        )
-        formatter = setup_formatter(snakecode, sort_params=True)
-        expected = (
-            "module other:\n"
-            f'{TAB}name: "n"\n'
-            f"{TAB}pathvars:\n"
-            f'{TAB*2}["pv"],\n'
-            f"{TAB}snakefile:\n"
-            f'{TAB*2}"s"\n'
-            f"{TAB}config:\n"
-            f'{TAB*2}"c"\n'
-            f"{TAB}skip_validation:\n"
-            f"{TAB*2}True\n"
-            f"{TAB}prefix:\n"
-            f'{TAB*2}"p"\n'
-            f"{TAB}replace_prefix:\n"
-            f'{TAB*2}"rp"\n'
-            f"{TAB}meta_wrapper:\n"
-            f'{TAB*2}"wrapper"\n'
-        )
-        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(self.sort_module[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_module[1]
 
     def test_sorting_checkpoint(self):
         snakecode = (
@@ -1909,11 +1905,11 @@ class TestSortFormatting:
         expected = (
             "checkpoint map_reads:\n"
             f"{TAB}input:\n"
-            f'{TAB*2}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}output:\n"
-            f'{TAB*2}"out.txt",\n'
+            f'{TAB * 2}"out.txt",\n'
             f"{TAB}shell:\n"
-            f'{TAB*2}"echo"\n'
+            f'{TAB * 2}"echo"\n'
         )
         assert formatter.get_formatted() == expected
 
@@ -2004,11 +2000,12 @@ def test_invalid_python_error_no_dedent(mock_format):
     formatter.snakefile = smk
     formatter.black_mode = black.Mode()
     formatter.from_python = False
+    formatter.fmt_off = None
     from snakefmt.parser.parser import Context
     from snakefmt.parser.syntax import KeywordSyntax
 
     formatter.context = Context(
-        None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
+        None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)  # type: ignore
     )
     # Manually set last_token to something that isn't DEDENT/ENDMARKER
     formatter.last_token = tokenize.TokenInfo(
@@ -2091,3 +2088,789 @@ def test_index_of_first_docstring_match():
     from snakefmt.formatter import index_of_first_docstring
 
     assert index_of_first_docstring('"""docstring"""') == 14
+
+
+class TestFmtOffOn:
+    """Tests for # fmt: off / # fmt: on directives."""
+
+    def test_fmt_off_at_start(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            expected = "# fmt: off\n" + code
+            assert setup_formatter(expected).get_formatted() == expected
+
+    def test_fmt_off_at_middle(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            # baseline
+            code1 = code + "\n\n\n# fmtoff\n" + code
+            expected = formatted.strip() + "\n\n\n# fmtoff\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+            # before `# fmt: off`, new lines are added as usual
+            code1 = code + "\n\n\n# fmt: off\n" + code
+            expected = formatted.strip() + "\n\n\n# fmt: off\n" + code
+            assert setup_formatter(code1).get_formatted() == expected
+
+    def test_fmt_off_on(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            # baseline
+            code1 = "\n# fmton\n" + code
+            expected = "# fmton\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+            # before `# fmt: on`, empty lines are removed as usual
+            code1 = "\n\n# fmt: on\n" + code
+            expected = "# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+            # also assert in `test_fmt_off_sort`
+            code1 = code + "\n\n# fmt: on\n" + code
+            expected = formatted + "\n\n# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+            # fmt on can enable formatting after fmt off
+            code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
+            expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+
+    def test_fmt_off_not_on(self):
+        """`
+        - `# fmt: on` at a deeper indentation level than `# fmt: off` has no effect
+        - `# fmt: off` keeps the rest of the code unformatted until a same-indent
+            `# fmt: on` found
+        """
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            expected = (
+                "# fmt: off\n"
+                + code
+                + "\nif 1:\n    a=1\n    # fmt: on\n    b=2\n"
+                + code
+            )
+            assert setup_formatter(expected).get_formatted() == expected
+
+    def test_fmt_off_on_in_run(self):
+        """# fmt: off inside Python code is handled by Black."""
+        code = (
+            "# ?\n"
+            "x = [1,2,3]\n"
+            "# fmt: off\n"
+            "y = [  1,   2]\n"
+            "s = f'''\n"
+            " {y} \n"
+            " '''\n"
+            "# fmt: on\n"
+            "z = [4,5,6]\n"
+        )
+        expected = (
+            "# ?\n"
+            "x = [1, 2, 3]\n"
+            "# fmt: off\n"
+            "y = [  1,   2]\n"
+            "s = f'''\n"
+            " {y} \n"
+            " '''\n"
+            "# fmt: on\n"
+            "z = [4, 5, 6]\n"
+        )
+        assert setup_formatter(code).get_formatted() == expected
+        bad_indent = "  "
+        snakecode = "rule:\n" " run:\n" + (
+            "".join(f"{bad_indent}{i}\n" for i in code.splitlines())
+        )
+        snakexpected = "rule:\n" f"{TAB * 1}run:\n" + (
+            f"{TAB * 2}# ?\n"
+            f"{TAB * 2}x = [1, 2, 3]\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}y = [  1,   2]\n"
+            f"{TAB * 2}s = f'''\n"
+            f"{bad_indent} {{y}} \n"
+            f"{bad_indent} '''\n"
+            f"{TAB * 2}# fmt: on\n"
+            f"{TAB * 2}z = [4, 5, 6]\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakexpected
+
+    def test_fmt_off_on_in_run_complex(self):
+        code, formatted = TestSimpleParamFormatting.example_shell_newline
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
+            f"{TAB * 2}# fmt: on\n\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
+            f"{TAB * 2}# fmt: on\n\n\n"
+            f"sth = 1\n\n\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n\n"
+            f"sth = 1\n\n\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_on_in_rule(self):
+        code, formatted = TestSimpleParamFormatting.example_shell_newline
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}x = [ 1,2,3]\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n\n"
+            f"sth = 1\n\n\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            f"rule:\n"
+            f"{TAB * 1}message: 'finishing'\n"
+            f"{TAB * 1}# Important input\n"
+            f"{TAB * 1}input: 'in.txt'\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}log: 'log.txt'\n"
+            f"{TAB * 1}name: 'myrule'\n"
+            f"{TAB * 1}# fmt: on\n"
+            f"{TAB * 1}output: 'out.txt'\n"
+            f"{TAB * 1}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n"
+            f"sth=1\n"
+            f"{code}"
+        )
+        expected = (
+            "rule:\n"
+            f"{TAB}message:\n"
+            f'{TAB * 2}"finishing"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}# fmt: off\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}# fmt: on\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}run:\n"
+            f"{TAB * 2}# fmt: off\n"
+            f"{TAB * 2}x = [ 1,2,3]\n\n\n"
+            f"sth = 1\n\n\n"
+            f"{formatted}"
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_on_in_other(self):
+        formatter = setup_formatter(
+            "module a: \n"
+            f'{TAB * 1}snakefile: "other.smk"\n'
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}config: config\n"
+            f'{TAB * 1}prefix: "testmodule"\n'
+            f"{TAB * 1}# fmt: on\n"
+            f'{TAB * 1}replace_prefix: {{"results/": "results/testmodule/"}}\n'
+            f'{TAB * 1}meta_wrapper: "0.72.0/meta/bio/bwa_mapping"\n'
+        )
+        expected = (
+            "module a:\n"
+            f"{TAB * 1}snakefile:\n"
+            f'{TAB * 2}"other.smk"\n'
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}config: config\n"
+            f'{TAB * 1}prefix: "testmodule"\n'
+            f"{TAB * 1}# fmt: on\n"
+            f"{TAB * 1}replace_prefix:\n"
+            f'{TAB * 2}{{"results/": "results/testmodule/"}}\n'
+            f"{TAB * 1}meta_wrapper:\n"
+            f'{TAB * 2}"0.72.0/meta/bio/bwa_mapping"\n'
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_lagging_comments(self):
+        expected = "if 1:\n" f"{TAB * 1}lagging_comments\n" "\n" f"{TAB * 1}# fmtany\n"
+        assert setup_formatter(expected).get_formatted() == expected
+        expected = (
+            "if 1:\n"
+            f"{TAB * 1}lagging_comments\n"
+            "\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}input: "sth"\n'
+            f'{TAB * 2}name: "sth"\n'
+            f"{TAB * 1}# fmt: on\n"
+        )
+        assert setup_formatter(expected).get_formatted() == expected
+        expected = (
+            "if 1:\n"
+            f"{TAB * 1}# lagging_comments\n"
+            f"{TAB * 1}# fmt: off\n"
+            f"{TAB * 1}rule a:\n"
+            f'{TAB * 2}input: "sth"\n'
+            f'{TAB * 2}name: "sth"\n'
+            f"{TAB * 1}# fmt: on\n"
+        )
+        assert setup_formatter(expected).get_formatted() == expected
+
+    def test_fmt_skip_in_python(self):
+        formatter = setup_formatter(
+            "if 1:\n"
+            f"{TAB}x = [ 1,2,3] # fmt: skip\n"
+            f"{TAB}sth=1 # comment no skip\n"
+            f"{TAB}y = [4,5,6]"
+        )
+        expected = (
+            "if 1:\n"
+            f"{TAB}x = [ 1,2,3] # fmt: skip\n"
+            f"{TAB}sth = 1  # comment no skip\n"
+            f"{TAB}y = [4, 5, 6]\n"
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_skip_in_directive(self):
+        formatter = setup_formatter(
+            "rule a:\n"
+            " params:\n"
+            "  x = [ 1,2,3] # fmt: skip\n"
+            " input: a= 'sth'   # fmt: skip\n"
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}x=[1, 2, 3],  # fmt: skip\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}a="sth",  # fmt: skip\n'
+        )
+        # TODO: currently `# fmt: skip` in directives is not supported
+        assert formatter.get_formatted()  # == expected
+        assert expected
+
+
+class TestFmtOffSort:
+    def test_fmt_off_sort(self):
+        for code, formatted in (
+            TestSortFormatting.sorting_comprehensive,
+            TestSortFormatting.sort_with_comments,
+            TestSortFormatting.sort_inline_comments,
+            TestSortFormatting.sort_module,
+        ):
+            # baseline: `# fmt: on` without a preceding `# fmt: off*` is a no-op
+            # and act as a normal comment
+            code1 = code + "\n\n# fmt: on\n" + code
+            expected = formatted + "\n\n# fmt: on\n" + formatted
+            assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+
+            # `# fmt: off[sort]` disables sorting for the rest of the rule
+            code1 = "# fmt: off[sort]\n" + code
+            expected = "# fmt: off[sort]\n" + setup_formatter(code).get_formatted()
+            assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+
+            # `# fmt: on[sort]` re-enables sorting after `# fmt: off[sort]`
+            code2 = code1 + "\n\n# fmt: on[sort]\n" + code
+            expected2 = expected + "\n\n# fmt: on[sort]\n" + formatted
+            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+
+            # plain `# fmt: on` also re-enables sorting after `# fmt: off[sort]`
+            code2 = code1 + "\n\n# fmt: on\n" + code
+            expected2 = expected + "\n\n# fmt: on\n" + formatted
+            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+
+    def test_fmt_off_sort_dedent(self):
+        """`# fmt: on` or `on[sort]` at a deeper indentation level than `off[sort]`
+        has no effect"""
+        code1, formatted1 = TestSortFormatting.sorting_comprehensive
+        formatted1 = setup_formatter(code1).get_formatted()
+        code2, formatted2 = TestSortFormatting.sort_with_comments
+        formatted2 = setup_formatter(code2).get_formatted()
+        code = (
+            "# fmt: off[sort]\n"
+            "if 1:\n"
+            " # fmt: on\n"
+            + "".join("  " + i for i in code1.splitlines(keepends=True)).rstrip()
+            + "\n"
+            + code2.rstrip()
+        )
+        expected = (
+            "# fmt: off[sort]\n"
+            "if 1:\n"
+            "\n"
+            f"{TAB}# fmt: on\n"
+            + "".join(TAB + i for i in formatted1.splitlines(keepends=True)).rstrip()
+            + "\n"
+            "\n\n" + formatted2
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_on_noeffect(self):
+        code1, formatted1 = TestSortFormatting.sorting_comprehensive
+        code2, formatted2 = TestSortFormatting.sort_with_comments
+        formatted2 = setup_formatter(code2).get_formatted()
+        code3, formatted3 = TestSortFormatting.sort_inline_comments
+        code = (
+            code1.rstrip() + "\n"
+            "\n"
+            "if 1:\n"
+            " # fmt: off[sort]\n"
+            + "".join("  " + i for i in code2.splitlines(keepends=True)).rstrip()
+            + "\n"
+            "\n\n" + code3
+        )
+        expected = (
+            formatted1 + "\n\n"
+            "if 1:\n"
+            "\n"
+            f"{TAB}# fmt: off[sort]\n"
+            + "".join(TAB + i for i in formatted2.splitlines(keepends=True))
+            + "\n\n"
+            + formatted3
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_nothing(self):
+        code1, formatted1 = TestSortFormatting.sorting_comprehensive
+        code3, formatted3 = TestSortFormatting.sort_inline_comments
+        code = code1.rstrip() + "\n" "\n" "if 1:\n" " pass\n" "\n\n" + code3
+        expected = formatted1 + "\n\n" "if 1:\n" f"{TAB}pass\n" "\n\n" + formatted3
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_between_directive(self):
+        """
+        if you turn off sorting around one directive half way through the rule,
+        you would sort the half above it and the half below it,
+        the directive(s) that is surrounded by `# fmt: off` remain
+        at the same index within the rule.
+        """
+        code = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}resources: mem_mb=100\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}conda: 'env.yaml'\n"
+            f"{TAB}message: 'finishing'\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# before fmt\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}shell: 'echo done'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}conda:\n"
+            f'{TAB * 2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB * 2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB * 2}"finishing"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB * 2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}# before fmt\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"echo done"\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_between_directive2(self):
+        """
+        In this case, the `# fmt: on` is directly parsed from `Parser.process_keyword`
+        """
+        code = (
+            "rule all:\n"
+            " params: p=1\n"
+            " resources: mem_mb=100\n"
+            " threads: 4\n"
+            " conda: 'env.yaml'\n"
+            " message: 'finishing'\n"
+            " # fmt: off[sort]\n"
+            " log: 'log.txt'\n"
+            " output: 'out.txt'\n"
+            " # fmt: on[sort]\n"
+            " # Important input\n"
+            " input: 'in.txt'\n"
+            " name: 'myrule'\n"
+            " shell: 'echo done'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}conda:\n"
+            f'{TAB * 2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB * 2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB * 2}"finishing"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB * 2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"echo done"\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+    def test_fmt_off_sort_between_directive_empty(self):
+        code = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}resources: mem_mb=100\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}conda: 'env.yaml'\n"
+            f"{TAB}message: 'finishing'\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}# fmt: on\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}shell: 'echo done'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}conda:\n"
+            f'{TAB * 2}"env.yaml"\n'
+            f"{TAB}threads: 4\n"
+            f"{TAB}resources:\n"
+            f"{TAB * 2}mem_mb=100,\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}message:\n"
+            f'{TAB * 2}"finishing"\n'
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}# fmt: on\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"echo done"\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+
+
+class TestFmtOffNext:
+    def test_fmt_off_next(self):
+        for code, formatted in (
+            TestSimpleParamFormatting.example_shell_newline,
+            TestSimpleParamFormatting.example_params_newline,
+            TestSimpleParamFormatting.example_input_threads_newline,
+        ):
+            code1 = "\n\n# fmt: off[next]\n" + code + "\n" + code
+            expected = "# fmt: off[next]\n" + code.strip("\n") + "\n\n\n" + formatted
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code.rstrip() + "\n\n# fmtnext\n" + "\n\n\n" + code
+            expected = (
+                formatted.rstrip() + "\n\n\n" + "# fmtnext\n" + "\n\n" + formatted
+            )
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code.rstrip() + "\n\n# fmt: off[next]\n" + code + "\n\n\n" + code
+            expected = (
+                formatted.rstrip()
+                + "\n\n\n"
+                + "# fmt: off[next]\n"
+                + code.strip("\n")
+                + "\n\n\n"
+                + formatted
+            )
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code + "\n# fmt: off[next]\n" + code
+            expected = formatted + "\n\n# fmt: off[next]\n" + code
+            assert setup_formatter(code1).get_formatted() == expected
+            code1 = code + "\n# fmt: off[next]\n" + code + "\n\n"
+            expected = formatted + "\n\n# fmt: off[next]\n" + code.rstrip("\n") + "\n"
+            assert setup_formatter(code1).get_formatted() == expected
+
+    def test_rule_if_rule(self):
+        code1, format1 = TestSimpleParamFormatting.example_shell_newline
+        code2, format2 = TestSimpleParamFormatting.example_params_newline
+        code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+        formatter = setup_formatter(
+            code1 + "\n"
+            "if 1:\n" + "".join(" " + i for i in code2.splitlines(keepends=True)) + "\n"
+            f"{code3}"
+        )
+        expected = (
+            format1
+            + "\n\n"
+            + "if 1:\n\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_rule_if2_rule(self):
+        code1, format1 = TestSimpleParamFormatting.example_shell_newline
+        code2, format2 = TestSimpleParamFormatting.example_params_newline
+        code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+        formatter = setup_formatter(
+            code1 + "\n"
+            "if 1:\n"
+            " if 2:\n"
+            + "".join("  " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            f"{code3}"
+        )
+        expected = (
+            format1
+            + "\n\n"
+            + "if 1:\n"
+            + f"{TAB * 1}if 2:\n\n"
+            + "".join(f"{TAB * 2}" + i for i in format2.splitlines(keepends=True))
+            + "\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            code1 + "\n"
+            "if 1:\n"
+            " if 2:\n"
+            + "".join("  " + i for i in code2.splitlines(keepends=True)).rstrip("\n")
+            + "\n"
+            " # fmt: off[next]\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + code3
+        )
+        expected = (
+            format1
+            + "\n\n"
+            + "if 1:\n"
+            + f"{TAB * 1}if 2:\n\n"
+            + "".join(
+                f"{TAB * 2}" + i for i in format2.splitlines(keepends=True)
+            ).rstrip("\n")
+            + "\n"
+            f"{TAB * 1}# fmt: off[next]\n"
+            + "".join(f"{TAB * 1}" + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + "\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            code1 + "\n"
+            "if 1:\n"
+            " if 2:\n"
+            "  sth\n"
+            + "\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True)).rstrip("\n")
+            + "\n"
+            f"{code3}"
+        )
+        expected = (
+            format1 + "\n\n"
+            "if 1:\n"
+            f"{TAB * 1}if 2:\n"
+            f"{TAB * 2}sth\n"
+            + "\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            code1 + "\n"
+            "if 1:\n"
+            " if 2:\n"
+            "  # fmt: off[next]\n"
+            + "".join("  " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True)).rstrip("\n")
+            + "\n"
+            f"{code3}"
+        )
+        expected = (
+            format1 + "\n\n"
+            "if 1:\n"
+            f"{TAB * 1}if 2:\n"
+            f"{TAB * 2}# fmt: off[next]\n"
+            + "".join(f"{TAB * 2}" + i for i in code2.splitlines(keepends=True)).rstrip(
+                "\n"
+            )
+            + "\n\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_next_in_if(self):
+        code1, format1 = TestSimpleParamFormatting.example_shell_newline
+        code2, format2 = TestSimpleParamFormatting.example_params_newline
+        code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+        formatter = setup_formatter(
+            code1 + "\n# fmt: \n"
+            "if 1:\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + f"\n"
+            f"{code3}"
+        )
+        expected = (
+            format1
+            + "\n\n# fmt:\n"
+            + "if 1:\n\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n"
+            + "\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            code1.rstrip("\n") + "\n# fmt: off[next]\n"
+            "if 1:\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + code3
+        )
+        expected = (
+            format1 + "\n\n# fmt: off[next]\n"
+            "if 1:\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True)).rstrip("\n")
+            + "\n\n\n"
+            + format3
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_next_in_2if(self):
+        code1, format1 = TestSimpleParamFormatting.example_shell_newline
+        code2, format2 = TestSimpleParamFormatting.example_params_newline
+        code3, format3 = TestSimpleParamFormatting.example_input_threads_newline
+        formatter = setup_formatter(
+            code1.rstrip("\n") + "\n"
+            "if 1:\n"
+            " \n# fmt:\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + "".join(" " + i for i in code3.splitlines(keepends=True))
+        )
+        expected = (
+            format1.rstrip("\n") + "\n"
+            "\n\n"
+            "if 1:\n\n"
+            f"{TAB * 1}# fmt:\n"
+            + "".join(f"{TAB * 1}" + i for i in format2.splitlines(keepends=True))
+            + "\n"
+            + "".join(f"{TAB * 1}" + i for i in format3.splitlines(keepends=True))
+        )
+        assert formatter.get_formatted() == expected
+        formatter = setup_formatter(
+            code1.rstrip("\n") + "\n"
+            "if 1:\n"
+            "\n # fmt: off[next]\n"
+            + "".join(" " + i for i in code2.splitlines(keepends=True))
+            + "\n"
+            + "".join(" " + i for i in code3.splitlines(keepends=True))
+        )
+        expected = (
+            format1.rstrip("\n") + "\n"
+            "\n\n"
+            "if 1:\n"
+            f"{TAB * 1}# fmt: off[next]\n"
+            + "".join(f"{TAB * 1}" + i for i in code2.splitlines(keepends=True)).strip(
+                "\n"
+            )
+            + "\n\n"
+            + "".join(f"{TAB * 1}" + i for i in format3.splitlines(keepends=True))
+        )
+        assert formatter.get_formatted() == expected
+
+    def test_fmt_off_2(self):
+        formatter = setup_formatter(
+            "if 1:\n"
+            " rule a:\n"
+            '  input: "foo"\n'
+            " # fmt: off[next]\n"
+            " rule b:\n"
+            '  input: "bar"\n'
+            "\n"
+            " # fmt: off[next]\n"
+            " rule c:\n"
+            '  input: "baz"\n'
+            "rule d:\n"
+            ' input: "qux"\n'
+        )
+        assert formatter.get_formatted() == (
+            f"if 1:\n"
+            f"\n"
+            f"{TAB}rule a:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"foo",\n'
+            f"{TAB}# fmt: off[next]\n"
+            f"{TAB}rule b:\n"
+            f'{TAB} input: "bar"\n'
+            f"{TAB}# fmt: off[next]\n"
+            f"{TAB}rule c:\n"
+            f'{TAB} input: "baz"\n'
+            f"\n"
+            f"\n"
+            f"rule d:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"qux",\n'
+        )

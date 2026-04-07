@@ -309,7 +309,7 @@ class Syntax(ABC):
         self.keyword_indent = keyword_indent
         self.cur_indent = max(self.keyword_indent - 1, 0)
         self.comment = ""
-        self.token = None
+        self.token: Token
 
         if snakefile is not None:
             self.validate_keyword_line(snakefile)
@@ -516,21 +516,46 @@ class ParameterSyntax(Syntax):
                 self.flush_param(cur_param, skip_empty=True)
                 self.eof = True
                 break
-            if self.check_exit(cur_param):
+            if self.check_exit(cur_param, snakefile):
                 break
 
         if self.num_params() == 0:
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
-    def check_exit(self, cur_param: Parameter):
+    def check_exit(self, cur_param: Parameter, snakefile: TokenIterator):
         exit = False
-        if not self.found_newline:
+        if not self.found_newline or not self.token:
             return exit
         if not_empty(self.token):
-            # Special condition for comments: they appear before indents/dedents.
             if self.token.type == tokenize.COMMENT:
                 if not cur_param.is_empty() and col_nb(self.token) < cur_param.col_nb:
-                    exit = True
+                    # comment appears before INDENT/DEDENT in the token stream;
+                    # peek ahead with a temp counter so self.cur_indent stays
+                    # untouched — the real processing will update it once tokens
+                    # are put back.
+                    temp_indent = self.cur_indent
+                    cached_tokens: list[Token] = []
+                    try:
+                        while True:
+                            t = next(snakefile)
+                            cached_tokens.append(t)
+                            if t.type == tokenize.INDENT:
+                                temp_indent += 1
+                            elif t.type == tokenize.DEDENT:
+                                temp_indent = max(temp_indent - 1, 0)
+                            elif t.type not in {
+                                tokenize.NEWLINE,
+                                tokenize.NL,
+                                tokenize.COMMENT,
+                            }:
+                                # stop here; this token stays in cached_tokens
+                                # and will be put back below — no double-denext
+                                break
+                    except StopIteration:
+                        pass
+                    for t in reversed(cached_tokens):
+                        snakefile.denext(t)  # type: ignore[attr-defined]
+                    exit = temp_indent < self.keyword_indent
             else:
                 exit = self.cur_indent < self.keyword_indent
             if exit:
