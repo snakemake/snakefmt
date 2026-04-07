@@ -89,6 +89,9 @@ class TokenIterator:
         it could be INDEDT -> [any content] -> DEDENT, or [any content] -> DEDENT
         """
         line = self.next_new_line()
+        if line.end.type == tokenize.ENDMARKER:
+            self.denext(*reversed(list(line.iter)))
+            return [], []
         assert line.deindelta >= 0, "Unexpected DEDENT at the beginning of a block"
         assert line.body, "Unexpected empty line at the beginning of a block"
         lines = [line]
@@ -582,7 +585,6 @@ def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] 
     try:
         fmted = black.format_str(prefix + string, mode=mode)
     except black.parsing.InvalidInput as e:
-        breakpoint()
         raise e
     if indent:
         fix = fmted.split("\n", indent)[-1]
@@ -640,7 +642,9 @@ class ColonBlock(Block):
         return self._keyword()
 
     def split_colon_line(self):
-        token_iter = TokenIterator("", iter(self.head_lines[-1].iter))
+        token_iter = TokenIterator(
+            "", iter(self.colon_line.body + [self.colon_line.end])
+        )
         last_line_tokens = []
         while True:
             component = token_iter.next_component()
@@ -651,7 +655,7 @@ class ColonBlock(Block):
         prior = tokens2linestrs(iter(last_line_tokens))
         prior[-1] = prior[-1][: colon_token.start[1]]
         token_iter.denext(colon_token)
-        return prior, token_iter
+        return self.colon_line.head_noncoding, prior, token_iter
 
     @property
     def colon_line(self):
@@ -821,11 +825,15 @@ class SnakemakeBlock(ColonBlock):
         assert (
             len(self.head_lines) == 1
         ), "Snakemake keywords should only have one head line"
-        prior_colon, post_colon = self.split_colon_line()
-        (head,) = prior_colon
+        indent = TAB * self.deindent_level
+        noncoding, prior_colon, post_colon = self.split_colon_line()
+        formatted_comments = "".join(
+            indent + i.line.lstrip() for i in noncoding if i.type == tokenize.COMMENT
+        )
         assert len(prior_colon) == 1, "Snakemake keywords should be single line"
+        (head,) = prior_colon
         components = head.strip().split()
-        formatted_head = TAB * self.deindent_level + " ".join(components) + ":"
+        formatted_head = formatted_comments + indent + " ".join(components) + ":"
         if self.colon_line.end_op == ":":
             # only a single line comment or empty is possible here, add directly
             colon_token = next(post_colon)
@@ -853,12 +861,63 @@ class PythonArgumentsBlock(PythonBlock):
     - simple expressions on the right, e.g. `"data.txt",`
     - assignment with simple names on the left, e.g. `a = 1,`
     - Specally, allow `*args` and `**kwargs` as normal function
+    """
 
-    Enhancement could be done: accepth expressions without trailing comma,
-    because each expression is already splitted by lines,
-    and we can add a trailing comma only if needed.
-    If we want to support expressions without trailing comma,
-    cases where two lines can makesense without a comma between them
+    @classmethod
+    def format_post_colon(
+        cls,
+        mode: Mode,
+        deindent_level: int,
+        post_colon: list[TokenInfo],
+        body_blocks: list[Block],
+    ) -> str:
+        """If there is indent after the colon line,
+        even if expressions exist in that line,
+        indent body should be formatted as part of the cotent:
+            input: balabal,  # <- expression after the colon
+                balabal2     # <- indent body, should be formatted as part of the content
+        to:
+            input:
+                balabal,
+                balabal2,
+        """
+        if post_colon:
+            assert (
+                post_colon[-1].type == tokenize.NEWLINE
+            ), "Unexpected post_colon without a new line at the end"
+            colon_token = post_colon[0]
+            partial_line = LogicalLine([], [], post_colon[1:-1], post_colon[-1])
+            post = tokens2linestrs(iter(partial_line.body))
+            post[0] = post[0][colon_token.end[1] :]
+        else:
+            post = []
+        if body_blocks:
+            (param_space,) = body_blocks
+            assert (
+                not param_space.body_blocks
+            ), "Argument block should not have body blocks"
+            for line in param_space.head_lines:
+                post.extend(line.linestrs)
+            post.extend(tokens2linestrs(iter(param_space.tail_noncoding)))
+            # here is used to check the end_op
+            partial_line = param_space.head_lines[-1]
+        raw = cls.handle_end_comma("".join(post), partial_line)
+        formatted = format_black(raw, mode, deindent_level, partial="(")
+        return formatted
+
+    @staticmethod
+    @abstractmethod
+    def handle_end_comma(raw: str, last_line: LogicalLine) -> str: ...
+
+
+class PythonArguments(PythonArgumentsBlock):
+    """Parsed as *args, **kwargs
+
+    Enhancement: accepth expressions without trailing comma,
+    Since each expression is already splitted by lines,
+    we can automatically add trailing commas to avoid syntax errors
+
+    Cases where two lines can makesense without a comma between them
       should be carefully considered,
     e.g.:
         input:
@@ -869,11 +928,10 @@ class PythonArgumentsBlock(PythonBlock):
             (a, b)
     Although in our view this is naturally two expressions,
     the action do change with the proposed enhancement.
+
+    Further enhancement: support expressions without trailing comma in syntax,
+    but that's not eazy, especially for unnamed arguments
     """
-
-
-class PythonArguments(PythonArgumentsBlock):
-    """Parsed as *args, **kwargs"""
 
     def formatted(self, mode, state):
         """PythonArguments and its subclasses always at the terminal
@@ -889,33 +947,18 @@ class PythonArguments(PythonArgumentsBlock):
         formatted = format_black(raw, mode, self.deindent_level - 1, partial="(")
         return formatted, state
 
-    @classmethod
-    def format_post_colon(
-        cls, post_colon: list[TokenInfo], deindent_level: int, mode: Mode
-    ):
-        """If the params are in the same line as the keyword,
-            e.g. `input: "data.txt"`,
-        then self.body_blocks is empty, should take those from post_colon
-        """
-        assert (
-            post_colon and post_colon[-1].type == tokenize.NEWLINE
-        ), "Unexpected post_colon without a new line at the end"
-        colon_token = post_colon[0]
-        partial_line = LogicalLine([], [], post_colon[1:-1], post_colon[-1])
-        post = tokens2linestrs(iter(partial_line.body))
-        post[0] = post[0][colon_token.end[1] :]
-        raw = "".join(post)
-        if not partial_line.end_op == ",":
+    @staticmethod
+    def handle_end_comma(raw, last_line):
+        if not last_line.end_op == ",":
             raw += "\n,"
-        formatted = format_black(raw, mode, deindent_level, partial="(")
-        return formatted
+        return raw
 
 
 class PythonUnnamedArguments(PythonArguments):
     """Only allow simple expressions on the right, and the whole block should be a list"""
 
 
-class PythonOneLineArgument(PythonUnnamedArguments):
+class PythonOneLineArgument(PythonArgumentsBlock):
     """Only allow simple expressions on the right"""
 
     def formatted(self, mode, state):
@@ -936,28 +979,17 @@ class PythonOneLineArgument(PythonUnnamedArguments):
         formatted = format_black(raw, mode, self.deindent_level - 1, partial="(")
         return formatted, state
 
-    @classmethod
-    def format_post_colon(
-        cls, post_colon: list[TokenInfo], deindent_level: int, mode: Mode
-    ):
-        assert (
-            post_colon and post_colon[-1].type == tokenize.NEWLINE
-        ), "Unexpected post_colon without a new line at the end"
-        colon_token = post_colon[0]
-        partial_line = LogicalLine([], [], post_colon[1:-1], post_colon[-1])
-        post = tokens2linestrs(iter(partial_line.body))
-        post[0] = post[0][colon_token.end[1] :]
-        raw = "".join(post)
-        if partial_line.end_op == ",":
+    @staticmethod
+    def handle_end_comma(raw, last_line):
+        if last_line.end_op == ",":
             comma_token = (
-                partial_line.body[-2]
-                if partial_line.body[-1].type == tokenize.COMMENT
-                else partial_line.body[-1]
+                last_line.body[-2]
+                if last_line.body[-1].type == tokenize.COMMENT
+                else last_line.body[-1]
             )
             comma_start = comma_token.start[1] - len(comma_token.line)
             raw = raw[:comma_start] + raw[comma_start + 1 :]
-        formatted = format_black(raw, mode, deindent_level, partial="(")
-        return formatted
+        return raw
 
 
 class SnakemakeArgumentsBlock(SnakemakeBlock):
@@ -965,24 +997,46 @@ class SnakemakeArgumentsBlock(SnakemakeBlock):
     The content is pure python.
     """
 
-    Argument = PythonArguments
+    Argument: type[PythonArgumentsBlock] = PythonArguments
+
+    def consume(self, tokens):
+        """Even if the colon line contains params after the colon,
+        we still expect an optional indent body
+        so: if self.colon_line.end_op == ":" or True:
+        """
+        self.consume_body(tokens)
 
     def consume_body(self, tokens):
+        if self.colon_line.end_op != ":":
+            # See if the body is indented.
+            # NL and COMMENT can precede the INDENT;
+            # anything else means no body.
+            peeked: list[TokenInfo] = []
+            for token in tokens:
+                peeked.append(token)
+                if token.type != tokenize.NL and token.type != tokenize.COMMENT:
+                    break
+            tokens.denext(*reversed(peeked))
+            if peeked[-1].type != tokenize.INDENT:
+                return
         lines, tail_noncoding = tokens.next_block()
-        self.body_blocks.append(self.Argument(self.deindent_level + 1, tokens, lines))
-        self.extend_tail_noncoding(tail_noncoding)
+        if lines:
+            self.body_blocks.append(
+                self.Argument(self.deindent_level + 1, tokens, lines)
+            )
+            self.extend_tail_noncoding(tail_noncoding)
+        else:
+            assert (
+                self.colon_line.end_op != ":"
+            ), "Empty body after colon is not allowed"
 
     def format_body(self, mode, state, post_colon) -> str:
         """Format body as in the function call,
         e.g. `input: "data.txt",` -> `input("data.txt")`
         """
-        if post_colon:
-            return self.Argument.format_post_colon(
-                post_colon, self.deindent_level, mode
-            )
-        else:
-            (param_space,) = self.body_blocks
-            return param_space.formatted(mode, state)[0]
+        return self.Argument.format_post_colon(
+            mode, self.deindent_level, post_colon, self.body_blocks
+        )
 
     def compilation(self):
         raise NotImplementedError
@@ -992,7 +1046,7 @@ class SnakemakeUnnamedArgumentsBlock(SnakemakeArgumentsBlock):
     Argument = PythonUnnamedArguments
 
 
-class SnakemakeUnnamedArgumentBlock(SnakemakeUnnamedArgumentsBlock):
+class SnakemakeUnnamedArgumentBlock(SnakemakeArgumentsBlock):
     Argument = PythonOneLineArgument
 
 
@@ -1122,13 +1176,9 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
         self.extend_tail_noncoding(tail_noncoding)
 
     def format_body(self, mode, state, post_colon):
-        if post_colon:
-            return PythonOneLineArgument.format_post_colon(
-                post_colon, self.deindent_level, mode
-            )
-        else:
-            (param_space,) = self.body_blocks
-            return param_space.formatted(mode, state)[0]
+        return PythonOneLineArgument.format_post_colon(
+            mode, self.deindent_level, post_colon, self.body_blocks
+        )
 
 
 @_register()
@@ -1196,8 +1246,7 @@ class Module(NamedBlock, SnakemakeKeywordBlock):
     class Replace_Prefix(SnakemakeUnnamedArgumentBlock): ...
 
 
-@_register("use")
-class UseRule(NamedBlock, SnakemakeKeywordBlock):
+class _Rule(NamedBlock, SnakemakeKeywordBlock):
     subautomata, _register = init_block_register()
 
     @_register()
@@ -1273,8 +1322,47 @@ class UseRule(NamedBlock, SnakemakeKeywordBlock):
     deprecated = {"version": "Use conda or container directive instead (see docs)."}
 
 
+@_register("use")
+class UseRule(_Rule):
+    def formatted(self, mode, state):
+        """Allow:
+        use rule * from other_workflow exclude ruleC as other_*
+        use rule * from other_workflow exclude ruleC
+        use rule * from other_workflow as other_*
+        use rule * from other_workflow
+        """
+        assert len(self.head_lines) == 1, "use directive should only have one head line"
+        head_line = tokens2linestrs(iter(self.head_lines[0].body))
+        assert len(head_line) == 1, "use directive should be single line"
+        head_bulk_line = head_line[0].split("#", 1)[0]
+        if ":" not in head_bulk_line:
+            # return quickly (also no body block here)
+            indent = TAB * self.deindent_level
+            noncoding = self.head_lines[0].head_noncoding
+            # TODO: format comments using black
+            formatted_comments = "".join(
+                indent + format_black(i.line.lstrip(), mode)
+                for i in noncoding
+                if i.type == tokenize.COMMENT
+            )
+            components = head_bulk_line.strip().split()
+            formatted_head = formatted_comments + indent + " ".join(components)
+            if "#" in head_line[0]:
+                formatted_head += "  " + format_black(
+                    "#" + head_line[0].split("#", 1)[1], mode=mode
+                ).rstrip("\n")
+            return formatted_head + "\n", state
+        formatted_prior, post_colon = self.format_head(mode)
+        formatted_body = self.format_body(mode, state, post_colon)
+        formatted = [formatted_prior, formatted_body]
+        for comment in tokens2linestrs(iter(self.tail_noncoding)):
+            if comment.strip():
+                formatted.append(TAB * self.deindent_level + comment.lstrip())
+        return "".join(formatted), state
+
+
 @_register()
-class Rule(UseRule):
+class Rule(_Rule):
     exec_subautomata, _register = init_block_register()
 
     @_register()
@@ -1300,7 +1388,7 @@ class Rule(UseRule):
     @_register()
     class CWL(Script): ...
 
-    subautomata = {**UseRule.subautomata, **exec_subautomata}
+    subautomata = {**_Rule.subautomata, **exec_subautomata}
 
 
 @_register()
@@ -1315,7 +1403,13 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
+    __slots__ = ("mode",)
+    mode: Mode
+
     subautomata = {**python_subautomata, **global_snakemake_subautomata}
+
+    def __init__(self, deindent_level, tokens, lines=None):
+        super().__init__(deindent_level, tokens, lines)
 
     def consume(self, tokens):
         self.body_blocks = self.consume_subblocks(tokens)
@@ -1333,6 +1427,13 @@ class GlobalBlock(Block):
             formatted.pop()  # remove the last "\n"
         return "".join(formatted), state_
 
+    def get_formatted(self, mode: Mode | None = None):
+        if mode is None:
+            mode = getattr(self, "mode", None)
+            if mode is None:
+                raise ValueError("Mode should be provided for formatting")
+        return self.formatted(mode, FormatState())[0]
+
     def compilation(self):
         raise NotImplementedError
 
@@ -1345,3 +1446,18 @@ def parse(input: str | Callable[[], str], name: str = "<string>") -> GlobalBlock
     else:
         tokens = tokenize.generate_tokens(input)
     return GlobalBlock(0, TokenIterator(name, tokens), [])
+
+
+def setup_formatter(
+    snake: str,
+    line_length: int | None = None,
+    sort_params: bool = False,
+    black_config_file=None,
+):
+    formatter = parse(snake)
+    mode = read_black_config(black_config_file) or Mode()
+    if line_length is not None:
+        mode.line_length = line_length
+
+    formatter.mode = mode
+    return formatter
