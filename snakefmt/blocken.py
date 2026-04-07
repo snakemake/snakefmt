@@ -2,7 +2,6 @@ import sys
 import tokenize
 from abc import ABC, abstractmethod
 from typing import (
-    Any,
     Callable,
     Iterator,
     Literal,
@@ -552,6 +551,55 @@ class DocumentSymbol(NamedTuple):
     block: "Block"
 
 
+def format_python_colon_head(
+    raw: str, mode: Mode, keyword: str, indent_str: str = "", indent=0, partial=False
+):
+    """Continuation keywords (else/elif/except/finally) need a preceding fake block
+    because black cannot parse them in isolation.
+    """
+    if keyword == "elif" or keyword == "else":
+        fake_head = indent_str + "if 1: pass\n"
+        fake_head_lines = 2  # black always expands "if 1: pass" to 2 lines
+    elif keyword == "except" or keyword == "finally":
+        fake_head = indent_str + "try: pass\n"
+        fake_head_lines = 2  # black always expands "try: pass" to 2 lines
+    elif keyword == "match":
+        # match needs at least one case, add a dummy case
+        dummy_case = indent_str + "    case _: pass\n"
+        formatted = format_black(raw + dummy_case, mode, indent, "")
+        # Keep only the match line (first line before case)
+        match_line = formatted.split("\n")[0]
+        return match_line + "\n" if match_line else raw
+    elif keyword == "case":
+        # case needs to be inside a match, construct the full block
+        case_content = raw.lstrip()  # Remove indentation
+        # Create match-case block with case inside
+        full_block = indent_str + "match 1:\n" + indent_str + "    " + case_content
+        formatted = format_black(full_block, mode, 0, ":")
+        # Extract just the case line(s) and restore original indent
+        lines = formatted.split("\n")
+        result_lines = []
+        case_started = False
+        for line in lines:
+            if line.strip().startswith("case"):
+                case_started = True
+            if case_started:
+                if line.strip() and line.strip() != "pass":
+                    # Remove the extra indentation added by format_black and keep just the case
+                    result_lines.append(indent_str + line.lstrip())
+                elif line.strip() == "pass":
+                    break
+        if result_lines:
+            return "\n".join(result_lines) + "\n"
+        return raw
+    else:
+        return format_black(raw, mode, indent, ":" if partial else "")
+    formatted = format_black(fake_head + raw, mode, indent, ":")
+    if not fake_head:
+        return formatted
+    return formatted.split("\n", fake_head_lines)[-1]
+
+
 def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] = ""):
     """Format a string using Black formatter.
 
@@ -713,9 +761,14 @@ class IfForTryWithBlock(ColonBlock):
         formatted = []
         if not self.body_blocks:
             raw = "".join(self.full_linestrs)
-            return format_black(raw, mode, self.deindent_level), state
+            head = format_python_colon_head(
+                raw, mode, self.keyword, self.indent_str, self.deindent_level
+            )
+            return head, state
         raw_head = "".join(self.head_linestrs)
-        head = format_black(raw_head, mode, self.deindent_level, partial=":")
+        head = format_python_colon_head(
+            raw_head, mode, self.keyword, self.indent_str, self.deindent_level, True
+        )
         formatted.append(head)
         state_ = state
         if isinstance(
@@ -772,7 +825,7 @@ class MatchBlock(ColonBlock):
         self.body_blocks = blocks
 
     def formatted(self, mode, state):
-        raise NotImplementedError
+        raise NotImplementedError("Not supported to format match-case blocks yet")
 
     def compilation(self):
         raise NotImplementedError
@@ -1176,9 +1229,13 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
         self.extend_tail_noncoding(tail_noncoding)
 
     def format_body(self, mode, state, post_colon):
-        return PythonOneLineArgument.format_post_colon(
-            mode, self.deindent_level, post_colon, self.body_blocks
-        )
+        if post_colon:
+            return PythonOneLineArgument.format_post_colon(
+                mode, self.deindent_level, post_colon, self.body_blocks
+            )
+        else:
+            (param_space,) = self.body_blocks
+            return param_space.formatted(mode, state)[0]
 
 
 @_register()
@@ -1339,12 +1396,17 @@ class UseRule(_Rule):
             # return quickly (also no body block here)
             indent = TAB * self.deindent_level
             noncoding = self.head_lines[0].head_noncoding
-            # TODO: format comments using black
-            formatted_comments = "".join(
-                indent + format_black(i.line.lstrip(), mode)
-                for i in noncoding
-                if i.type == tokenize.COMMENT
-            )
+            if noncoding:
+                raw_noncoding = "".join(tokens2linestrs(iter(noncoding)))
+                # `1` make sure all comments dedent to no prefix, then we can remove it
+                foramtted_noindent = format_black(raw_noncoding + "1", mode).split(
+                    "\n"
+                )[:-2]
+                formatted_comments = "".join(
+                    indent + i + "\n" if i else "\n" for i in foramtted_noindent
+                )
+            else:
+                formatted_comments = ""
             components = head_bulk_line.strip().split()
             formatted_head = formatted_comments + indent + " ".join(components)
             if "#" in head_line[0]:
