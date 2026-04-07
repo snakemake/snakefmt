@@ -754,16 +754,23 @@ class IfForTryWithBlock(ColonBlock):
         )
         formatted.append(head)
         state_ = state
-        if isinstance(
-            self.body_blocks[0],
-            (NoSnakemakeBlock, NamedBlock, SnakemakeExecutableBlock),
-        ):
-            formatted.append("\n")
-        for block in self.body_blocks:
+        prev_was_major = False
+        for i, block in enumerate(self.body_blocks):
+            this_is_major = isinstance(
+                block, (NoSnakemakeBlock, NamedBlock, SnakemakeExecutableBlock)
+            )
+            if (
+                this_is_major
+                or prev_was_major
+                or (i == 0 and isinstance(block, SnakemakeBlock))
+            ):
+                # Always enforce blank line before/after
+                #  def/class/rule/onstart/etc. blocks
+                # Always add blank line before the first inline snakemake block
+                formatted.append("\n")
+            prev_was_major = this_is_major
             block_formatted, state_ = block.formatted(mode, state_)
             formatted.append(block_formatted)
-            formatted.append("\n")
-        formatted.pop()  # remove the last "\n"
         for comment in tokens2linestrs(iter(self.tail_noncoding)):
             if comment.strip():
                 formatted.append(TAB * self.deindent_level + comment.lstrip())
@@ -1096,7 +1103,8 @@ class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
         formatted_body = self.format_body(mode, state, post_colon)
         formatted = [formatted_prior, formatted_body]
         if formatted_body.count("\n") == 1 and formatted_body.endswith("\n"):
-            if formatted_prior.endswith(":\n") and "#" not in formatted_prior:
+            last_head_line = formatted_prior.rsplit("\n", 2)[-2]
+            if formatted_prior.endswith(":\n") and "#" not in last_head_line:
                 formatted_merge = formatted_prior[:-1] + " " + formatted_body.lstrip()
                 if len(formatted_merge) <= mode.line_length:
                     formatted = [formatted_merge]
