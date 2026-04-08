@@ -730,8 +730,9 @@ class NoSnakemakeBlock(ColonBlock):
 
     def consume_body(self, tokens):
         lines, tail_noncoding = tokens.next_block()
-        self.body_blocks.append(PythonBlock(self.deindent_level + 1, tokens, lines))
-        self.extend_tail_noncoding(tail_noncoding)
+        codes = PythonBlock(self.deindent_level + 1, tokens, lines)
+        codes.extend_tail_noncoding(tail_noncoding)
+        self.body_blocks.append(codes)
 
     def compilation(self):
         raise NotImplementedError
@@ -1043,10 +1044,9 @@ class SnakemakeArgumentsBlock(SnakemakeBlock):
                 return
         lines, tail_noncoding = tokens.next_block()
         if lines:
-            self.body_blocks.append(
-                self.Argument(self.deindent_level + 1, tokens, lines)
-            )
-            self.extend_tail_noncoding(tail_noncoding)
+            args = self.Argument(self.deindent_level + 1, tokens, lines)
+            args.extend_tail_noncoding(tail_noncoding)
+            self.body_blocks.append(args)
         else:
             assert (
                 self.colon_line.end_op != ":"
@@ -1196,8 +1196,9 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
 
     def consume_body(self, tokens):
         lines, tail_noncoding = tokens.next_block()
-        self.body_blocks.append(PythonBlock(self.deindent_level + 1, tokens, lines))
-        self.extend_tail_noncoding(tail_noncoding)
+        executable = PythonBlock(self.deindent_level + 1, tokens, lines)
+        executable.extend_tail_noncoding(tail_noncoding)
+        self.body_blocks.append(executable)
 
     def format_body(self, mode, state, post_colon):
         if post_colon:
@@ -1230,7 +1231,6 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
     def consume_body(self, tokens):
         blocks = self.consume_subblocks(tokens, ender_subblock=True)
         if any(not isinstance(i, SnakemakeBlock) for i in blocks[1:]):
-            breakpoint()
             raise UnsupportedSyntax(
                 f"Unexpected content in {self.keyword} block: "
                 f"only snakemake blocks are allowed, but got {blocks}"
