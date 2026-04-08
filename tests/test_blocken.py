@@ -279,19 +279,19 @@ class TestBlock:
         fun1 = block.body_blocks[0]
         assert isinstance(fun1, NoSnakemakeBlock)
         assert [i.string for i in fun1.colon_line.body] == ["def", "f", "(", ")", ":"]
-        assert [tuple(i) for i in fun1.tail_noncoding] == [
-            (tokenize.NL, "\n", (3, 0), (3, 1), "\n"),
-            (tokenize.NL, "\n", (4, 0), (4, 1), "\n"),
-            (tokenize.DEDENT, "", (5, 0), (5, 0), "b = f'''\n"),
-        ]
+        assert not fun1.tail_noncoding
         assert ["".join(i.full_linestrs) for i in fun1.body_blocks] == [
-            "    return 1\n"
+            "    return 1\n\n\n"
         ]
         fun11 = fun1.body_blocks[0]
         assert isinstance(fun11, PythonBlock)
         assert [line.linestrs for line in fun11.head_lines] == [["    return 1\n"]]
         assert not fun11.body_blocks
-        assert not fun11.tail_noncoding
+        assert [tuple(i) for i in fun11.tail_noncoding] == [
+            (tokenize.NL, "\n", (3, 0), (3, 1), "\n"),
+            (tokenize.NL, "\n", (4, 0), (4, 1), "\n"),
+            (tokenize.DEDENT, "", (5, 0), (5, 0), "b = f'''\n"),
+        ]
         if3 = block.body_blocks[2]
         assert isinstance(if3, IfForTryWithBlock)
         assert [i.string for i in if3.colon_line.body] == [
@@ -424,6 +424,11 @@ class TestFormat:
         )
         assert fmted == i
 
+    def test_format_reposity_def(self):
+        key = "o" * 100
+        raw = f"def {key}(): ...\n"
+        assert format_black(raw, mode=mode) == raw
+
 
 class TestBlockFormat:
 
@@ -469,13 +474,12 @@ class TestBlockFormat:
         ]
         py2 = block.body_blocks[1]
         assert len(py2.head_lines) == 3
+        assert isinstance(py2, PythonBlock)
         assert (
             py2.formatted(mode, state)[0]
             == 'b = f"""\n{b =} f"""\n# comment\nc = [i for j in k] if m else (lambda: None)\n'
         )
-        assert block.formatted(mode, state)[0] == black.format_str(
-            self.example1, mode=mode
-        )
+        assert block.get_formatted(mode) == black.format_str(self.example1, mode=mode)
 
     example2 = (
         "rule A:\n"  # L1
@@ -548,6 +552,6 @@ class TestBlockFormat:
     def test_format_snakefile(self):
         code, formatted = self.example2
         block = parse(code)
-        assert block.formatted(mode, state)[0].replace("\n", "<\n") == (
-            formatted
-        ).replace("\n", "<\n")
+        assert block.get_formatted(mode).replace("\n", "<\n") == (formatted).replace(
+            "\n", "<\n"
+        )

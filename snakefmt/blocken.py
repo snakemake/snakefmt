@@ -209,6 +209,20 @@ class LogicalLine(NamedTuple):
         return last_token.string
 
     @property
+    def is_keyword_line(self):
+        if len(self.body) < 2:
+            return False
+        if (
+            self.body[0].type == tokenize.NAME
+            and self.body[1].type == tokenize.OP
+            and self.body[1].string == "="
+        ):
+            return True
+        if self.body[0].type == "**":
+            return True
+        return False
+
+    @property
     def deindelta(self):
         if not self.deindents:
             return 0
@@ -873,6 +887,29 @@ class SnakemakeBlock(ColonBlock):
         raise NotImplementedError
 
 
+def try_combine_format(
+    arg_lines: list[str], mode: Mode | None = None
+) -> list[list[str]] | None:
+    """Try to combine multiple param lines without comma inside
+    Search reversly, so it only give one of the possible results.
+
+    Since the non-comma param is the mistake of the user,
+    please do not blame if the olgorithm is slow :)
+    """
+    if len(arg_lines) <= 1:
+        return [arg_lines]
+    mode = mode or Mode()
+    for i in range(len(arg_lines) - 1, 0, -1):
+        try:
+            combine = format_black("\n".join(arg_lines[:i]) + "\n,", mode)
+        except black.parsing.InvalidInput:
+            continue
+        rest = try_combine_format(arg_lines[i:], mode)
+        if rest is not None:
+            return [[combine]] + rest
+    return None
+
+
 class PythonArgumentsBlock(PythonBlock):
     """Block inside snakemake directives,
     such as `data.txt` in `input: \n    "data.txt"`
@@ -903,29 +940,97 @@ class PythonArgumentsBlock(PythonBlock):
 
         Morover, the original snakefmt allow sort positional arguments before keyword arguments.
         Here need check, too
+
+        Input:
+            post_colon: tokens after the colon in the head line, e.g. `balabal,` in the above example
+                post_colon[0] := TokenInfo(type=NAME, string='balabal', ...)
+            body_blocks: indent body blocks, e.g. the block of `balabal2` in the above example
         """
+        assert post_colon or body_blocks, "should have something in the comment"
+        args: dict[bool, list[list[str]]] = {True: [], False: []}
         if post_colon:
             assert (
                 post_colon[-1].type == tokenize.NEWLINE
             ), "Unexpected post_colon without a new line at the end"
-            colon_token = post_colon[0]
-            partial_line = LogicalLine([], [], post_colon[1:-1], post_colon[-1])
-            post = tokens2linestrs(iter(partial_line.body))
-            post[0] = post[0][colon_token.end[1] :]
+            partial_line = LogicalLine([], [], post_colon[:-1], post_colon[-1])
+            may_incomplete_param = tokens2linestrs(iter(partial_line.body))
+            may_incomplete_param[0] = may_incomplete_param[0][post_colon[0].end[1] :]
+            this_is_keyword = partial_line.is_keyword_line
+            if partial_line.end_op == ",":
+                args[this_is_keyword].append(may_incomplete_param)
+                may_incomplete_param = []
         else:
-            post = []
+            may_incomplete_param = []
+
+        def _find_split_and_push():
+            nonlocal partial_line, may_incomplete_param
+            try_combined = try_combine_format(may_incomplete_param, mode)
+            if try_combined:
+                args[this_is_keyword].append(try_combined[0])
+                args[False].extend(try_combined[1:])
+                tokens = tokenize.generate_tokens(iter(try_combined[0]).__next__)
+                _line = TokenIterator("", tokens).next_new_line()
+            else:
+                # TODO: raise error here
+                args[this_is_keyword].append(may_incomplete_param)
+                _line = line
+            may_incomplete_param = []
+            if this_is_keyword:
+                partial_line = _line
+
         if body_blocks:
             (param_space,) = body_blocks
-            assert (
-                not param_space.body_blocks
-            ), "Argument block should not have body blocks"
+            assert not param_space.body_blocks, "Argument block have no body blocks"
             for line in param_space.head_lines:
-                post.extend(line.linestrs)
-            post.extend(tokens2linestrs(iter(param_space.tail_noncoding)))
+                if not line.is_keyword_line:
+                    # without keyword, the line is appandable
+                    if not may_incomplete_param:
+                        this_is_keyword = False
+                    elif line.body[0].type in (tokenize.NAME, tokenize.NUMBER):
+                        # Since the previous line is 'logical complete',
+                        # if the line start with a simple name or number,
+                        # it is impossible to be the continuation of the previous line
+                        may_incomplete_param[-1] += "\n,"
+                        _find_split_and_push()
+                        this_is_keyword = False
+                    may_incomplete_param.append("".join(line.linestrs))
+                    if line.end_op == ",":
+                        _find_split_and_push()
+                else:
+                    if may_incomplete_param:
+                        # last line not end by comma,
+                        # but actually is a new line between params,
+                        # manually add a comma
+                        may_incomplete_param[-1] += "\n,"
+                        _find_split_and_push()
+                    this_is_keyword = True
+                    may_incomplete_param = ["".join(line.linestrs)]
+                    if line.end_op == ",":
+                        args[this_is_keyword].append(may_incomplete_param)
+                        may_incomplete_param = []
+                        partial_line = line
+            if may_incomplete_param:
+                if this_is_keyword or not args[True]:
+                    # if the last line is keyword line,
+                    #  or there is no keyword line at all,
+                    # then the last line is used to check the end comma
+                    partial_line = param_space.head_lines[-1]
+                else:
+                    if not line.end_op == ",":
+                        may_incomplete_param.append("\n,")
+                args[this_is_keyword].append(may_incomplete_param)
+            elif not args[True]:
+                partial_line = line
+            tail_noncoding = "".join(tokens2linestrs(iter(param_space.tail_noncoding)))
+        else:
+            args[this_is_keyword].append(may_incomplete_param)
+            tail_noncoding = ""
             # here is used to check the end_op
-            partial_line = param_space.head_lines[-1]
-        raw = cls.handle_end_comma("".join(post), partial_line)
-        formatted = format_black(raw, mode, deindent_level, partial="(")
+        raw = "".join(
+            (*(i for l in args[False] for i in l), *(i for l in args[True] for i in l))
+        )
+        formatable = cls.handle_end_comma(raw, partial_line) + tail_noncoding
+        formatted = format_black(formatable, mode, deindent_level, partial="(")
         return formatted
 
     @staticmethod
