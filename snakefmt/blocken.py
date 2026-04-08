@@ -17,7 +17,7 @@ import black.parsing
 from snakefmt.config import read_black_config, Mode
 
 
-from snakefmt.exceptions import UnsupportedSyntax
+from snakefmt.exceptions import InvalidPython, UnsupportedSyntax
 from snakefmt.types import TAB
 
 if sys.version_info < (3, 12):
@@ -365,7 +365,13 @@ def format_python_colon_head(
     return formatted.split("\n", fake_head_lines)[-1]
 
 
-def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] = ""):
+def format_black(
+    raw: str,
+    mode: Mode,
+    indent=0,
+    partial: Literal["", ":", "("] = "",
+    start_token: TokenInfo | None = None,
+):
     """Format a string using Black formatter.
 
     if indent:
@@ -398,7 +404,22 @@ def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] 
     try:
         fmted = black.format_str(prefix + string, mode=mode)
     except black.parsing.InvalidInput as e:
-        raise e
+        if start_token is not None:
+            import re
+
+            match = re.search(r"(Cannot parse.*?:\s*)(?P<line>\d+)(.*)", str(e))
+            if match:
+                err_msg = match.group(1) + str(start_token.start[0]) + match.group(3)
+            else:
+                err_msg = str(e)
+        else:
+            err_msg = str(e)
+        err_msg += (
+            "\n\n(Note reported line number may be incorrect, as"
+            " snakefmt could not determine the true line number)"
+        )
+        err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
+        raise InvalidPython(err_msg) from None
     if indent:
         fix = fmted.split("\n", indent)[-1]
     else:
@@ -734,7 +755,9 @@ class PythonBlock(Block):
         raw = "".join(self.full_linestrs)
         if not raw.strip():
             return "", state
-        formatted = format_black(raw, mode, self.deindent_level)
+        formatted = format_black(
+            raw, mode, self.deindent_level, start_token=self.head_lines[0].body[0]
+        )
         return formatted, state
 
     def compilation(self):
@@ -968,7 +991,7 @@ def try_combine_format(
     for i in range(len(arg_lines) - 1, 0, -1):
         try:
             combine = format_black("\n".join(arg_lines[:i]) + "\n,", mode)
-        except black.parsing.InvalidInput:
+        except InvalidPython:
             continue
         rest = try_combine_format(arg_lines[i:], mode)
         if rest is not None:
@@ -1096,7 +1119,13 @@ class PythonArgumentsBlock(PythonBlock):
             (*(i for l in args[False] for i in l), *(i for l in args[True] for i in l))
         )
         formatable = cls.handle_end_comma(raw, partial_line) + tail_noncoding
-        formatted = format_black(formatable, mode, deindent_level, partial="(")
+        formatted = format_black(
+            formatable,
+            mode,
+            deindent_level,
+            partial="(",
+            start_token=partial_line.body[0],
+        )
         return formatted
 
     @staticmethod
@@ -1138,7 +1167,13 @@ class PythonArguments(PythonArgumentsBlock):
             raw += "\n,"
         tail_noncoding = tokens2linestrs(iter(self.tail_noncoding))
         raw += "".join(i for i in tail_noncoding if i.strip())
-        formatted = format_black(raw, mode, self.deindent_level - 1, partial="(")
+        formatted = format_black(
+            raw,
+            mode,
+            self.deindent_level - 1,
+            partial="(",
+            start_token=self.head_lines[0].body[0],
+        )
         return formatted, state
 
     @staticmethod
@@ -1170,7 +1205,13 @@ class PythonOneLineArgument(PythonArgumentsBlock):
             raw = raw[:comma_start] + raw[comma_start + 1 :]
         tail_noncoding = tokens2linestrs(iter(self.tail_noncoding))
         raw += "".join(i for i in tail_noncoding if i.strip())
-        formatted = format_black(raw, mode, self.deindent_level - 1, partial="(")
+        formatted = format_black(
+            raw,
+            mode,
+            self.deindent_level - 1,
+            partial="(",
+            start_token=self.head_lines[0].body[0],
+        )
         return formatted, state
 
     @staticmethod
