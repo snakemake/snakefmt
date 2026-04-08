@@ -396,7 +396,13 @@ def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] 
         if fix.startswith("Tb(\n"):
             fix = fix.split("\n", 1)[1].rsplit("\n", 1)[0] + "\n"
         else:
-            fix = TAB * (indent + 1) + fix[3:-1] + "\n"
+            if not "#" in fix:  # safe to unpack function
+                fix = TAB * (indent + 1) + fix[3:-1] + "\n"
+            else:
+                fix = (
+                    format_black(raw + "\n#", mode, indent, partial).rsplit("\n", 2)[0]
+                    + "\n"
+                )
     return fix
 
 
@@ -1103,11 +1109,15 @@ class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
         formatted_body = self.format_body(mode, state, post_colon)
         formatted = [formatted_prior, formatted_body]
         if formatted_body.count("\n") == 1 and formatted_body.endswith("\n"):
-            last_head_line = formatted_prior.rsplit("\n", 2)[-2]
+            if formatted_prior.count("\n") > 1:
+                prev, last_head_line = formatted_prior[:-1].rsplit("\n", 1)
+                prev += "\n"
+            else:
+                prev, last_head_line = "", formatted_prior[:-1]
             if formatted_prior.endswith(":\n") and "#" not in last_head_line:
-                formatted_merge = formatted_prior[:-1] + " " + formatted_body.lstrip()
+                formatted_merge = last_head_line + " " + formatted_body.lstrip()
                 if len(formatted_merge) <= mode.line_length:
-                    formatted = [formatted_merge]
+                    formatted = [prev + formatted_merge]
         for comment in tokens2linestrs(iter(self.tail_noncoding)):
             if comment.strip():
                 formatted.append(TAB * self.deindent_level + comment.lstrip())
@@ -1485,7 +1495,19 @@ class GlobalBlock(Block):
                     isinstance(next_block, IfForTryWithBlock)
                     and next_block.keyword in _continuation_kws
                 ):
-                    formatted.append("\n")
+                    formatted.append("\n")  # continuation: elif/else/except/finally
+                elif isinstance(block, PythonBlock) and isinstance(
+                    next_block, IfForTryWithBlock
+                ):
+                    formatted.append("")  # Python lead-in: no extra blank line
+                elif (
+                    isinstance(block, SnakemakeBlock)
+                    and isinstance(next_block, SnakemakeBlock)
+                    and not isinstance(
+                        next_block, (NamedBlock, SnakemakeExecutableBlock)
+                    )
+                ):
+                    formatted.append("")  # Python lead-in: no extra blank line
                 else:
                     formatted.append(linesep)
         if formatted:
