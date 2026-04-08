@@ -638,11 +638,77 @@ class Block(ABC):
         """yield:
         - [unformated_python_code, Literal[False]]
         - [formated_snakemake_code, Literal[True]]
+
+        `SnakemakeInlineArgumentBlock` should be taken very careful of,
+        since they are formatedd as `def` blocks, and may not sperate from
+        blocks with different keywords. So here are the special principles
+        specially for one-line snakemake blocks:
+
+        - the previous block should be in the same indent of current block;
+        - if previous line (with no newline nor comments) is:
+                1, `def` block; or
+                2. another one-line block with differnt keyword:
+            then add a newline
+        - if previous line is the same keyword with:
+                only comment lines but NO blank line between:
+            merge the two lines into one block, with comments in between
+        - (doesn't matter if this block is actually one-line or not)
         """
-        yield "".join(self.head_linestrs), False
+
+        if self.head_linestrs:
+            yield "".join(self.head_linestrs), False
+        last_keyword = ""
+        line = ""
         for block in self.body_blocks:
-            yield from block.segment2format(mode, state)
-        yield "".join(tokens2linestrs(iter(self.tail_noncoding))), False
+            if isinstance(block, ColonBlock):
+                if block.keyword == "def":
+                    if last_keyword and last_keyword != "def":
+                        # line must exists, check if the last line is start
+                        if (
+                            line.rstrip()
+                            .rsplit("\n", 1)[-1]
+                            .startswith(block.indent_str + last_keyword)
+                        ):
+                            # Oh, differnt keyword detected,
+                            # is there NO any line before the first line of this block?
+                            if not block.head_lines[0].head_noncoding:
+                                yield "\n", False
+                    last_keyword = "def"
+                    for line, is_snake in block.segment2format(mode, state):
+                        # record `line` for next useage
+                        yield line, is_snake
+                elif isinstance(block, SnakemakeBlock):
+                    segs = [i for i in block.segment2format(mode, state) if i[0]]
+                    if last_keyword:
+                        if last_keyword == block.keyword:
+                            head_noncoding = block.head_lines[0].head_noncoding
+                            if head_noncoding and "\n" not in tokens2linestrs(
+                                iter(head_noncoding)
+                            ):
+                                # Ah, no line detected,
+                                # just format comment lines (and all are only comments)
+                                #  before the next is_snake = False
+                                indent_str = block.indent_str
+                                for i, seg in enumerate(segs):
+                                    if seg[1]:  # is_snake
+                                        break
+                                    for line in seg[0].splitlines(keepends=True):
+                                        formatted = format_black(line, mode, 0)
+                                        yield indent_str + formatted, True
+                                segs = segs[i:]
+                        elif not block.head_lines[0].head_noncoding:
+                            yield "\n", False
+                    last_keyword = block.keyword
+                    for line, is_snake in segs:
+                        yield line, is_snake
+                else:
+                    last_keyword = ""
+                    yield from block.segment2format(mode, state)
+            else:
+                last_keyword = ""
+                yield from block.segment2format(mode, state)
+        if self.tail_noncoding:
+            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), False
 
     @abstractmethod
     def compilation(self):
