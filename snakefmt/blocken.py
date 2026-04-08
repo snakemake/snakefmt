@@ -319,6 +319,87 @@ class FormatState(NamedTuple):
         return self._replace()
 
 
+def format_python_colon_head(
+    raw: str, mode: Mode, keyword: str, indent_str: str = "", indent=0, partial=False
+):
+    """Continuation keywords (else/elif/except/finally) need a preceding fake block
+    because black cannot parse them in isolation.
+    """
+    if keyword == "elif" or keyword == "else":
+        fake_head = indent_str + "if 1: pass\n"
+        fake_head_lines = 2  # black always expands "if 1: pass" to 2 lines
+    elif keyword == "except" or keyword == "finally":
+        fake_head = indent_str + "try: pass\n"
+        fake_head_lines = 2  # black always expands "try: pass" to 2 lines
+    elif keyword == "match":
+        # match needs at least one case
+        dummy_case = indent_str + "    case _: pass\n"
+        formatted = format_black(raw + dummy_case, mode, indent, "")
+        # Keep only the match line
+        return formatted.rsplit("\n", 3)[0] + "\n"
+    elif keyword == "case":
+        # case needs to be inside a match, construct the full block
+        assert indent_str and indent, "`case` block must be indented"
+        dummy_match = indent_str[:-1] + "match 1:\n" + raw
+        formatted = format_black(dummy_match, mode, indent - 1, ":")
+        return formatted.split("\n", 1)[-1]
+    else:
+        return format_black(raw, mode, indent, ":" if partial else "")
+    formatted = format_black(fake_head + raw, mode, indent, ":")
+    if not fake_head:
+        return formatted
+    return formatted.split("\n", fake_head_lines)[-1]
+
+
+def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] = ""):
+    """Format a string using Black formatter.
+
+    if indent:
+        prefix = make series of `{' ' * i}if 1:\\n` to increase indent level
+        format(prefix + string)
+        remove first `indent` lines
+    if partial == ":":
+        safe_indent = longest(prefix spacing)
+        format(string + f"\\n{safe_indent} pass")
+        remove the last line
+    if partial == "(":
+        format("f(" + string + ")")
+        if string.startswith("f(\\n"):
+            remove the first line and the last line
+        else:
+            remove first three characters and the last character
+    """
+    prefix = ""
+    for i in range(indent):
+        prefix += " " * i + "def a():\n"
+    if partial == ":":
+        # for block such as if/else/...
+        safe_indent = max(extract_line_indent(line) for line in raw.splitlines())
+        string = raw + f"{safe_indent} pass"
+    elif partial == "(":
+        # Tb() effects equals to a entire new indent
+        string = " " * indent + "Tb(\n" + raw + "\n)"
+    else:
+        string = raw
+    try:
+        fmted = black.format_str(prefix + string, mode=mode)
+    except black.parsing.InvalidInput as e:
+        raise e
+    if indent:
+        fix = fmted.split("\n", indent)[-1]
+    else:
+        fix = fmted
+    if partial == ":":
+        fix = fix.rstrip().rsplit("\n", 1)[0] + "\n"
+    elif partial == "(":
+        fix = fix.strip()
+        if fix.startswith("Tb(\n"):
+            fix = fix.split("\n", 1)[1].rsplit("\n", 1)[0] + "\n"
+        else:
+            fix = TAB * (indent + 1) + fix[3:-1] + "\n"
+    return fix
+
+
 class Block(ABC):
     """
     A block can be:
@@ -549,87 +630,6 @@ class DocumentSymbol(NamedTuple):
     position_start: tuple[int, int]
     position_end: tuple[int, int]
     block: "Block"
-
-
-def format_python_colon_head(
-    raw: str, mode: Mode, keyword: str, indent_str: str = "", indent=0, partial=False
-):
-    """Continuation keywords (else/elif/except/finally) need a preceding fake block
-    because black cannot parse them in isolation.
-    """
-    if keyword == "elif" or keyword == "else":
-        fake_head = indent_str + "if 1: pass\n"
-        fake_head_lines = 2  # black always expands "if 1: pass" to 2 lines
-    elif keyword == "except" or keyword == "finally":
-        fake_head = indent_str + "try: pass\n"
-        fake_head_lines = 2  # black always expands "try: pass" to 2 lines
-    elif keyword == "match":
-        # match needs at least one case
-        dummy_case = indent_str + "    case _: pass\n"
-        formatted = format_black(raw + dummy_case, mode, indent, "")
-        # Keep only the match line
-        return formatted.rsplit("\n", 3)[0] + "\n"
-    elif keyword == "case":
-        # case needs to be inside a match, construct the full block
-        assert indent_str and indent, "`case` block must be indented"
-        dummy_match = indent_str[:-1] + "match 1:\n" + raw
-        formatted = format_black(dummy_match, mode, indent - 1, ":")
-        return formatted.split("\n", 1)[-1]
-    else:
-        return format_black(raw, mode, indent, ":" if partial else "")
-    formatted = format_black(fake_head + raw, mode, indent, ":")
-    if not fake_head:
-        return formatted
-    return formatted.split("\n", fake_head_lines)[-1]
-
-
-def format_black(raw: str, mode: Mode, indent=0, partial: Literal["", ":", "("] = ""):
-    """Format a string using Black formatter.
-
-    if indent:
-        prefix = make series of `{' ' * i}if 1:\\n` to increase indent level
-        format(prefix + string)
-        remove first `indent` lines
-    if partial == ":":
-        safe_indent = longest(prefix spacing)
-        format(string + f"\\n{safe_indent} pass")
-        remove the last line
-    if partial == "(":
-        format("f(" + string + ")")
-        if string.startswith("f(\\n"):
-            remove the first line and the last line
-        else:
-            remove first three characters and the last character
-    """
-    prefix = ""
-    for i in range(indent):
-        prefix += " " * i + "def a():\n"
-    if partial == ":":
-        # for block such as if/else/...
-        safe_indent = max(extract_line_indent(line) for line in raw.splitlines())
-        string = raw + f"{safe_indent} pass"
-    elif partial == "(":
-        # Tb() effects equals to a entire new indent
-        string = " " * indent + "Tb(\n" + raw + "\n)"
-    else:
-        string = raw
-    try:
-        fmted = black.format_str(prefix + string, mode=mode)
-    except black.parsing.InvalidInput as e:
-        raise e
-    if indent:
-        fix = fmted.split("\n", indent)[-1]
-    else:
-        fix = fmted
-    if partial == ":":
-        fix = fix.rstrip().rsplit("\n", 1)[0] + "\n"
-    elif partial == "(":
-        fix = fix.strip()
-        if fix.startswith("Tb(\n"):
-            fix = fix.split("\n", 1)[1].rsplit("\n", 1)[0] + "\n"
-        else:
-            fix = TAB * (indent + 1) + fix[3:-1] + "\n"
-    return fix
 
 
 class PythonBlock(Block):
@@ -1471,13 +1471,25 @@ class GlobalBlock(Block):
         formatted = []
         state_ = state
         linesep = "\n" if self.deindent_level else "\n\n"
-        for block in self.body_blocks:
+        # TODO: better handling of blank lines between blocks
+        _continuation_kws = {"elif", "else", "except", "finally"}
+        blocks = self.body_blocks
+        for i, block in enumerate(blocks):
             block_formatted, state_ = block.formatted(mode, state_)
             if block_formatted:  # avoid adding extra blank lines for empty blocks
                 formatted.append(block_formatted)
-                formatted.append(linesep)
+                # continuation keywords (else/elif/except/finally) must not be
+                # separated from the preceding block by a full blank line
+                next_block = blocks[i + 1] if i + 1 < len(blocks) else None
+                if (
+                    isinstance(next_block, IfForTryWithBlock)
+                    and next_block.keyword in _continuation_kws
+                ):
+                    formatted.append("\n")
+                else:
+                    formatted.append(linesep)
         if formatted:
-            formatted.pop()  # remove the last "\n"
+            formatted.pop()  # remove the last separator
         return "".join(formatted), state_
 
     def get_formatted(self, mode: Mode | None = None):
