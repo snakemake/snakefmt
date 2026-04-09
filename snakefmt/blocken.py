@@ -333,38 +333,6 @@ class FormatState(NamedTuple):
         return self._replace()
 
 
-def format_python_colon_head(
-    raw: str, mode: Mode, keyword: str, indent_str: str = "", indent=0, partial=False
-):
-    """Continuation keywords (else/elif/except/finally) need a preceding fake block
-    because black cannot parse them in isolation.
-    """
-    if keyword == "elif" or keyword == "else":
-        fake_head = indent_str + "if 1: pass\n"
-        fake_head_lines = 2  # black always expands "if 1: pass" to 2 lines
-    elif keyword == "except" or keyword == "finally":
-        fake_head = indent_str + "try: pass\n"
-        fake_head_lines = 2  # black always expands "try: pass" to 2 lines
-    elif keyword == "match":
-        # match needs at least one case
-        dummy_case = indent_str + "    case _: pass\n"
-        formatted = format_black(raw + dummy_case, mode, indent, "")
-        # Keep only the match line
-        return formatted.rsplit("\n", 3)[0] + "\n"
-    elif keyword == "case":
-        # case needs to be inside a match, construct the full block
-        assert indent_str and indent, "`case` block must be indented"
-        dummy_match = indent_str[:-1] + "match 1:\n" + raw
-        formatted = format_black(dummy_match, mode, indent - 1, ":")
-        return formatted.split("\n", 1)[-1]
-    else:
-        return format_black(raw, mode, indent, ":" if partial else "")
-    formatted = format_black(fake_head + raw, mode, indent, ":")
-    if not fake_head:
-        return formatted
-    return formatted.split("\n", fake_head_lines)[-1]
-
-
 def format_black(
     raw: str,
     mode: Mode,
@@ -1452,25 +1420,47 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
     def format_body(self, mode, state, post_colon):
         assert not post_colon, "Invalid inline contents"
         formatted: list[str] = []
+        sort_directives: dict[str, str] = {}
         tail_noncoding: list[str] = []
         indent = TAB * (self.deindent_level + 1)
         for i, block in enumerate(self.body_blocks):
+            directive = ""
             if tail_noncoding:
-                tail_noncoding = [i.lstrip().rstrip("\n") for i in tail_noncoding]
-                formatted.extend(f"{indent}{i}\n" for i in tail_noncoding if i)
+                for line in tail_noncoding:
+                    if line.strip():
+                        # only non-empty lines are formattable
+                        line = format_black(line, mode, 0)
+                        # possible update state?
+                        directive += indent + line
                 tail_noncoding = []
             if i == 0 and isinstance(block, PythonBlock):
                 body, state = block.formatted(mode, state)
+                formatted.append(body)
             else:
                 assert isinstance(
                     block, SnakemakeBlock
                 ), "Unexpected block type in snakemake keyword block"
                 noncoding, body = block.formatted(mode, state)
-                formatted.extend(i for i in noncoding if i.strip())
-            formatted.append(body)
+                for line in noncoding:  # here noncoding is already formated
+                    if line.strip():
+                        # only non-empty lines are formattable
+                        # possible update state?
+                        directive += line
+                directive += body
+                if state.sort_direcives:
+                    sort_directives[block.keyword] = directive
+                else:
+                    formatted.append(directive)
             if block.tail_noncoding:
                 tail_noncoding = tokens2linestrs(iter(block.tail_noncoding))
             # no `\n` between
+        if sort_directives:
+            for keyword in self.subautomata:
+                if keyword in sort_directives:
+                    formatted.append(sort_directives[keyword])
+        if tail_noncoding:
+            tail_noncoding = [i.lstrip().rstrip("\n") for i in tail_noncoding]
+            formatted.extend(f"{indent}{i}\n" for i in tail_noncoding if i)
         return "".join(formatted)
 
 
@@ -1481,12 +1471,14 @@ class Module(NamedBlock, SnakemakeKeywordBlock):
     @_register()
     class Name(SnakemakeInlineArgumentBlock): ...
 
+    # Reference
     @_register()
     class Snakefile(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
     class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
 
+    # Override
     @_register()
     class Skip_Validation(SnakemakeUnnamedArgumentBlock): ...
 
@@ -1512,6 +1504,7 @@ class _Rule(NamedBlock, SnakemakeKeywordBlock):
     @_register("default_target")
     class Default_Target_Rule(SnakemakeInlineArgumentBlock): ...
 
+    # I/O
     @_register()
     class Input(SnakemakeArgumentsBlock): ...
 
@@ -1524,12 +1517,14 @@ class _Rule(NamedBlock, SnakemakeKeywordBlock):
     @_register()
     class Benchmark(SnakemakeUnnamedArgumentBlock): ...
 
+    # Rule logic
     @_register()
     class Pathvars(SnakemakeArgumentsBlock): ...
 
     @_register("wildcard_constraints")
     class Register_Wildcard_Constraints(SnakemakeArgumentsBlock): ...
 
+    # Scheduling & control
     @_register("cache")
     class Cache_Rule(SnakemakeInlineArgumentBlock): ...
 
@@ -1548,6 +1543,7 @@ class _Rule(NamedBlock, SnakemakeKeywordBlock):
     @_register()
     class Handover(SnakemakeInlineArgumentBlock): ...
 
+    # Execution environment
     @_register()
     class Shadow(SnakemakeUnnamedArgumentBlock): ...
 
@@ -1564,6 +1560,8 @@ class _Rule(NamedBlock, SnakemakeKeywordBlock):
     @_register()
     class EnvModules(SnakemakeUnnamedArgumentsBlock): ...
 
+    # Execution resources and parameters
+
     @_register()
     class Threads(SnakemakeInlineArgumentBlock): ...
 
@@ -1573,6 +1571,7 @@ class _Rule(NamedBlock, SnakemakeKeywordBlock):
     @_register()
     class Params(SnakemakeArgumentsBlock): ...
 
+    # Runtime messages
     @_register()
     class Message(SnakemakeUnnamedArgumentBlock): ...
 
@@ -1611,6 +1610,7 @@ class UseRule(_Rule):
 
 @_register()
 class Rule(_Rule):
+    # Action
     exec_subautomata, _register = init_block_register()
 
     @_register()
@@ -1651,8 +1651,9 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    __slots__ = ("mode",)
+    __slots__ = ("mode", "sort_direcives")
     mode: Mode
+    sort_direcives: bool
 
     subautomata = {**python_subautomata, **global_snakemake_subautomata}
 
@@ -1662,15 +1663,20 @@ class GlobalBlock(Block):
     def consume(self, tokens):
         self.body_blocks = self.consume_subblocks(tokens)
 
-    def get_formatted(self, mode: Mode | None = None):
+    def get_formatted(
+        self, mode: Mode | None = None, sort_directives: bool | None = None
+    ):
         if mode is None:
             mode = getattr(self, "mode", None)
             if mode is None:
                 raise ValueError("Mode should be provided for formatting")
+        if sort_directives is None:
+            sort_directives = bool(getattr(self, "sort_direcives", False))
+        state = FormatState(sort_direcives=sort_directives)
         python_codes: list[str] = []
         snakemake_codes: list[str] = []
         last_str = ""
-        for str, is_snake in self.segment2format(mode or self.mode, FormatState()):
+        for str, is_snake in self.segment2format(mode or self.mode, state):
             if is_snake:
                 python_codes.append(last_str)
                 last_str = ""
@@ -1729,4 +1735,5 @@ def setup_formatter(
         mode.line_length = line_length
 
     formatter.mode = mode
+    formatter.sort_direcives = sort_params
     return formatter
