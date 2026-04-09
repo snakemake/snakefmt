@@ -14,7 +14,7 @@ from snakefmt.parser.syntax import (
     is_newline,
     re_add_curly_bracket_if_needed,
 )
-from snakefmt.types import TAB, TokenIterator, col_nb
+from snakefmt.types import TAB, Token, TokenIterator, col_nb
 
 _FMT_DIRECTIVE_RE = re.compile(
     r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"

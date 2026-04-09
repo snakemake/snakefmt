@@ -22,7 +22,7 @@ from snakefmt.exceptions import (
 )
 from snakefmt.types import (
     COMMENT_SPACING,
-    TokenInfo,
+    Token,
     TokenIterator,
     col_nb,
     line_nb,
@@ -110,7 +110,7 @@ def _extract_line_mid(
     return t
 
 
-def re_add_curly_bracket_if_needed(token: TokenInfo) -> str:
+def re_add_curly_bracket_if_needed(token: Token) -> str:
     result = ""
     if (
         fstring_tokeniser_in_use
@@ -125,7 +125,7 @@ def re_add_curly_bracket_if_needed(token: TokenInfo) -> str:
 
 
 def fstring_processing(
-    token: TokenInfo, prev_token: Optional[TokenInfo], in_fstring: bool
+    token: Token, prev_token: Optional[Token], in_fstring: bool
 ) -> bool:
     """
     Returns True if we are entering, or have already entered and not exited,
@@ -140,7 +140,7 @@ def fstring_processing(
 
 
 def operator_skip_spacing(
-    prev_token: TokenInfo, token: TokenInfo, in_fstring: bool = False
+    prev_token: Token, token: Token, in_fstring: bool = False
 ) -> bool:
     # Check for f-string conversion specifiers: ! followed by r, s, or a
     if (
@@ -170,7 +170,7 @@ def operator_skip_spacing(
 
 
 def add_token_space(
-    prev_token: Optional[TokenInfo], token: TokenInfo, in_fstring: bool = False
+    prev_token: Optional[Token], token: Token, in_fstring: bool = False
 ) -> bool:
     result = False
     if prev_token is not None:
@@ -183,27 +183,27 @@ def add_token_space(
     return result
 
 
-def is_colon(token: TokenInfo):
+def is_colon(token: Token):
     return token.type == tokenize.OP and token.string == ":"
 
 
-def is_newline(token: TokenInfo):
+def is_newline(token: Token):
     return token.type == tokenize.NEWLINE or token.type == tokenize.NL
 
 
-def brack_open(token: TokenInfo):
+def brack_open(token: Token):
     return token.type == tokenize.OP and token.string in BRACKETS_OPEN
 
 
-def brack_close(token: TokenInfo):
+def brack_close(token: Token):
     return token.type == tokenize.OP and token.string in BRACKETS_CLOSE
 
 
-def is_equal_sign(token: TokenInfo):
+def is_equal_sign(token: Token):
     return token.type == tokenize.OP and token.string == "="
 
 
-def is_comma_sign(token: TokenInfo):
+def is_comma_sign(token: Token):
     return token.type == tokenize.OP and token.string == ","
 
 
@@ -212,7 +212,7 @@ class Parameter:
     Holds the value of a parameter-accepting keyword
     """
 
-    def __init__(self, token: TokenInfo):
+    def __init__(self, token: Token):
         self.line_nb = line_nb(token)
         self.col_nb = col_nb(token)
         self.key = ""
@@ -247,10 +247,7 @@ class Parameter:
         return len(self.value) > 0
 
     def add_elem(
-        self,
-        prev_token: Optional[TokenInfo],
-        token: TokenInfo,
-        in_fstring: bool = False,
+        self, prev_token: Optional[Token], token: Token, in_fstring: bool = False
     ):
         if add_token_space(prev_token, token, in_fstring) and len(self.value) > 0:
             self.value += " "
@@ -260,7 +257,7 @@ class Parameter:
 
         self.value += token.string
 
-    def to_key_val_mode(self, token: TokenInfo):
+    def to_key_val_mode(self, token: Token):
         if not self.has_value():
             raise InvalidParameterSyntax(
                 f"L{token.start[0]}:Operator = used with no preceding key"
@@ -312,7 +309,7 @@ class Syntax(ABC):
         self.keyword_indent = keyword_indent
         self.cur_indent = max(self.keyword_indent - 1, 0)
         self.comment = ""
-        self.token: TokenInfo
+        self.token: Token
 
         if snakefile is not None:
             self.validate_keyword_line(snakefile)
@@ -415,7 +412,7 @@ class KeywordSyntax(Syntax):
             ColonError(self.line_nb, self.token.string, self.keyword_line)
         self.token = next(snakefile)
 
-    def add_processed_keyword(self, token: TokenInfo, keyword: str):
+    def add_processed_keyword(self, token: Token, keyword: str):
         self.processed_keywords.add(keyword)
 
     def check_empty(self):
@@ -537,7 +534,7 @@ class ParameterSyntax(Syntax):
                     # untouched — the real processing will update it once tokens
                     # are put back.
                     temp_indent = self.cur_indent
-                    cached_tokens: list[TokenInfo] = []
+                    cached_tokens: list[Token] = []
                     try:
                         while True:
                             t = next(snakefile)
@@ -566,7 +563,7 @@ class ParameterSyntax(Syntax):
         return exit
 
     def process_token(
-        self, cur_param: Parameter, prev_token: Optional[TokenInfo]
+        self, cur_param: Parameter, prev_token: Optional[Token]
     ) -> Parameter:
         token_type = self.token.type
         # f-string treatment (since python 3.12)
