@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from snakefmt.blocken import (
@@ -9,7 +11,6 @@ from snakefmt.blocken import (
     TokenIterator,
     UnsupportedSyntax,
     black,
-    consume_fstring,
     format_black,
     is_fstring_start,
     parse,
@@ -17,6 +18,9 @@ from snakefmt.blocken import (
 )
 from snakefmt.config import read_black_config
 from snakefmt.types import TAB
+
+if sys.version_info >= (3, 12):
+    from snakefmt.blocken import consume_fstring
 
 
 def generate_tokens(input: str):
@@ -27,6 +31,8 @@ def generate_tokens(input: str):
 
 class TestTokenIterator:
     def test_fstring1(self):
+        if sys.version_info < (3, 12):
+            return
         input = 'f"hello world"'
         tokens = generate_tokens(input)
         token_iter = TokenIterator("", iter(tokens))
@@ -45,6 +51,8 @@ class TestTokenIterator:
         ]
 
     def test_fstring_with_bracket(self):
+        if sys.version_info < (3, 12):
+            return
         input = 'a = f"hello {world}"'
         tokens = generate_tokens(input)
         token_iter = TokenIterator("", iter(tokens))
