@@ -6,7 +6,6 @@ import tokenize
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from re import match as re_match
-from tokenize import TokenInfo
 from typing import ClassVar, NamedTuple, Optional, Type
 
 from snakefmt import fstring_tokeniser_in_use
@@ -21,7 +20,14 @@ from snakefmt.exceptions import (
     SyntaxFormError,
     TooManyParameters,
 )
-from snakefmt.types import COMMENT_SPACING, TokenIterator, col_nb, line_nb, not_empty
+from snakefmt.types import (
+    COMMENT_SPACING,
+    TokenInfo,
+    TokenIterator,
+    col_nb,
+    line_nb,
+    not_empty,
+)
 
 # ___Token parsing___#
 BRACKETS_OPEN = {"(", "[", "{"}
@@ -514,16 +520,13 @@ class ParameterSyntax(Syntax):
                 self.eof = True
                 break
             if self.check_exit(cur_param, snakefile):
-            if self.check_exit(cur_param, snakefile):
                 break
 
         if self.num_params() == 0:
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
     def check_exit(self, cur_param: Parameter, snakefile: TokenIterator):
-    def check_exit(self, cur_param: Parameter, snakefile: TokenIterator):
         exit = False
-        if not self.found_newline or not self.token:
         if not self.found_newline or not self.token:
             return exit
         if not_empty(self.token):
