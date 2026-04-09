@@ -134,7 +134,8 @@ class TestTokenIterator:
         "def components(self):\n"  #
         "    this_symbol: DocumentSymbol = DocumentSymbol(\n"
         "        name=self.name,\n"
-        "        detail='\\n'.join(i.rstrip() for i in self.block_lines()).strip('\\n'),\n"
+        "        detail='\\n'.join(i.rstrip() for i in "
+        "self.block_lines()).strip('\\n'),\n"
         "        symbol_kind=self._keyword(),\n"
         "        position_start=self.start_token.start,\n"
         "        position_end=self.head_tokens[-1].end,\n"
@@ -345,11 +346,26 @@ class TestBlock:
         assert "".join(block.full_linestrs) == self.example2
         assert isinstance(block, GlobalBlock)
         assert ["".join(i.full_linestrs) for i in block.body_blocks] == [
-            "rule A:\n    input:\n        a = '1'\n    output:\n        'b = 2'\n    run:\n        print(1)\n\n\n",
-            "checkpoint:\n   name: 'check'\n   params:\n       c = '''\n       c = '''\n   conda: 'conda.yaml'\n   shell: 'touch d'\n\n\n",
-            "onsuccess:\n   for i in range(10):\n       print(i)\n\n\n",
-            "wildcard_constraints:\n   sth = r'a|b|c',\n   sth2 = r'a|b|c',\n   sth3 = r'a|b|c'\n\n\n",
-            "Report:\n   'report'\n",
+            "rule A:\n"
+            "    input:\n"
+            "        a = '1'\n"
+            "    output:\n"
+            "        'b = 2'\n"
+            "    run:\n"
+            "        print(1)\n\n\n",
+            "checkpoint:\n"
+            "   name: 'check'\n"
+            "   params:\n"
+            "       c = '''\n"
+            "       c = '''\n"
+            "   conda: 'conda.yaml'\n"
+            "   shell: 'touch d'\n\n\n",
+            "onsuccess:\n" "   for i in range(10):\n" "       print(i)\n\n\n",
+            "wildcard_constraints:\n"
+            "   sth = r'a|b|c',\n"
+            "   sth2 = r'a|b|c',\n"
+            "   sth3 = r'a|b|c'\n\n\n",
+            "Report:\n" "   'report'\n",
             "",
         ]
 
@@ -365,7 +381,7 @@ class TestFormat:
         assert fmted == "if 1:  # comment\n"
 
     def test_format_def(self):
-        raw = f"{TAB}def s(a):\n" f"{TAB*2}if a:\n" f'{TAB* 3}return "Hello World"\n'
+        raw = f"{TAB}def s(a):\n" f"{TAB*2}if a:\n" f'{TAB * 3}return "Hello World"\n'
         fmted = format_black(raw, mode=mode, indent=1)
         assert fmted == raw
 
@@ -432,8 +448,10 @@ class TestBlockFormat:
         assert len(py2.head_lines) == 3
         assert isinstance(py2, PythonBlock)
         assert (
-            py2.formatted(mode)
-            == 'b = f"""\n{b =} f"""\n# comment\nc = [i for j in k] if m else (lambda: None)\n'
+            py2.formatted(mode) == 'b = f"""\n'
+            '{b =} f"""\n'
+            "# comment\n"
+            "c = [i for j in k] if m else (lambda: None)\n"
         )
         assert block.get_formatted(mode) == black.format_str(self.example1, mode=mode)
 

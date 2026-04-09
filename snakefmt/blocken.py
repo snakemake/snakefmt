@@ -26,9 +26,14 @@ _FMT_DIRECTIVE_RE = re.compile(
 )
 
 if sys.version_info < (3, 12):
-    is_fstring_start = lambda token: False
+
+    def is_fstring_start(token: TokenInfo):
+        return False
+
 else:
-    is_fstring_start = lambda token: token.type == tokenize.FSTRING_START
+
+    def is_fstring_start(token: TokenInfo):
+        return token.type == tokenize.FSTRING_START
 
     def consume_fstring(tokens: Iterator[TokenInfo]):
         finished: list[TokenInfo] = []
@@ -79,7 +84,8 @@ class TokenIterator:
                 elif token.string in ")]}":
                     if not expect_brackets or expect_brackets[-1] != token.string:
                         raise UnsupportedSyntax(
-                            f"Unexpected closing bracket {token.string!r} at line {token.start[0]}"
+                            f"Unexpected closing bracket "
+                            f"{token.string!r} at line {token.start[0]}"
                         )
                     expect_brackets.pop()
             elif is_fstring_start(token):
@@ -111,8 +117,8 @@ class TokenIterator:
                 assert deindelta == 1
                 break
             lines.append(line)
-        # there must be somewhere a DEDENT token to end the block, otherwise raise from __next__
-        # now check comments
+        # there must be somewhere a DEDENT token to end the block,
+        # otherwise raise from __next__ now check comments
         indent = extract_line_indent(lines[0].body[0].line)
         tail_noncoding = self.denext_by_indent(line, indent, deindelta)
         return lines, tail_noncoding
@@ -173,7 +179,8 @@ class TokenIterator:
                     ) from e
                 else:
                     raise UnsupportedSyntax(
-                        f"Unexpected end of file after symbol[{self._last_token}] while parsing '{self.name}'"
+                        f"Unexpected end of file after symbol"
+                        f"[{self._last_token}] while parsing '{self.name}'"
                     ) from e
         self._last_token = token
         return token
@@ -450,7 +457,7 @@ def format_black(
         if fix.startswith("Tb(\n"):
             fix = fix.split("\n", 1)[1].rsplit("\n", 1)[0] + "\n"
         else:
-            if not "#" in fix:  # safe to unpack function
+            if "#" not in fix:  # safe to unpack function
                 fix = TAB * (indent + 1) + fix[3:-1] + "\n"
             else:
                 fix = (
@@ -467,20 +474,24 @@ class Block(ABC):
             Also include functions, classes and decoraters (`@` lines)
         a single block identifed by keywords in
                 if/elif/else / for/while / try/except/finally / with
-            and all the code under it, until the next block of the same or lower indent level.
+            and all the code under it, until the next block
+              of the same or lower indent level.
         a snakemake keyword block (rule, module, config, etc.)
-            and all the code under it, until the next block of the same or lower indent level.
+            and all the code under it, until the next block
+              of the same or lower indent level.
             (snakemake keywords should NEVER in functions or classes)
         comments between blocks
-            (exclude the comment right before the indenting keyword, which is considered part of the block)
+            (exclude the comment right before the indenting keyword,
+              which is considered part of the block)
 
     Starting of blocks (file or new indent):
-        the space and comments until the first indenting keyword are considered a block of their own.
+        the space and comments until the first indenting keyword
+          are considered a block of their own.
     All other spaces are considered part of the previous block's trailing empty lines.
 
     Comment belongness:
-        Only comments with neither empty lines between/after the next block nor different indent levels
-            are considered part of the same block.
+        Only comments with neither empty lines between/after the next block
+          nor different indent levels are considered part of the same block.
         e.g.:
             sth # block 1
             # comment 1 -> block 1
@@ -643,7 +654,8 @@ class Block(ABC):
 
     @property
     def full_linestrs(self) -> list[str]:
-        """return the code splited by lines, but should keep multiline-string or multiline-f-string complete,
+        """return the code splited by lines, but should keep multiline-string
+          or multiline-f-string complete,
         to make trimming and reformatting easier.
 
         Should and Only should be rewrite for pure python blocks.
@@ -659,10 +671,14 @@ class Block(ABC):
         """
         - position := (file, line number, column number)
         - type := name / rule, input, output / function, class / etc.
-            if not a name, then that's the definition of the name (should link blank names to here)
-        - identifier := the identifier of the block, e.g. rule `a`, `input`, input `b`, etc.
-            when iterating sub-blocks in rule, identifier should modified to reflect the parent block, e.g. `rules.a.input.b`
-            (`b` may be difficult to identify, but at least we know the content of `input` block)
+            if not a name, then that's the definition of the name
+                (should link blank names to here)
+        - identifier := the identifier of the block,
+                e.g. rule `a`, `input`, input `b`, etc.
+            when iterating sub-blocks in rule, identifier should modified to
+              reflect the parent block, e.g. `rules.a.input.b`
+            (`b` may be difficult to identify,
+              but at least we know the content of `input` block)
         - content := "self.raw()", e.g. `"data.txt"` for input `b` in rule `a`,
                      and the whole content of the block for rule `a`
 
@@ -749,7 +765,8 @@ class Block(ABC):
 
     @abstractmethod
     def compilation(self):
-        """return pure python code compiled from the block, without snakemake keywords and comments"""
+        """return pure python code compiled from the block,
+        without snakemake keywords and comments"""
 
 
 class DocumentSymbol(NamedTuple):
@@ -843,7 +860,8 @@ class NoSnakemakeBlock(ColonBlock):
 
     Also, snakemake keywords should not be used in `async` blocks
 
-    TODO: although not recommended, snakemake keywords can be used in function/class body
+    TODO: although not recommended, snakemake keywords can be used in
+      function/class body
     Should handle that cases in the future
     """
 
@@ -1042,7 +1060,7 @@ class SnakemakeBlock(ColonBlock):
             colon_token = next(post_colon)
             post = tokens2linestrs(post_colon.rest)
             post[0] = post[0][colon_token.end[1] :]
-            fake_str = f"if 1:" + "".join(post) + "   ..."
+            fake_str = "if 1:" + "".join(post) + "   ..."
             fake_fmt = format_black(fake_str, mode).strip()
             formatted_head += fake_fmt.split(":", 1)[1].rsplit("\n", 1)[0] + "\n"
             return formatted_head, []
@@ -1103,19 +1121,21 @@ class PythonArgumentsBlock(PythonBlock):
         even if expressions exist in that line,
         indent body should be formatted as part of the cotent:
             input: balabal,  # <- expression after the colon
-                balabal2     # <- indent body, should be formatted as part of the content
+                balabal2     # <- indent body, should format as part of the content
         to:
             input:
                 balabal,
                 balabal2,
 
-        Morover, the original snakefmt allow sort positional arguments before keyword arguments.
-        Here need check, too
+        Morover, the original snakefmt allow sort positional arguments
+          before keyword arguments. Here need check, too
 
         Input:
-            post_colon: tokens after the colon in the head line, e.g. `balabal,` in the above example
+            post_colon: tokens after the colon in the head line,
+                    e.g. `balabal,` in the above example
                 post_colon[0] := TokenInfo(type=NAME, string='balabal', ...)
-            body_blocks: indent body blocks, e.g. the block of `balabal2` in the above example
+            body_blocks: indent body blocks,
+                    e.g. the block of `balabal2` in the above example
         """
         if not (post_colon or body_blocks):
             return ""
@@ -1199,7 +1219,10 @@ class PythonArgumentsBlock(PythonBlock):
             tail_noncoding = ""
             # here is used to check the end_op
         raw = "".join(
-            (*(i for l in args[False] for i in l), *(i for l in args[True] for i in l))
+            (
+                *(i for line in args[False] for i in line),
+                *(i for line in args[True] for i in line),
+            )
         )
         formatable = cls.handle_end_comma(raw, partial_line) + tail_noncoding
         formatted = format_black(
@@ -1251,7 +1274,8 @@ class PythonArguments(PythonArgumentsBlock):
 
 
 class PythonUnnamedArguments(PythonArguments):
-    """Only allow simple expressions on the right, and the whole block should be a list"""
+    """Only allow simple expressions on the right,
+    and the whole block should be a list"""
 
 
 class PythonOneLineArgument(PythonArgumentsBlock):
@@ -1544,7 +1568,8 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                             directive = ""
                     elif not last_sort_off:
                         # state.sort_direcives switched on, this comment is
-                        #  actually `# fmt: on[sort]` directive, so split from next directive
+                        #  actually `# fmt: on[sort]` directive,
+                        # so split from next directive
                         formatted.append(directive)
                         directive = ""
                 if state.not_format:
