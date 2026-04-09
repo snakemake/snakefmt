@@ -21,6 +21,9 @@ from snakefmt.types import TAB
 
 if sys.version_info >= (3, 12):
     from snakefmt.blocken import consume_fstring
+py12_guard = pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="Requires Python 3.12 or higher"
+)
 
 
 def generate_tokens(input: str):
@@ -30,9 +33,9 @@ def generate_tokens(input: str):
 
 
 class TestTokenIterator:
+
+    @py12_guard
     def test_fstring1(self):
-        if sys.version_info < (3, 12):
-            return
         input = 'f"hello world"'
         tokens = generate_tokens(input)
         token_iter = TokenIterator("", iter(tokens))
@@ -50,9 +53,8 @@ class TestTokenIterator:
             tokenize.FSTRING_END,
         ]
 
+    @py12_guard
     def test_fstring_with_bracket(self):
-        if sys.version_info < (3, 12):
-            return
         input = 'a = f"hello {world}"'
         tokens = generate_tokens(input)
         token_iter = TokenIterator("", iter(tokens))
@@ -91,6 +93,7 @@ class TestTokenIterator:
         "   pass"
     )
 
+    @py12_guard
     def test_next_new_line(self):
         tokens = generate_tokens(self.example1)
         token_iter = TokenIterator("", iter(tokens))
