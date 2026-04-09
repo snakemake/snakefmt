@@ -939,7 +939,7 @@ class SnakemakeBlock(ColonBlock):
     def components(self) -> Iterator[DocumentSymbol]:
         yield from []
 
-    def segment2format(self, mode, state, last_keyword=""):
+    def segment2format(self, mode: Mode, state: FormatState, last_keyword=""):
         """yield:
         - [unformated_python_code, Literal[False]]
         - [formated_snakemake_code, Literal[True]]
@@ -989,7 +989,18 @@ class SnakemakeBlock(ColonBlock):
                 [self.colon_line.body[-1].line]
                 + [line for block in self.body_blocks for line in block.full_linestrs]
             )
+            # Trailing blank lines from body_blocks belong to the next block's
+            # separator, not this block's content. Strip extra trailing blank
+            # lines so the compilation loop doesn't double-count them with
+            # black's blank-line insertion.
+            if raw.endswith("\n\n") and state.skip_next:
+                n_trailing_space = len(raw) - len(raw.rstrip("\n")) - 1
+                raw = raw.rstrip("\n") + "\n"
+            else:
+                n_trailing_space = 0
             yield raw, True
+            if n_trailing_space > 0:
+                yield "\n" * n_trailing_space, False
         else:
             yield self.formatted(mode, state), True
         if self.tail_noncoding:
