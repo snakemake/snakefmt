@@ -11,11 +11,11 @@ import black
 import black.parsing
 import pytest
 
+from snakefmt.blocken import setup_formatter
 from snakefmt.exceptions import InvalidPython
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
-from snakefmt.blocken import setup_formatter
 
 
 def test_emptyInput_emptyOutput():

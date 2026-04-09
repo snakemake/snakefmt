@@ -2,18 +2,18 @@ import pytest
 
 from snakefmt.blocken import (
     FormatState,
-    NoSnakemakeBlock,
     GlobalBlock,
     IfForTryWithBlock,
+    NoSnakemakeBlock,
     PythonBlock,
-    consume_fstring,
     TokenIterator,
-    format_black,
-    tokenize,
-    is_fstring_start,
     UnsupportedSyntax,
-    parse,
     black,
+    consume_fstring,
+    format_black,
+    is_fstring_start,
+    parse,
+    tokenize,
 )
 from snakefmt.config import read_black_config
 from snakefmt.types import TAB
