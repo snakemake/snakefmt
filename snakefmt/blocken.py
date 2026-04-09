@@ -361,7 +361,7 @@ class FormatState(NamedTuple):
                 if self.sort_direcives is False:
                     # re-enable sorting if it was disabled by `# fmt: off[sort]` before,
                     # but should effect if no `# fmt: off[sort]` in this indent before.
-                    return self._replace(sort_direcives=None)
+                    return self._replace(sort_direcives=True)
             elif directive == "off":
                 if option == "sort":
                     return self._replace(sort_direcives=False)
@@ -379,6 +379,11 @@ class FormatState(NamedTuple):
     @staticmethod
     def found_skip(comment: str):
         return "# fmt: skip" in comment
+
+    def reset_sort(self):
+        if self.sort_direcives is False:
+            return self._replace(sort_direcives=None)
+        return self
 
 
 def format_black(
@@ -694,7 +699,6 @@ class Block(ABC):
             merge the two lines into one block, with comments in between
         - (doesn't matter if this block is actually one-line or not)
         """
-
         # comment fmt directives in head_linestrs
         #  will effect on post blocks of the same indent,
         # so should be updated during the parent body_blocks iteration.
@@ -702,6 +706,7 @@ class Block(ABC):
             yield "".join(self.head_linestrs), False
         last_keyword = ""
         line = ""
+        state = state.reset_sort()
         for block in self.body_blocks:
             restart_state = state = state.consume_skip_next()
             # update state from head_noncoding
@@ -1485,18 +1490,34 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                 noncoding = tokens2linestrs(iter(block.colon_line.head_noncoding))
                 directive = ""
                 for line in noncoding:  # here noncoding is already formated
-                    if line.strip():
+                    linelstrip = line.lstrip()
+                    last_sort_off = state.sort_direcives
+                    if linelstrip:
                         # only non-empty lines are formattable
-                        directive += line
-                        state = state.update(line.lstrip())
+                        if state.found_skip(linelstrip):
+                            directive += line
+                        else:
+                            directive += indent + format_black(linelstrip, mode, 0)
+                        state = state.update(linelstrip)
                     if state.not_format:
                         if directives:
                             formatted.extend(self.sort_directives(directives))
                         if directive:
                             formatted.append(directive)
                             directive = ""
-                        if not line.strip():
+                        if not linelstrip:
                             formatted.append(line)
+                    elif not state.sort_direcives:
+                        if directives:
+                            formatted.extend(self.sort_directives(directives))
+                        if directive:
+                            formatted.append(directive)
+                            directive = ""
+                    elif not last_sort_off:
+                        # state.sort_direcives switched on, this comment is
+                        #  actually `# fmt: on[sort]` directive, so split from next directive
+                        formatted.append(directive)
+                        directive = ""
                 if state.not_format:
                     formatted.append("".join(block.colon_line.body[-1].line))
                     for block_ in block.body_blocks:
@@ -1506,6 +1527,7 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                     if state.sort_direcives:
                         directives[block.keyword] = directive
                     else:
+                        assert not directives, "Already flushed once fmt: off[sort]"
                         formatted.append(directive)
             if block.tail_noncoding:
                 tail_noncoding = tokens2linestrs(iter(block.tail_noncoding))
