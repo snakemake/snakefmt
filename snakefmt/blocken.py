@@ -426,8 +426,6 @@ def format_black(
         fmted = black.format_str(prefix + string, mode=mode)
     except black.parsing.InvalidInput as e:
         if start_token is not None:
-            import re
-
             match = re.search(r"(Cannot parse.*?:\s*)(?P<line>\d+)(.*)", str(e))
             if match:
                 err_msg = match.group(1) + str(start_token.start[0]) + match.group(3)
@@ -679,10 +677,10 @@ class Block(ABC):
 
     def segment2format(
         self, mode: Mode, state: FormatState
-    ) -> Generator[tuple[str, bool], None, None]:
+    ) -> Generator[tuple[str, str | None], None, None]:
         """yield:
-        - [unformated_python_code, Literal[False]]
-        - [formated_snakemake_code, Literal[True]]
+        - [unformated_python_code, None]
+        - [formated_snakemake_code, indent_str]
 
         `SnakemakeInlineArgumentBlock` should be taken very careful of,
         since they are formatedd as `def` blocks, and may not sperate from
@@ -703,7 +701,7 @@ class Block(ABC):
         #  will effect on post blocks of the same indent,
         # so should be updated during the parent body_blocks iteration.
         if self.head_linestrs:
-            yield "".join(self.head_linestrs), False
+            yield "".join(self.head_linestrs), None
         last_keyword = ""
         line = ""
         state = state.reset_sort()
@@ -729,16 +727,16 @@ class Block(ABC):
                             # If NO any line before the first line of this block,
                             # black cannot split them: Add one to force splitting
                             if not block.head_lines[0].head_noncoding:
-                                yield "\n", False
+                                yield "\n", None
                     last_keyword = "def"
-                    for line, is_snake in block.segment2format(mode, state):
+                    for line, indent in block.segment2format(mode, state):
                         # record `line` for next useage
-                        yield line, is_snake
+                        yield line, indent
                 elif isinstance(block, SnakemakeBlock):
-                    for line, is_snake in block.segment2format(
+                    for line, indent in block.segment2format(
                         mode, restart_state, last_keyword
                     ):
-                        yield line, is_snake
+                        yield line, indent
                     last_keyword = block.keyword
                 else:
                     last_keyword = ""
@@ -747,7 +745,7 @@ class Block(ABC):
                 last_keyword = ""
                 yield from block.segment2format(mode, state)
         if self.tail_noncoding:
-            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), False
+            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), None
 
     @abstractmethod
     def compilation(self):
@@ -932,6 +930,14 @@ class NamedBlock(ColonBlock):
         yield this_symbol
 
 
+def deindent_lines(old_indent: str, target_indent_level: int, lines: list[str]):
+    target_indent = TAB * target_indent_level
+    return [
+        target_indent + line[len(old_indent) :] if line.startswith(old_indent) else line
+        for line in lines
+    ]
+
+
 class SnakemakeBlock(ColonBlock):
     subautomata = {}
     deprecated = {}
@@ -941,15 +947,15 @@ class SnakemakeBlock(ColonBlock):
 
     def segment2format(self, mode: Mode, state: FormatState, last_keyword=""):
         """yield:
-        - [unformated_python_code, Literal[False]]
-        - [formated_snakemake_code, Literal[True]]
+        - [unformated_python_code, None]
+        - [formated_snakemake_code, indent]
 
         If state.skip_next is True, or state.fmt_on is False,
         return unformatted content with proper True/False markers.
         """
 
         # Get noncoding_lines early to check fmt directives
-        indent_str = self.indent_str
+        indent_str = TAB * self.deindent_level
         assert len(self.head_lines) == 1, "Snakemake keywords should only in one line"
         noncoding_lines: list[str] = []
         last_fmt_on = state.fmt_on
@@ -959,7 +965,7 @@ class SnakemakeBlock(ColonBlock):
                 last_keyword = ""
             else:
                 state = state.update(noncoding_line.lstrip())
-            if not state.fmt_on:
+            if state.not_format:
                 noncoding_lines.append(noncoding_line)
             else:
                 noncoding_lines.append(
@@ -973,21 +979,29 @@ class SnakemakeBlock(ColonBlock):
                 ).splitlines(keepends=True)
                 for line in pre_formatted:
                     if state.found_skip(line):
-                        yield line, False
+                        yield line, None
                     else:
-                        yield indent_str + line.lstrip(), True
+                        yield indent_str + line.lstrip(), self.indent_str
             else:
                 if not noncoding_lines:
-                    yield "\n", False
-                yield "".join(noncoding_lines), False
+                    yield "\n", None
+                yield "".join(noncoding_lines), None
         else:
-            yield "".join(noncoding_lines), False
+            yield "".join(noncoding_lines), None
 
         # Check if this block should be skipped from formatting
         if state.not_format:
             raw = "".join(
-                [self.colon_line.body[-1].line]
-                + [line for block in self.body_blocks for line in block.full_linestrs]
+                deindent_lines(
+                    self.indent_str,
+                    self.deindent_level,
+                    [self.colon_line.body[-1].line]
+                    + [
+                        line
+                        for block in self.body_blocks
+                        for line in block.full_linestrs
+                    ],
+                )
             )
             # Trailing blank lines from body_blocks belong to the next block's
             # separator, not this block's content. Strip extra trailing blank
@@ -998,13 +1012,13 @@ class SnakemakeBlock(ColonBlock):
                 raw = raw.rstrip("\n") + "\n"
             else:
                 n_trailing_space = 0
-            yield raw, True
+            yield raw, self.indent_str
             if n_trailing_space > 0:
-                yield "\n" * n_trailing_space, False
+                yield "\n" * n_trailing_space, None
         else:
-            yield self.formatted(mode, state), True
+            yield self.formatted(mode, state), self.indent_str
         if self.tail_noncoding:
-            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), False
+            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), None
 
     def formatted(self, mode, state):
         formatted_prior, post_colon = self.format_head(mode)
@@ -1517,7 +1531,11 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                             formatted.append(directive)
                             directive = ""
                         if not linelstrip:
-                            formatted.append(line)
+                            formatted.extend(
+                                deindent_lines(
+                                    block.indent_str, self.deindent_level + 1, [line]
+                                )
+                            )
                     elif not state.sort_direcives:
                         if directives:
                             formatted.extend(self.sort_directives(directives))
@@ -1530,9 +1548,18 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                         formatted.append(directive)
                         directive = ""
                 if state.not_format:
-                    formatted.append("".join(block.colon_line.body[-1].line))
-                    for block_ in block.body_blocks:
-                        formatted.append("".join(block_.full_linestrs))
+                    formatted.extend(
+                        deindent_lines(
+                            block.indent_str,
+                            self.deindent_level + 1,
+                            [block.colon_line.body[-1].line]
+                            + [
+                                line
+                                for block in block.body_blocks
+                                for line in block.full_linestrs
+                            ],
+                        )
+                    )
                 else:
                     directive += block.formatted(mode, state)
                     if state.sort_direcives:
@@ -1769,13 +1796,13 @@ class GlobalBlock(Block):
         state = FormatState(sort_direcives=sort_directives or None)
         # if set to None, it will not be enabled by `# fmt: on`
         python_codes: list[str] = []
-        snakemake_codes: list[str] = []
+        snakemake_codes: list[tuple[str, str]] = []
         last_str = ""
-        for segment, is_snake in self.segment2format(mode or self.mode, state):
-            if is_snake:
+        for segment, indent_proxy in self.segment2format(mode or self.mode, state):
+            if indent_proxy is not None:
                 python_codes.append(last_str)
                 last_str = ""
-                snakemake_codes.append(segment)
+                snakemake_codes.append((segment, indent_proxy))
             else:
                 last_str += segment
         place_hode_str = "o" * 50
@@ -1783,20 +1810,16 @@ class GlobalBlock(Block):
         while place_hode_str in raw_str:
             place_hode_str *= 2
         raw_str = "#\n"
-        for python_code, snakemake_code in zip(python_codes, snakemake_codes):
+        for python_code, (snakemake_code, indent) in zip(python_codes, snakemake_codes):
             if snakemake_code.count("\n") == 1:  # must at the end of line
-                indent_str = extract_line_indent(snakemake_code)
-                place_hode = f"{indent_str}def l{place_hode_str}1ng(): ...\n"
+                place_hode = f"{indent}def l{place_hode_str}1ng(): ...\n"
             else:
-                indent_str = extract_line_indent(snakemake_code)
-                place_hode = (
-                    f"{indent_str}def l{place_hode_str}ng():\n{indent_str} return\n"
-                )
+                place_hode = f"{indent}def l{place_hode_str}ng():\n{indent} return\n"
             raw_str += python_code + place_hode
         raw_str += last_str
         formatted, *formatted_split = format_black(raw_str, mode).split(place_hode_str)
         final_str = formatted
-        for formatted, snakemake_code in zip(formatted_split, snakemake_codes):
+        for formatted, (snakemake_code, _) in zip(formatted_split, snakemake_codes):
             final_str = final_str.rsplit("\n", 1)[0] + "\n" + snakemake_code
             if formatted.startswith("1"):
                 final_str += formatted.split("\n", 1)[-1]
