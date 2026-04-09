@@ -1,24 +1,29 @@
+import re
 import sys
 import tokenize
 from abc import ABC, abstractmethod
+from collections import OrderedDict
+from tokenize import TokenInfo
 from typing import (
     Callable,
+    Generator,
     Iterator,
     Literal,
+    Mapping,
     NamedTuple,
     Optional,
-    Mapping,
     TypeVar,
 )
-from tokenize import TokenInfo
-from collections import OrderedDict
+
 import black.parsing
 
-from snakefmt.config import read_black_config, Mode
-
-
+from snakefmt.config import Mode, read_black_config
 from snakefmt.exceptions import InvalidPython, UnsupportedSyntax
 from snakefmt.types import TAB
+
+_FMT_DIRECTIVE_RE = re.compile(
+    r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"
+)
 
 if sys.version_info < (3, 12):
     is_fstring_start = lambda token: False
@@ -313,12 +318,67 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
 
 
 class FormatState(NamedTuple):
-    fmt_off: bool = False
-    sort_direcives: bool = False
+    fmt_on: bool = True
+    sort_direcives: bool | None = None
+    skip_next: bool = False  # one-time directive for the next snakemake block
 
-    def update(self, *str):
-        # TODO: implement state update logic
-        return self._replace()
+    @property
+    def not_format(self):
+        return not self.fmt_on or self.skip_next
+
+    def update(self, comment: str):
+        """check single line comment line for pattern:
+        # fmt: off
+        # fmt: off[option1, option2, ...]
+        # fmt: on
+        # fmt: on[option1, option2, ...]
+
+        Currently, options can be:
+        - sort: whether to sort snakemake directives (e.g. input, output, params, etc.)
+        - next: whether to apply the directive to the next snakemake block only
+            Do not effect blocks after empty lines.
+            Cannot be disabled by `# fmt: on[next]`
+        - only the first directive will be applied
+
+        If found `# fmt: on` and no `# fmt: off` before:
+            if `fmt: off[sort]` is False:
+                    sort_direcives == True  -> enabled
+                    sort_direcives == False -> disabled in this indent before
+                    sort_direcives == None  -> haven't enabled originally
+                turn it on
+        """
+        match = _FMT_DIRECTIVE_RE.match(comment)
+        if match := _FMT_DIRECTIVE_RE.match(comment):
+            directive, options = match.groups()
+            # Parse options: "sort,next" -> ["sort", "next"] -> "sort"
+            option = [opt.strip() for opt in (options or "").split(",")][0]
+            if not self.fmt_on:  # only check `# fmt: on`
+                if directive == "on" and not option:
+                    return self._replace(fmt_on=True)
+            elif directive == "on":
+                if option == "sort":
+                    return self._replace(sort_direcives=True)
+                if self.sort_direcives is False:
+                    # re-enable sorting if it was disabled by `# fmt: off[sort]` before,
+                    # but should effect if no `# fmt: off[sort]` in this indent before.
+                    return self._replace(sort_direcives=None)
+            elif directive == "off":
+                if option == "sort":
+                    return self._replace(sort_direcives=False)
+                if option == "next":
+                    return self._replace(skip_next=True)
+                return self._replace(fmt_on=False)
+        return self
+
+    def consume_skip_next(self) -> "FormatState":
+        """Returns new state with skip_next consumed (set to False)"""
+        if self.skip_next:
+            return self._replace(skip_next=False)
+        return self
+
+    @staticmethod
+    def found_skip(comment: str):
+        return "# fmt: skip" in comment
 
 
 def format_black(
@@ -327,7 +387,7 @@ def format_black(
     indent=0,
     partial: Literal["", ":", "("] = "",
     start_token: TokenInfo | None = None,
-):
+) -> str:
     """Format a string using Black formatter.
 
     if indent:
@@ -612,7 +672,9 @@ class Block(ABC):
         for block in self.body_blocks:
             yield from block.components()
 
-    def segment2format(self, mode: Mode, state: FormatState):
+    def segment2format(
+        self, mode: Mode, state: FormatState
+    ) -> Generator[tuple[str, bool], None, None]:
         """yield:
         - [unformated_python_code, Literal[False]]
         - [formated_snakemake_code, Literal[True]]
@@ -633,22 +695,34 @@ class Block(ABC):
         - (doesn't matter if this block is actually one-line or not)
         """
 
+        # comment fmt directives in head_linestrs
+        #  will effect on post blocks of the same indent,
+        # so should be updated during the parent body_blocks iteration.
         if self.head_linestrs:
             yield "".join(self.head_linestrs), False
         last_keyword = ""
         line = ""
         for block in self.body_blocks:
+            restart_state = state = state.consume_skip_next()
+            # update state from head_noncoding
+            for head_line in block.head_lines:
+                for noncoding_token in head_line.head_noncoding:
+                    if noncoding_token.type == tokenize.COMMENT:
+                        state = state.update(noncoding_token.string)
+                    elif state.skip_next and not noncoding_token.line.strip():
+                        state = state.consume_skip_next()
             if isinstance(block, ColonBlock):
                 if block.keyword == "def":
                     if last_keyword and last_keyword != "def":
-                        # line must exists, check if the last line is start
+                        # Oh, differnt keyword detected, so (last)line must exists
+                        # Then check if that line is start
                         if (
                             line.rstrip()
                             .rsplit("\n", 1)[-1]
                             .startswith(block.indent_str + last_keyword)
                         ):
-                            # Oh, differnt keyword detected,
-                            # is there NO any line before the first line of this block?
+                            # If NO any line before the first line of this block,
+                            # black cannot split them: Add one to force splitting
                             if not block.head_lines[0].head_noncoding:
                                 yield "\n", False
                     last_keyword = "def"
@@ -656,29 +730,11 @@ class Block(ABC):
                         # record `line` for next useage
                         yield line, is_snake
                 elif isinstance(block, SnakemakeBlock):
-                    segs = [i for i in block.segment2format(mode, state) if i[0]]
-                    if last_keyword:
-                        if last_keyword == block.keyword:
-                            head_noncoding = block.head_lines[0].head_noncoding
-                            if head_noncoding and "\n" not in tokens2linestrs(
-                                iter(head_noncoding)
-                            ):
-                                # Ah, no line detected,
-                                # just format comment lines (and all are only comments)
-                                #  before the next is_snake = False
-                                indent_str = block.indent_str
-                                for i, seg in enumerate(segs):
-                                    if seg[1]:  # is_snake
-                                        break
-                                    for line in seg[0].splitlines(keepends=True):
-                                        formatted = format_black(line, mode, 0)
-                                        yield indent_str + formatted, True
-                                segs = segs[i:]
-                        elif not block.head_lines[0].head_noncoding:
-                            yield "\n", False
-                    last_keyword = block.keyword
-                    for line, is_snake in segs:
+                    for line, is_snake in block.segment2format(
+                        mode, restart_state, last_keyword
+                    ):
                         yield line, is_snake
+                    last_keyword = block.keyword
                 else:
                     last_keyword = ""
                     yield from block.segment2format(mode, state)
@@ -708,14 +764,14 @@ class PythonBlock(Block):
     def consume(self, tokens):
         "Do nothing, win"
 
-    def formatted(self, mode, state) -> tuple[str, FormatState]:
+    def formatted(self, mode: Mode):
         raw = "".join(self.full_linestrs)
         if not raw.strip():
-            return "", state
+            return ""
         formatted = format_black(
             raw, mode, self.deindent_level, start_token=self.head_lines[0].body[0]
         )
-        return formatted, state
+        return formatted
 
     def compilation(self):
         raise NotImplementedError
@@ -758,7 +814,7 @@ class ColonBlock(Block):
         prior = tokens2linestrs(iter(last_line_tokens))
         prior[-1] = prior[-1][: colon_token.start[1]]
         token_iter.denext(colon_token)
-        return self.colon_line.head_noncoding, prior, token_iter
+        return prior, token_iter
 
     @property
     def colon_line(self):
@@ -878,30 +934,76 @@ class SnakemakeBlock(ColonBlock):
     def components(self) -> Iterator[DocumentSymbol]:
         yield from []
 
-    def segment2format(self, mode, state):
+    def segment2format(self, mode, state, last_keyword=""):
         """yield:
         - [unformated_python_code, Literal[False]]
         - [formated_snakemake_code, Literal[True]]
+
+        If state.skip_next is True, or state.fmt_on is False,
+        return unformatted content with proper True/False markers.
         """
-        head_noncding, body = self.formatted(mode, state)
-        yield "".join(head_noncding), False
-        yield body, True
-        yield "".join(tokens2linestrs(iter(self.tail_noncoding))), False
+
+        # Get noncoding_lines early to check fmt directives
+        indent_str = self.indent_str
+        assert len(self.head_lines) == 1, "Snakemake keywords should only in one line"
+        noncoding_lines: list[str] = []
+        last_fmt_on = state.fmt_on
+        # Check if there's fmt: on/off in noncoding_lines to update state
+        for noncoding_line in tokens2linestrs(iter(self.colon_line.head_noncoding)):
+            if not noncoding_line.strip():
+                last_keyword = ""
+            else:
+                state = state.update(noncoding_line.lstrip())
+            if not state.fmt_on:
+                noncoding_lines.append(noncoding_line)
+            else:
+                noncoding_lines.append(
+                    indent_str + format_black(noncoding_line, mode, 0)
+                )
+        if last_fmt_on and state.fmt_on:
+            if last_keyword == self.keyword:
+                # pre-format these lines and yield together
+                pre_formatted = format_black(
+                    "".join(noncoding_lines), mode, 0
+                ).splitlines(keepends=True)
+                for line in pre_formatted:
+                    if state.found_skip(line):
+                        yield line, False
+                    else:
+                        yield indent_str + line.lstrip(), True
+            else:
+                if not noncoding_lines:
+                    yield "\n", False
+                yield "".join(noncoding_lines), False
+        else:
+            yield "".join(noncoding_lines), False
+
+        # Check if this block should be skipped from formatting
+        if state.not_format:
+            raw = "".join(
+                [self.colon_line.body[-1].line]
+                + [line for block in self.body_blocks for line in block.full_linestrs]
+            )
+            yield raw, True
+        else:
+            yield self.formatted(mode, state), True
+        if self.tail_noncoding:
+            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), False
 
     def formatted(self, mode, state):
-        noncoding_lines, formatted_prior, post_colon = self.format_head(mode)
+        formatted_prior, post_colon = self.format_head(mode)
         formatted_body = self.format_body(mode, state, post_colon)
         formatted = [formatted_prior, formatted_body]
-        return noncoding_lines, "".join(formatted)
+        return "".join(formatted)
 
-    def format_head(self, mode: Mode) -> tuple[list[str], str, list[TokenInfo]]:
-        assert (
-            len(self.head_lines) == 1
-        ), "Snakemake keywords should only have one head line"
+    def format_head(self, mode: Mode) -> tuple[str, list[TokenInfo]]:
         indent = TAB * self.deindent_level
-        noncoding, prior_colon, post_colon = self.split_colon_line()
-        noncoding_lines = tokens2linestrs(iter(noncoding))
-        assert len(prior_colon) == 1, "Snakemake keywords should be single line"
+        if self.colon_line.body[-1].type == tokenize.COMMENT:
+            line = self.colon_line.body[-1].line
+            if FormatState.found_skip(line):
+                return indent + line.lstrip(), []
+        prior_colon, post_colon = self.split_colon_line()
+        assert len(prior_colon) == 1, "Snakemake keywords should be in one line"
         (head,) = prior_colon
         components = head.strip().split()
         formatted_head = indent + " ".join(components) + ":"
@@ -913,12 +1015,14 @@ class SnakemakeBlock(ColonBlock):
             fake_str = f"if 1:" + "".join(post) + "   ..."
             fake_fmt = format_black(fake_str, mode).strip()
             formatted_head += fake_fmt.split(":", 1)[1].rsplit("\n", 1)[0] + "\n"
-            return noncoding_lines, formatted_head, []
+            return formatted_head, []
         else:
-            return noncoding_lines, formatted_head + "\n", list(post_colon.rest)
+            return formatted_head + "\n", list(post_colon.rest)
 
     @abstractmethod
-    def format_body(self, mode, state, post_colon: list[TokenInfo]) -> str: ...
+    def format_body(
+        self, mode: Mode, state: FormatState, post_colon: list[TokenInfo]
+    ) -> str: ...
 
     def compilation(self):
         raise NotImplementedError
@@ -983,7 +1087,8 @@ class PythonArgumentsBlock(PythonBlock):
                 post_colon[0] := TokenInfo(type=NAME, string='balabal', ...)
             body_blocks: indent body blocks, e.g. the block of `balabal2` in the above example
         """
-        assert post_colon or body_blocks, "should have something in the comment"
+        if not (post_colon or body_blocks):
+            return ""
         args: dict[bool, list[list[str]]] = {True: [], False: []}
         if post_colon:
             assert (
@@ -1198,7 +1303,7 @@ class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
         """Try to merge the inline argument into the head line.
         If the line is too long after merging, then keep them separate.
         """
-        noncoding_lines, formatted_prior, post_colon = self.format_head(mode)
+        formatted_prior, post_colon = self.format_head(mode)
         formatted_body = self.format_body(mode, state, post_colon)
         formatted = [formatted_prior, formatted_body]
         if formatted_body.count("\n") == 1 and formatted_body.endswith("\n"):
@@ -1211,7 +1316,7 @@ class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
                 formatted_merge = last_head_line + " " + formatted_body.lstrip()
                 if len(formatted_merge) <= mode.line_length:
                     formatted = [prev + formatted_merge]
-        return noncoding_lines, "".join(formatted)
+        return "".join(formatted)
 
 
 def init_block_register():
@@ -1328,7 +1433,7 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
         else:
             (param_space,) = self.body_blocks
             assert isinstance(param_space, PythonBlock), "Unexpected body block type"
-            return param_space.formatted(mode, state)[0]
+            return param_space.formatted(mode)
 
 
 @_register()
@@ -1363,48 +1468,62 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
         """
         assert not post_colon, "Invalid inline contents"
         formatted: list[str] = []
-        sort_directives: dict[str, str] = {}
+        directives: dict[str, str] = {}
         tail_noncoding: list[str] = []
         indent = TAB * (self.deindent_level + 1)
         for i, block in enumerate(self.body_blocks):
-            directive = ""
-            if tail_noncoding:
-                for line in tail_noncoding:
-                    if line.strip():
-                        # only non-empty lines are formattable
-                        line = format_black(line, mode, 0)
-                        # possible update state?
-                        directive += indent + line
-                tail_noncoding = []
+            assert not tail_noncoding, "no tail_noncoding before body_blocks"
             if i == 0 and isinstance(block, PythonBlock):
-                body, state = block.formatted(mode, state)
+                body = block.formatted(mode)
                 formatted.append(body)
+                for line in block.head_linestrs:
+                    state = state.update(line.lstrip())
             else:
                 assert isinstance(
                     block, SnakemakeBlock
                 ), "Unexpected block type in snakemake keyword block"
-                noncoding, body = block.formatted(mode, state)
+                noncoding = tokens2linestrs(iter(block.colon_line.head_noncoding))
+                directive = ""
                 for line in noncoding:  # here noncoding is already formated
                     if line.strip():
                         # only non-empty lines are formattable
-                        # possible update state?
                         directive += line
-                directive += body
-                if state.sort_direcives:
-                    sort_directives[block.keyword] = directive
+                        state = state.update(line.lstrip())
+                    if state.not_format:
+                        if directives:
+                            formatted.extend(self.sort_directives(directives))
+                        if directive:
+                            formatted.append(directive)
+                            directive = ""
+                        if not line.strip():
+                            formatted.append(line)
+                if state.not_format:
+                    formatted.append("".join(block.colon_line.body[-1].line))
+                    for block_ in block.body_blocks:
+                        formatted.append("".join(block_.full_linestrs))
                 else:
-                    formatted.append(directive)
+                    directive += block.formatted(mode, state)
+                    if state.sort_direcives:
+                        directives[block.keyword] = directive
+                    else:
+                        formatted.append(directive)
             if block.tail_noncoding:
                 tail_noncoding = tokens2linestrs(iter(block.tail_noncoding))
             # no `\n` between
-        if sort_directives:
-            for keyword in self.subautomata:
-                if keyword in sort_directives:
-                    formatted.append(sort_directives[keyword])
+        if directives:
+            formatted.extend(self.sort_directives(directives))
         if tail_noncoding:
             tail_noncoding = [i.lstrip().rstrip("\n") for i in tail_noncoding]
             formatted.extend(f"{indent}{i}\n" for i in tail_noncoding if i)
         return "".join(formatted)
+
+    @classmethod
+    def sort_directives(cls, directives: dict[str, str]):
+        """Sort directives in the order of subautomata. Clear input"""
+        for keyword in cls.subautomata:
+            if keyword in directives:
+                yield directives.pop(keyword)
+        assert not directives, f"Unknown directives: {', '.join(directives)}"
 
 
 @_register()
@@ -1537,18 +1656,17 @@ class UseRule(_Rule):
         if ":" not in head_bulk_line:
             # return quickly (also no body block here)
             indent = TAB * self.deindent_level
-            noncoding_lines = tokens2linestrs(iter(self.head_lines[0].head_noncoding))
             components = head_bulk_line.strip().split()
             formatted_head = indent + " ".join(components)
             if "#" in head_line[0]:
                 formatted_head += "  " + format_black(
                     "#" + head_line[0].split("#", 1)[1], mode=mode
                 ).rstrip("\n")
-            return noncoding_lines, formatted_head + "\n"
-        noncoding_lines, formatted_prior, post_colon = self.format_head(mode)
+            return formatted_head + "\n"
+        formatted_prior, post_colon = self.format_head(mode)
         formatted_body = self.format_body(mode, state, post_colon)
         formatted = [formatted_prior, formatted_body]
-        return noncoding_lines, "".join(formatted)
+        return "".join(formatted)
 
 
 @_register()
@@ -1614,18 +1732,19 @@ class GlobalBlock(Block):
             if mode is None:
                 raise ValueError("Mode should be provided for formatting")
         if sort_directives is None:
-            sort_directives = bool(getattr(self, "sort_direcives", False))
-        state = FormatState(sort_direcives=sort_directives)
+            sort_directives = getattr(self, "sort_direcives", None)
+        state = FormatState(sort_direcives=sort_directives or None)
+        # if set to None, it will not be enabled by `# fmt: on`
         python_codes: list[str] = []
         snakemake_codes: list[str] = []
         last_str = ""
-        for str, is_snake in self.segment2format(mode or self.mode, state):
+        for segment, is_snake in self.segment2format(mode or self.mode, state):
             if is_snake:
                 python_codes.append(last_str)
                 last_str = ""
-                snakemake_codes.append(str)
+                snakemake_codes.append(segment)
             else:
-                last_str += str
+                last_str += segment
         place_hode_str = "o" * 50
         raw_str = "".join(python_codes)
         while place_hode_str in raw_str:
@@ -1656,7 +1775,7 @@ class GlobalBlock(Block):
         raise NotImplementedError
 
 
-def parse(input: str | Callable[[], str], name: str = "<string>") -> GlobalBlock:
+def parse(input: str | Callable[[], str], name: str = "<string>"):
     if isinstance(input, str):
         tokens = tokenize.generate_tokens(
             iter(input.splitlines(keepends=True)).__next__

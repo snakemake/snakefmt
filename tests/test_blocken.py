@@ -432,7 +432,7 @@ class TestBlockFormat:
         assert len(py2.head_lines) == 3
         assert isinstance(py2, PythonBlock)
         assert (
-            py2.formatted(mode, state)[0]
+            py2.formatted(mode)
             == 'b = f"""\n{b =} f"""\n# comment\nc = [i for j in k] if m else (lambda: None)\n'
         )
         assert block.get_formatted(mode) == black.format_str(self.example1, mode=mode)
