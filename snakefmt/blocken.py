@@ -58,7 +58,6 @@ class TokenIterator:
         self.name = name
         self._live_tokens = tokens
         self._buffered_tokens: list[TokenInfo] = list()
-        self.tokens = tokens
         self.lines = 0
         self.rulecount = 0
         self._overwrite_cmd: Optional[str] = None
@@ -94,10 +93,11 @@ class TokenIterator:
 
     def next_block(self):
         """Returns a entire block, just consume until the end of the block.
-        Donot care if there are nested blocks inside or snakemake keywords inside.
+        Do not care if there are nested blocks inside or snakemake keywords inside.
 
-        it could be INDEDT -> [any content] -> DEDENT, or [any content] -> DEDENT
+        it could be INDENT -> [any content] -> DEDENT, or [any content] -> DEDENT
         """
+
         line = self.next_new_line()
         if line.end.type == tokenize.ENDMARKER:
             self.denext(*reversed(list(line.iter)))
@@ -230,7 +230,7 @@ class LogicalLine(NamedTuple):
             and self.body[1].string == "="
         ):
             return True
-        if self.body[0].type == "**":
+        if self.body[0].string == "**":
             return True
         return False
 
@@ -326,7 +326,7 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
 
 class FormatState(NamedTuple):
     fmt_on: bool = True
-    sort_direcives: bool | None = None
+    sort_directives: bool | None = None
     skip_next: bool = False  # one-time directive for the next snakemake block
 
     @property
@@ -349,12 +349,11 @@ class FormatState(NamedTuple):
 
         If found `# fmt: on` and no `# fmt: off` before:
             if `fmt: off[sort]` is False:
-                    sort_direcives == True  -> enabled
-                    sort_direcives == False -> disabled in this indent before
-                    sort_direcives == None  -> haven't enabled originally
+                    sort_directives == True  -> enabled
+                    sort_directives == False -> disabled in this indent before
+                    sort_directives == None  -> haven't enabled originally
                 turn it on
         """
-        match = _FMT_DIRECTIVE_RE.match(comment)
         if match := _FMT_DIRECTIVE_RE.match(comment):
             directive, options = match.groups()
             # Parse options: "sort,next" -> ["sort", "next"] -> "sort"
@@ -364,14 +363,14 @@ class FormatState(NamedTuple):
                     return self._replace(fmt_on=True)
             elif directive == "on":
                 if option == "sort":
-                    return self._replace(sort_direcives=True)
-                if self.sort_direcives is False:
+                    return self._replace(sort_directives=True)
+                if self.sort_directives is False:
                     # re-enable sorting if it was disabled by `# fmt: off[sort]` before,
                     # but should effect if no `# fmt: off[sort]` in this indent before.
-                    return self._replace(sort_direcives=True)
+                    return self._replace(sort_directives=True)
             elif directive == "off":
                 if option == "sort":
-                    return self._replace(sort_direcives=False)
+                    return self._replace(sort_directives=False)
                 if option == "next":
                     return self._replace(skip_next=True)
                 return self._replace(fmt_on=False)
@@ -388,8 +387,8 @@ class FormatState(NamedTuple):
         return "# fmt: skip" in comment
 
     def reset_sort(self):
-        if self.sort_direcives is False:
-            return self._replace(sort_direcives=None)
+        if self.sort_directives is False:
+            return self._replace(sort_directives=None)
         return self
 
 
@@ -1083,8 +1082,9 @@ def try_combine_format(
     Search reversly, so it only give one of the possible results.
 
     Since the non-comma param is the mistake of the user,
-    please do not blame if the olgorithm is slow :)
+    please do not blame if the algorithm is slow :)
     """
+
     if len(arg_lines) <= 1:
         return [arg_lines]
     mode = mode or Mode()
@@ -1540,7 +1540,7 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                 directive = ""
                 for line in noncoding:  # here noncoding is already formated
                     linelstrip = line.lstrip()
-                    last_sort_off = state.sort_direcives
+                    last_sort_off = state.sort_directives
                     if linelstrip:
                         # only non-empty lines are formattable
                         if state.found_skip(linelstrip):
@@ -1560,14 +1560,14 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                                     block.indent_str, self.deindent_level + 1, [line]
                                 )
                             )
-                    elif not state.sort_direcives:
+                    elif not state.sort_directives:
                         if directives:
                             formatted.extend(self.sort_directives(directives))
                         if directive:
                             formatted.append(directive)
                             directive = ""
                     elif not last_sort_off:
-                        # state.sort_direcives switched on, this comment is
+                        # state.sort_directives switched on, this comment is
                         #  actually `# fmt: on[sort]` directive,
                         # so split from next directive
                         formatted.append(directive)
@@ -1587,7 +1587,7 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                     )
                 else:
                     directive += block.formatted(mode, state)
-                    if state.sort_direcives:
+                    if state.sort_directives:
                         directives[block.keyword] = directive
                     else:
                         assert not directives, "Already flushed once fmt: off[sort]"
@@ -1797,9 +1797,9 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    __slots__ = ("mode", "sort_direcives")
+    __slots__ = ("mode", "sort_directives")
     mode: Mode
-    sort_direcives: bool
+    sort_directives: bool
 
     subautomata = {**python_subautomata, **global_snakemake_subautomata}
 
@@ -1817,8 +1817,8 @@ class GlobalBlock(Block):
             if mode is None:
                 raise ValueError("Mode should be provided for formatting")
         if sort_directives is None:
-            sort_directives = getattr(self, "sort_direcives", None)
-        state = FormatState(sort_direcives=sort_directives or None)
+            sort_directives = getattr(self, "sort_directives", None)
+        state = FormatState(sort_directives=sort_directives or None)
         # if set to None, it will not be enabled by `# fmt: on`
         python_codes: list[str] = []
         snakemake_codes: list[tuple[str, str]] = []
@@ -1830,19 +1830,19 @@ class GlobalBlock(Block):
                 snakemake_codes.append((segment, indent_proxy))
             else:
                 last_str += segment
-        place_hode_str = "o" * 50
+        placeholder = "o" * 50
         raw_str = "".join(python_codes)
-        while place_hode_str in raw_str:
-            place_hode_str *= 2
+        while placeholder in raw_str:
+            placeholder *= 2
         raw_str = "#\n"
         for python_code, (snakemake_code, indent) in zip(python_codes, snakemake_codes):
             if snakemake_code.count("\n") == 1:  # must at the end of line
-                place_hode = f"{indent}def l{place_hode_str}1ng(): ...\n"
+                snakemake_proxy = f"{indent}def l{placeholder}1ng(): ...\n"
             else:
-                place_hode = f"{indent}def l{place_hode_str}ng():\n{indent} return\n"
-            raw_str += python_code + place_hode
+                snakemake_proxy = f"{indent}def l{placeholder}ng():\n{indent} return\n"
+            raw_str += python_code + snakemake_proxy
         raw_str += last_str
-        formatted, *formatted_split = format_black(raw_str, mode).split(place_hode_str)
+        formatted, *formatted_split = format_black(raw_str, mode).split(placeholder)
         final_str = formatted
         for formatted, (snakemake_code, _) in zip(formatted_split, snakemake_codes):
             final_str = final_str.rsplit("\n", 1)[0] + "\n" + snakemake_code
@@ -1856,13 +1856,13 @@ class GlobalBlock(Block):
         raise NotImplementedError
 
 
-def parse(input: str | Callable[[], str], name: str = "<string>"):
-    if isinstance(input, str):
+def parse(source: str | Callable[[], str], name: str = "<string>"):
+    if isinstance(source, str):
         tokens = tokenize.generate_tokens(
-            iter(input.splitlines(keepends=True)).__next__
+            iter(source.splitlines(keepends=True)).__next__
         )
     else:
-        tokens = tokenize.generate_tokens(input)
+        tokens = tokenize.generate_tokens(source)
     return GlobalBlock(0, TokenIterator(name, tokens), [])
 
 
@@ -1878,5 +1878,5 @@ def setup_formatter(
         mode.line_length = line_length
 
     formatter.mode = mode
-    formatter.sort_direcives = sort_params
+    formatter.sort_directives = sort_params
     return formatter

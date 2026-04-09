@@ -2462,6 +2462,23 @@ class TestFmtOffSort:
             "\n\n" + formatted2
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        code = (
+            "# fmt: off[sort]\n"
+            "if 1:\n"
+            " # fmt: on[sort]\n"
+            + "".join("  " + i for i in code1.splitlines(keepends=True)).rstrip()
+            + "\n"
+            + code2.rstrip()
+        )
+        expected = (
+            "# fmt: off[sort]\n"
+            "if 1:\n"
+            f"{TAB}# fmt: on[sort]\n"
+            + "".join(TAB + i for i in formatted0.splitlines(keepends=True)).rstrip()
+            + "\n"
+            "\n\n" + formatted2
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_on_noeffect(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
