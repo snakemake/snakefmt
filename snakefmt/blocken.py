@@ -123,7 +123,7 @@ class TokenIterator:
         tail_noncoding = self.denext_by_indent(line, indent, deindelta)
         return lines, tail_noncoding
 
-    def denext_by_indent(self, line: LogicalLine, indent: str, deindelta=1):
+    def denext_by_indent(self, line: "LogicalLine", indent: str, deindelta=1):
         """Call when a block is ended by a DEDENT token,
         to split comments belong to this block from those belong to parent blocks,
         and reorder tokens so that the next block can be parsed correctly.
