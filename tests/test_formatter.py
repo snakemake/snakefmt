@@ -9,6 +9,7 @@ from unittest import mock
 
 import black
 import black.parsing
+import black.parsing
 import pytest
 
 from snakefmt.exceptions import InvalidPython
@@ -57,7 +58,33 @@ class TestSimpleParamFormatting:
         f"{TAB * 1}shell:\n"
         f'{TAB * 2}"for i in $(seq 1 5);" "do echo $i;" "done"\n',
     )
+    example_shell_newline = (
+        "rule a:\n"
+        f'{TAB * 1}shell: "for i in $(seq 1 5);"\n'
+        f'{TAB * 2}"do echo $i;"\n'
+        f'{TAB * 2}"done"',
+        "rule a:\n"
+        f"{TAB * 1}shell:\n"
+        f'{TAB * 2}"for i in $(seq 1 5);" "do echo $i;" "done"\n',
+    )
 
+    def test_shell_param_newline_indented(self):
+        formatter = setup_formatter(self.example_shell_newline[0])
+        assert formatter.get_formatted() == self.example_shell_newline[1]
+
+    example_params_newline = (
+        f"rule b: \n"
+        f'{TAB * 1}input: "a", "b",\n'
+        f'{TAB * 4}"c"\n'
+        f'{TAB * 1}wrapper: "mywrapper"',
+        f"rule b:\n"
+        f"{TAB * 1}input:\n"
+        f'{TAB * 2}"a",\n'
+        f'{TAB * 2}"b",\n'
+        f'{TAB * 2}"c",\n'
+        f"{TAB * 1}wrapper:\n"
+        f'{TAB * 2}"mywrapper"\n',
+    )
     def test_shell_param_newline_indented(self):
         formatter = setup_formatter(self.example_shell_newline[0])
         assert formatter.get_formatted() == self.example_shell_newline[1]
@@ -79,7 +106,27 @@ class TestSimpleParamFormatting:
     def test_single_param_keyword_in_rule_gets_newline_indented(self):
         formatter = setup_formatter(self.example_params_newline[0])
         assert formatter.get_formatted() == self.example_params_newline[1]
+    def test_single_param_keyword_in_rule_gets_newline_indented(self):
+        formatter = setup_formatter(self.example_params_newline[0])
+        assert formatter.get_formatted() == self.example_params_newline[1]
 
+    example_input_threads_newline = (
+        f"rule c: \n"
+        f'{TAB * 1}input: "c"\n'
+        f"{TAB * 1}threads:\n"
+        f"{TAB * 2}20\n"
+        f"{TAB * 1}default_target:\n"
+        f"{TAB * 2}True\n",
+        f"rule c:\n"
+        f"{TAB * 1}input:\n"
+        f'{TAB * 2}"c",\n'
+        f"{TAB * 1}threads: 20\n"
+        f"{TAB * 1}default_target: True\n",
+    )
+
+    def test_single_numeric_param_keyword_in_rule_stays_on_same_line(self):
+        formatter = setup_formatter(self.example_input_threads_newline[0])
+        assert formatter.get_formatted() == self.example_input_threads_newline[1]
     example_input_threads_newline = (
         f"rule c: \n"
         f'{TAB * 1}input: "c"\n'
@@ -1740,6 +1787,29 @@ class TestSortFormatting:
 
     def test_sorting_of_params(self):
         snakecode = self.sort_simple[0] + (
+    sort_simple = (
+        "rule a:\n"
+        f"{TAB * 1}# annots\n"
+        f"{TAB * 1}threads: 1\n"
+        f'{TAB * 1}log: "b",\n'
+        f'{TAB * 1}output: "a", "fsdfdsdfd", "ccc"\n'
+        f"{TAB * 1}run:\n"
+        f'{TAB * 2}print("hello world")\n',
+        "rule a:\n"
+        f"{TAB * 1}output:\n"
+        f'{TAB * 2}"a",\n'
+        f'{TAB * 2}"fsdfdsdfd",\n'
+        f'{TAB * 2}"ccc",\n'
+        f"{TAB * 1}log:\n"
+        f'{TAB * 2}"b",\n'
+        f"{TAB * 1}# annots\n"
+        f"{TAB * 1}threads: 1\n"
+        f"{TAB * 1}run:\n"
+        f'{TAB * 2}print("hello world")\n',
+    )
+
+    def test_sorting_of_params(self):
+        snakecode = self.sort_simple[0] + (
             "if 2:\n"
             f"{TAB * 1}rule b:\n"
             f'{TAB * 2}output: "b",\n'
@@ -1755,6 +1825,8 @@ class TestSortFormatting:
             f'{TAB * 1}print("error")\n'
         )
         formatter = setup_formatter(snakecode, sort_params=True)
+        expected = self.sort_simple[1] + (
+            f"\n\n"
         expected = self.sort_simple[1] + (
             f"\n\n"
             "if 2:\n"
@@ -1779,6 +1851,89 @@ class TestSortFormatting:
         )
         assert formatter.get_formatted() == expected
 
+    sorting_comprehensive = (
+        "rule all:\n"
+        f"{TAB}params: p=1\n"
+        f"{TAB}resources: mem_mb=100\n"
+        f"{TAB}threads: 4\n"
+        f"{TAB}conda: 'env.yaml'\n"
+        f"{TAB}message: 'finishing'\n"
+        f"{TAB}log: 'log.txt'\n"
+        f"{TAB}output: 'out.txt'\n"
+        f"{TAB}# Important input\n"
+        f"{TAB}input: 'in.txt'\n"
+        f"{TAB}name: 'myrule'\n"
+        f"{TAB}shell: 'echo done'\n",
+        "rule all:\n"
+        f"{TAB}name:\n"
+        f'{TAB * 2}"myrule"\n'
+        f"{TAB}# Important input\n"
+        f"{TAB}input:\n"
+        f'{TAB * 2}"in.txt",\n'
+        f"{TAB}output:\n"
+        f'{TAB * 2}"out.txt",\n'
+        f"{TAB}log:\n"
+        f'{TAB * 2}"log.txt",\n'
+        f"{TAB}conda:\n"
+        f'{TAB * 2}"env.yaml"\n'
+        f"{TAB}threads: 4\n"
+        f"{TAB}resources:\n"
+        f"{TAB * 2}mem_mb=100,\n"
+        f"{TAB}params:\n"
+        f"{TAB * 2}p=1,\n"
+        f"{TAB}message:\n"
+        f'{TAB * 2}"finishing"\n'
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"echo done"\n',
+    )
+
+    def test_sorting_comprehensive(self):
+        formatter = setup_formatter(self.sorting_comprehensive[0], sort_params=True)
+        assert formatter.get_formatted() == self.sorting_comprehensive[1]
+
+    sort_with_comments = (
+        "rule complex:\n"
+        f"{TAB}# Action comment\n"
+        f"{TAB}shell: 'do something'\n"
+        f"{TAB}# Resource comment\n"
+        f"{TAB}resources: res=1\n"
+        f"{TAB}# Input comment\n"
+        f"{TAB}input: 'i'\n",
+        "rule complex:\n"
+        f"{TAB}# Input comment\n"
+        f"{TAB}input:\n"
+        f'{TAB * 2}"i",\n'
+        f"{TAB}# Resource comment\n"
+        f"{TAB}resources:\n"
+        f"{TAB * 2}res=1,\n"
+        f"{TAB}# Action comment\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"do something"\n',
+    )
+
+    def test_sorting_with_comments_preservation(self):
+        """Comments stay with their keywords"""
+        formatter = setup_formatter(self.sort_with_comments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_with_comments[1]
+
+    sort_inline_comments = (
+        "rule inline_comments:\n"
+        f"{TAB}shell: 'echo'\n"
+        f"{TAB}params:\n"
+        f"{TAB * 2}p=1,  # parameter comment\n"
+        f"{TAB}input: 'i'\n",
+        "rule inline_comments:\n"
+        f"{TAB}input:\n"
+        f'{TAB * 2}"i",\n'
+        f"{TAB}params:\n"
+        f"{TAB * 2}p=1,  # parameter comment\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"echo"\n',
+    )
+
+    def test_sorting_with_inline_parameter_comments(self):
+        formatter = setup_formatter(self.sort_inline_comments[0], sort_params=True)
+        assert formatter.get_formatted() == self.sort_inline_comments[1]
     sorting_comprehensive = (
         "rule all:\n"
         f"{TAB}params: p=1\n"
@@ -1907,9 +2062,12 @@ class TestSortFormatting:
             "checkpoint map_reads:\n"
             f"{TAB}input:\n"
             f'{TAB * 2}"in.txt",\n'
+            f'{TAB * 2}"in.txt",\n'
             f"{TAB}output:\n"
             f'{TAB * 2}"out.txt",\n'
+            f'{TAB * 2}"out.txt",\n'
             f"{TAB}shell:\n"
+            f'{TAB * 2}"echo"\n'
             f'{TAB * 2}"echo"\n'
         )
         assert formatter.get_formatted() == expected
@@ -2002,10 +2160,12 @@ def test_invalid_python_error_no_dedent(mock_format):
     formatter.black_mode = black.Mode()
     formatter.from_python = False
     formatter.fmt_off = None
+    formatter.fmt_off = None
     from snakefmt.parser.parser import Context
     from snakefmt.parser.syntax import KeywordSyntax
 
     formatter.context = Context(
+        None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)  # type: ignore
         None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)  # type: ignore
     )
     # Manually set last_token to something that isn't DEDENT/ENDMARKER

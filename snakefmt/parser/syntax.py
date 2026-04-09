@@ -514,13 +514,16 @@ class ParameterSyntax(Syntax):
                 self.eof = True
                 break
             if self.check_exit(cur_param, snakefile):
+            if self.check_exit(cur_param, snakefile):
                 break
 
         if self.num_params() == 0:
             raise NoParametersError(f"{self.line_nb}In {self.keyword_name} definition.")
 
     def check_exit(self, cur_param: Parameter, snakefile: TokenIterator):
+    def check_exit(self, cur_param: Parameter, snakefile: TokenIterator):
         exit = False
+        if not self.found_newline or not self.token:
         if not self.found_newline or not self.token:
             return exit
         if not_empty(self.token):

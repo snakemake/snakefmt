@@ -1,4 +1,5 @@
 import re
+import re
 import tokenize
 from abc import ABC, abstractmethod
 from tokenize import TokenInfo
@@ -160,6 +161,7 @@ class Parser(ABC):
     """
 
     def __init__(self, snakefile: Snakefile, sort_directives=False):
+    def __init__(self, snakefile: Snakefile, sort_directives=False):
         self.context = Context(
             SnakeGlobal(), KeywordSyntax("Global", keyword_indent=0, accepts_py=True)
         )
@@ -231,15 +233,53 @@ class Parser(ABC):
                 and status.cur_indent < self.sort_off_indent
             ):
                 self.sort_off_indent = None
+            if fmt_label := FMT_DIRECTIVE.from_token(status.token):
+                if fmt_label.disable:
+                    if not fmt_label.modifiers:
+                        self.fmt_off = (status.cur_indent, "region")
+                        self.fmt_off_expected_indent = status.token.line[
+                            : col_nb(status.token)
+                        ]
+                    elif "next" in fmt_label.modifiers:
+                        self.fmt_off = (status.cur_indent, "next")
+                        self.fmt_off_expected_indent = status.token.line[
+                            : col_nb(status.token)
+                        ]
+                    elif "sort" in fmt_label.modifiers:
+                        self.sort_off_indent = status.cur_indent
+                elif self._check_fmt_on(fmt_label, status.token) == "sort":
+                    if not self.from_python and self.keyword_indent:
+                        # multiline string is impossible here
+                        # and we assume that origin_indent is the same indent
+                        #  of this comment
+                        token_indent = status.cur_indent
+                        sort_on = token_indent * TAB + status.token.line.strip() + "\n"
+                        self.flush_sort_signal(sort_on)
+                        status = self.get_next_queriable()
+                        self.buffer = status.buffer
+                    continue
+            elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
+                self.fmt_off = None
+            elif (
+                self.sort_off_indent is not None
+                and status.cur_indent < self.sort_off_indent
+            ):
+                self.sort_off_indent = None
 
             if self.vocab.recognises(keyword):
                 new_vocab, new_syntax_cls = self.vocab.get(keyword)
                 is_context_kw = new_vocab is not None and issubclass(
                     new_syntax_cls, KeywordSyntax
                 )
+                new_vocab, new_syntax_cls = self.vocab.get(keyword)
+                is_context_kw = new_vocab is not None and issubclass(
+                    new_syntax_cls, KeywordSyntax
+                )
                 if status.cur_indent > self.keyword_indent:
                     if self.syntax.from_python or status.pythonable:
+                    if self.syntax.from_python or status.pythonable:
                         self.from_python = True
+                elif self.from_python and not is_context_kw:
                 elif self.from_python and not is_context_kw:
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
@@ -265,6 +305,20 @@ class Parser(ABC):
                     self.block_indent = status.block_indent
                 self.last_block_was_snakecode = self.keyword_indent > 0
                 self.buffer = status.buffer.lstrip()
+            elif self.fmt_off:
+                self.flush_buffer(
+                    from_python=True,
+                    in_global_context=self.in_global_context,
+                )
+                if self.keyword_indent > 0:
+                    self.syntax.add_processed_keyword(status.token, keyword)
+                status = self._consume_fmt_off(
+                    status.token, min_indent=status.cur_indent
+                )
+                if self.last_block_was_snakecode and not status.eof:
+                    self.block_indent = status.block_indent
+                self.last_block_was_snakecode = self.keyword_indent > 0
+                self.buffer = status.buffer.lstrip()
             else:
                 if not self.syntax.accepts_python_code and not comment_start(keyword):
                     raise SyntaxError(
@@ -272,6 +326,8 @@ class Parser(ABC):
                         f"in {self.syntax.keyword_name} definition"
                     )
                 else:
+                    source, status = self._consume_python(status.token)
+                    self.buffer += source
                     source, status = self._consume_python(status.token)
                     self.buffer += source
                     if self.last_block_was_snakecode and not status.eof:
@@ -328,6 +384,7 @@ class Parser(ABC):
         from_python: bool = False,
         final_flush: bool = False,
         in_global_context: bool = False,
+        exiting_keywords: bool = False,
         exiting_keywords: bool = False,
     ) -> None:
         """Processes the text in :self.buffer:"""
@@ -584,6 +641,7 @@ class Parser(ABC):
         if new_vocab is not None and issubclass(new_syntax, KeywordSyntax):
             in_global_context = self.in_global_context
             saved_context: Context = self.context
+            saved_context: Context = self.context
             # 'use' keyword can not enter a new context
             self.context = Context(
                 new_vocab(),
@@ -606,6 +664,7 @@ class Parser(ABC):
             self.block_indent = self.syntax.keyword_indent + 1
             status = self.get_next_queriable()
             if self.context.syntax.accepts_python_code:
+            if self.context.syntax.accepts_python_code:
                 self.buffer += status.buffer.lstrip("\n\r")
             else:
                 self.buffer += status.buffer.lstrip()
@@ -624,8 +683,13 @@ class Parser(ABC):
             cur_indent = param_context.cur_indent
             if param_context.token.type == tokenize.COMMENT and not param_context.eof:
                 cur_indent = self._determine_comment_indent(param_context.token)
+            cur_indent = param_context.cur_indent
+            if param_context.token.type == tokenize.COMMENT and not param_context.eof:
+                cur_indent = self._determine_comment_indent(param_context.token)
             return Status(
                 param_context.token,
+                cur_indent,
+                cur_indent,
                 cur_indent,
                 cur_indent,
                 status.buffer,
@@ -641,6 +705,8 @@ class Parser(ABC):
         while self.keyword_indent > status.cur_indent:
             callback_context: Context = self.context_stack.pop()
             if callback_context.syntax.accepts_python_code:
+                # Flushes any code inside 'run' directive
+                self.flush_buffer(exiting_keywords=True)
                 # Flushes any code inside 'run' directive
                 self.flush_buffer(exiting_keywords=True)
             else:
@@ -752,8 +818,10 @@ class Parser(ABC):
             if block_indent == -1 and not_a_comment_related_token(token):
                 block_indent = self.cur_indent
             if token_indents_updated(token, self.indents):
+            if token_indents_updated(token, self.indents):
                 prev_token = None
                 newline = True
+                self.syntax.cur_indent = len(self.indents) - 1
                 self.syntax.cur_indent = len(self.indents) - 1
                 continue
             elif token.type == tokenize.ENDMARKER:
@@ -769,7 +837,41 @@ class Parser(ABC):
                 ):
                     # col-0 comments report cur_indent=0 to trigger context_exit;
                     # fmt directives at other columns report actual cur_indent.
+                fmt_dir = FMT_DIRECTIVE.from_token(token)
+                if (
+                    fmt_dir
+                    and col_nb(token) == 0
+                    and not (fmt_dir.disable and "next" in fmt_dir.modifiers)
+                ):
+                    # col-0 comments report cur_indent=0 to trigger context_exit;
+                    # fmt directives at other columns report actual cur_indent.
                     return Status(token, block_indent, 0, buffer, False, pythonable)
+                # Comments arrive in the token stream *before* any following
+                # INDENT/DEDENT tokens, so self.cur_indent still reflects the
+                # previous (potentially higher) level.  Delegate to
+                # _determine_comment_indent which peeks ahead and applies the
+                # two snapping rules.
+                effective_indent = self._determine_comment_indent(token)
+                self.syntax.cur_indent = effective_indent
+                if effective_indent < max(self.keyword_indent, self.block_indent):
+                    return Status(
+                        token, block_indent, effective_indent, buffer, False, pythonable
+                    )
+                # `# fmt: off[next]` always needs parser-level handling.
+                # Plain `# fmt: off` is parser-level only in global context; in other
+                # Python contexts it is handled by Black.
+                if (
+                    fmt_dir
+                    and fmt_dir.disable
+                    and (
+                        "next" in fmt_dir.modifiers
+                        or "sort" in fmt_dir.modifiers
+                        or (not fmt_dir.modifiers and self.in_global_context)
+                    )
+                ):
+                    return Status(
+                        token, block_indent, effective_indent, buffer, False, pythonable
+                    )
                 # Comments arrive in the token stream *before* any following
                 # INDENT/DEDENT tokens, so self.cur_indent still reflects the
                 # previous (potentially higher) level.  Delegate to
@@ -814,6 +916,11 @@ class Parser(ABC):
                 else:
                     buffer += TAB * self.effective_indent
 
+            if (
+                (token.type == tokenize.NAME or token.string == "@")
+                and self.queriable
+                and not self.in_fstring
+            ):
             if (
                 (token.type == tokenize.NAME or token.string == "@")
                 and self.queriable
