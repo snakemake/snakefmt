@@ -275,22 +275,8 @@ class LogicalLine(NamedTuple):
         return cls(head_empty_lines, deindents, contents, token)
 
 
-def split_token_lines(token: TokenInfo):
-    """Token can be multiline.
-    e.g., `f'''\\nplaintext\\n'''` has these tokens:
-
-        TokenInfo(type=61 (FSTRING_START), string="f'''",
-                  start=(21, 0), end=(21, 4), line="f'''\\n")
-        TokenInfo(type=62 (FSTRING_MIDDLE), string='\\ncccccccc\\n',
-                  start=(21, 4), end=(23, 0), line="f'''\\ncccccccc\\n'''\\n")
-        TokenInfo(type=63 (FSTRING_END), string="'''",
-                  start=(23, 0), end=(23, 3), line="'''\\n")
-
-    lines should be split to drop overlapping lines and keep unique ones.
-    """
-    return zip(
-        range(token.start[0], token.end[0] + 1), token.line.splitlines(keepends=True)
-    )
+def not_deindent(token: TokenInfo) -> bool:
+    return token.type != tokenize.INDENT and token.type != tokenize.DEDENT
 
 
 def tokens2linestrs(tokens: Iterator[TokenInfo]):
@@ -304,7 +290,13 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
     string_interior_lines: set[int] = set()
     for token in tokens:
         if not_deindent(token) and token.end[0] not in lines:
-            lines.update(split_token_lines(token))
+            # split multiline tokens with lineno for dereplication
+            lines.update(
+                zip(
+                    range(token.start[0], token.end[0] + 1),
+                    token.line.splitlines(keepends=True),
+                )
+            )
             if token.start[0] != token.end[0]:
                 string_interior_lines.update(
                     range(token.start[0] + 1, token.end[0] + 1)
@@ -318,10 +310,6 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
         else:
             newlines.append(line)
     return newlines
-
-
-def not_deindent(token: TokenInfo) -> bool:
-    return token.type != tokenize.INDENT and token.type != tokenize.DEDENT
 
 
 class FormatState(NamedTuple):
@@ -414,11 +402,12 @@ class Block(ABC):
     A block can be:
         a continuous python code of lines with the same indentation level.
             Also include functions, classes and decoraters (`@` lines)
-        a single block identifed by keywords in `{PYTHON_INDENT_KEYWORDS}`
+        a single block identifed by keywords in
+                if/elif/else / for/while / try/except/finally / with
             and all the code under it, until the next block of the same or lower indent level.
         a snakemake keyword block (rule, module, config, etc.)
             and all the code under it, until the next block of the same or lower indent level.
-            snakemake keywords should NEVER in functions or classes
+            (snakemake keywords should NEVER in functions or classes)
         comments between blocks
             (exclude the comment right before the indenting keyword, which is considered part of the block)
 
@@ -830,15 +819,9 @@ class UnknownIndentBlock(IfForTryWithBlock):
     """
 
 
-PYTHON_INDENT_KEYWORDS = {
-    i
-    for j in ("if elif else", "for while", "try except finally", "with")
-    for i in j.split()
-}
-
 if_for_try_with_blocks: dict[str, type[IfForTryWithBlock]] = {
     i.lower(): type(i.capitalize(), (IfForTryWithBlock,), {})
-    for i in PYTHON_INDENT_KEYWORDS
+    for i in ("if elif else " "for while " "try except finally " "with").split()
 }
 
 
@@ -856,9 +839,6 @@ class MatchBlock(ColonBlock):
                 f"only `Case` keyword is allowed, but got {blocks}"
             )
         self.body_blocks = blocks
-
-    def formatted(self, mode, state):
-        raise NotImplementedError("Not supported to format match-case blocks yet")
 
     def compilation(self):
         raise NotImplementedError
@@ -1098,7 +1078,11 @@ class PythonArgumentsBlock(PythonBlock):
 
     @staticmethod
     @abstractmethod
-    def handle_end_comma(raw: str, last_line: LogicalLine) -> str: ...
+    def handle_end_comma(raw: str, last_line: LogicalLine) -> str:
+        """
+        For PythonArguments:       the last line should always endswith `,`;
+        For PythonOneLineArgument: the last line should never  endswith `,`;
+        """
 
 
 class PythonArguments(PythonArgumentsBlock):
@@ -1124,26 +1108,6 @@ class PythonArguments(PythonArgumentsBlock):
     but that's not eazy, especially for unnamed arguments
     """
 
-    def formatted(self, mode, state):
-        """PythonArguments and its subclasses always at the terminal
-        of the snakemake keyword tree,
-        so returned state never used anymore
-        """
-        assert not self.body_blocks, "PythonArguments should not have body blocks"
-        raw = "".join(self.head_linestrs)
-        if not self.head_lines[-1].end_op == ",":
-            raw += "\n,"
-        tail_noncoding = tokens2linestrs(iter(self.tail_noncoding))
-        raw += "".join(i for i in tail_noncoding if i.strip())
-        formatted = format_black(
-            raw,
-            mode,
-            self.deindent_level - 1,
-            partial="(",
-            start_token=self.head_lines[0].body[0],
-        )
-        return formatted, state
-
     @staticmethod
     def handle_end_comma(raw, last_line):
         if not last_line.end_op == ",":
@@ -1157,30 +1121,6 @@ class PythonUnnamedArguments(PythonArguments):
 
 class PythonOneLineArgument(PythonArgumentsBlock):
     """Only allow simple expressions on the right"""
-
-    def formatted(self, mode, state):
-        """Only a single expression, trim the trailing comma"""
-        assert not self.body_blocks, "PythonArguments should not have body blocks"
-        raw = "".join(self.head_linestrs)
-        if self.head_lines[-1].end_op == ",":
-            last_line = self.head_lines[-1]
-            comma_token = (
-                last_line.body[-2]
-                if last_line.body[-1].type == tokenize.COMMENT
-                else last_line.body[-1]
-            )
-            comma_start = comma_token.start[1] - len(comma_token.line)
-            raw = raw[:comma_start] + raw[comma_start + 1 :]
-        tail_noncoding = tokens2linestrs(iter(self.tail_noncoding))
-        raw += "".join(i for i in tail_noncoding if i.strip())
-        formatted = format_black(
-            raw,
-            mode,
-            self.deindent_level - 1,
-            partial="(",
-            start_token=self.head_lines[0].body[0],
-        )
-        return formatted, state
 
     @staticmethod
     def handle_end_comma(raw, last_line):
@@ -1418,6 +1358,9 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
         self.body_blocks = blocks
 
     def format_body(self, mode, state, post_colon):
+        """Sort directives in the order of subautomata,
+        and format them together with the head line.
+        """
         assert not post_colon, "Invalid inline contents"
         formatted: list[str] = []
         sort_directives: dict[str, str] = {}
