@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.1.0](https://github.com/snakemake/snakefmt/compare/v1.0.0...v1.1.0) (2026-04-07)
+
+
+### Features
+
+* add `# fmt: off` to disable formatting ([#280](https://github.com/snakemake/snakefmt/issues/280)) ([e7201e1](https://github.com/snakemake/snakefmt/commit/e7201e126cd447b71948ac54608741f3315400f1))
+
 ## [1.0.0](https://github.com/snakemake/snakefmt/compare/v0.11.5...v1.0.0) (2026-03-24)
 
 
