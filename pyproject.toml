@@ -37,7 +37,7 @@ snakefmt = "snakefmt.snakefmt:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=7.4.4,<8",
+    "pytest>=7.4.4,<10",
     "pytest-cov>=4.1.0,<5",
     "flake8~=7.0",
     "snakemake>=9.12.0",
