@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - uses: googleapis/release-please-action@v5
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
           release-type: python
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         if: ${{ steps.release.outputs.release_created }}
 
       - name: Install the latest version of uv
@@ -39,7 +39,7 @@ jobs:
 
       - name: Publish to PyPI
         if: ${{ steps.release.outputs.release_created }}
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
         with:
           user:     __token__
           password: ${{ secrets.PYPI_TOKEN }}
