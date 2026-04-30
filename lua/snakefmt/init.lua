@@ -36,11 +36,11 @@ function M.format()
 
   -- Build command args (make a copy of cmd table to avoid modifying original)
   local full_cmd = vim.list_extend({}, cmd)
-  table.insert(full_cmd, "-")
   if config.options.line_length then
     table.insert(full_cmd, "--line-length")
     table.insert(full_cmd, tostring(config.options.line_length))
   end
+  table.insert(full_cmd, "-")
 
   vim.system(full_cmd, { stdin = stdin }, function(obj)
     vim.schedule(function()
