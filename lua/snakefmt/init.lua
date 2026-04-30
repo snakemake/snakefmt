@@ -1,9 +1,14 @@
 local config = require("snakefmt.config")
 local M = {}
+
+local group = vim.api.nvim_create_augroup("snakefmt", { clear = true })
+
 function M.setup(opts)
   config.setup(opts)
+  vim.api.nvim_clear_autocmds({ group = group })
   if config.options.auto_format then
     vim.api.nvim_create_autocmd("BufWritePre", {
+      group = group,
       pattern = { "*.smk", "Snakefile" },
       callback = function()
         M.format()
