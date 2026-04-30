@@ -11,7 +11,7 @@ already.**
 # Table of Contents
 - [PyCharm/JetBrains IDEA](#pycharmjetbrains-idea)
 - [Visual Studio Code](#visual-studio-code)
-- [Vim](#Vim)
+- [Vim / Neovim](#vim--neovim)
 - [emacs](#emacs)
 
 
@@ -73,41 +73,61 @@ $ where snakefmt
 
 3. See VS Code's documentation on [Formatting](https://code.visualstudio.com/docs/editor/codebasics#_formatting) for more instructions on how to apply formatting within the IDE.
 
-## Vim
+## Vim / Neovim
 
-Credit: plugin inspired by
-[black](https://github.com/psf/black/blob/master/plugin/black.vim)
+### Neovim (Recommended)
 
-1. Install the plugin.
+A modern Lua-based plugin for Neovim 0.10+ that provides asynchronous, non-blocking formatting.
 
-    Recommended way is via a plugin manager, eg [vim-plug](https://github.com/junegunn/vim-plug):
+#### Features
+- Fast formatting using `vim.system`.
+- Automatic fallback to `uvx snakefmt` if `snakefmt` is not in your environment.
+- Configurable line length and auto-format on save.
 
+#### Installation (with [lazy.nvim](https://github.com/folke/lazy.nvim))
+
+```lua
+{
+  "snakemake/snakefmt",
+  ft = { "snakemake" },
+  config = function()
+    require("snakefmt").setup({
+      -- auto_format = true, -- uncomment to enable auto-format on save
+    })
+  end,
+}
+```
+
+#### Usage
+- `:Snakefmt`: Format the current buffer.
+- `:SnakefmtInfo`: Show which `snakefmt` binary is being used.
+
+---
+
+### Vim (Legacy)
+
+Credit: plugin inspired by [black](https://github.com/psf/black/blob/master/plugin/black.vim)
+
+1. Install the plugin using a manager like [vim-plug](https://github.com/junegunn/vim-plug):
+
+    ```vim
+    Plug 'snakemake/snakefmt'
     ```
-    Plug 'snakemake/snakefmt' 
-    ```
 
-    or [Vundle](https://github.com/VundleVim/Vundle.vim):
+2. Run `:Snakefmt` to format a buffer, and `:SnakefmtVersion` for version info.
+   Note: Requires Vim 7.0+ with Python 3.6+ support.
 
-    ```
-    Plugin 'snakemake/snakefmt'
-    ```
+3. To format automatically on save, add to your `vimrc`:
 
-2. That's it! Run `:Snakefmt` to format a buffer, and `:SnakefmtVersion` for version info.
-
-    If you do not run Vim 7.0+ built with Python3.6+ support, or you have not installed `snakefmt`, those commands will complain.
-
-3. If you want to format your file automatically when saving it, write this in your vimrc:
-
-    ```
+    ```vim
     au BufNewFile,BufRead Snakefile,*.smk set filetype=snakemake
     au FileType snakemake autocmd BufWritePre <buffer> execute ':Snakefmt'
     ```
 
-4. If you additionally want syntax highlighting on your snakemake files, install snakemake's [syntax highlighter](https://github.com/snakemake/snakemake/tree/master/misc/vim)!
+### Syntax Highlighting
 
-### Troubleshooting
+For syntax highlighting in both Vim and Neovim, install the [Snakemake syntax highlighter](https://github.com/snakemake/snakemake/tree/master/misc/vim).
 
-Under certain circumstances, import errors can occur when using a virtual environment due to _Black_ dependency imports. See the [_Black_ Vim integration docs](https://black.readthedocs.io/en/stable/editor_integration.html#vim) for more details and a potential solution.
 
 ## emacs
 
