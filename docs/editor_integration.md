@@ -81,7 +81,7 @@ A modern Lua-based plugin for Neovim 0.10+ that provides asynchronous, non-block
 
 #### Features
 - Fast formatting using `vim.system`.
-- Automatic fallback to `uvx snakefmt` if `snakefmt` is not in your environment.
+- Automatic fallback to `uv run --with snakefmt snakefmt` if `snakefmt` is not in your environment.
 - Configurable line length and auto-format on save.
 
 #### Installation (with [lazy.nvim](https://github.com/folke/lazy.nvim))

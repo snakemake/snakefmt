@@ -12,7 +12,7 @@ function M.setup(opts)
       group = group,
       pattern = { "*.smk", "Snakefile" },
       callback = function()
-        M.format()
+        M.format(true)
       end,
       desc = "Auto-format with snakefmt on save",
     })
@@ -32,7 +32,7 @@ function M.setup(opts)
   end, { desc = "Show snakefmt execution info" })
 end
 
-function M.format()
+function M.format(sync)
   local cmd = paths.get_snakefmt_bin(config.options)
   if not cmd then
     vim.notify("snakefmt: binary not found and uvx fallback failed", vim.log.levels.ERROR)
@@ -40,6 +40,7 @@ function M.format()
   end
 
   local bufnr = vim.api.nvim_get_current_buf()
+  local changedtick = vim.api.nvim_buf_get_changedtick(bufnr)
   local content = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local stdin = table.concat(content, "\n") .. "\n"
 
@@ -51,9 +52,27 @@ function M.format()
   end
   table.insert(full_cmd, "-")
 
+  if sync then
+    local obj = vim.system(full_cmd, { stdin = stdin }):wait()
+    if obj.code == 0 then
+      local formatted = vim.split(obj.stdout, "\n")
+      if formatted[#formatted] == "" then
+        table.remove(formatted)
+      end
+      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, formatted)
+    else
+      vim.notify("snakefmt error: " .. obj.stderr, vim.log.levels.ERROR)
+    end
+    return
+  end
+
   vim.system(full_cmd, { stdin = stdin }, function(obj)
     vim.schedule(function()
       if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+      end
+
+      if vim.api.nvim_buf_get_changedtick(bufnr) ~= changedtick then
         return
       end
 

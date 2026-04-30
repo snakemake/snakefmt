@@ -9,18 +9,31 @@ function M.get_snakefmt_bin(config_opts)
   -- 2. Local Environment ($VIRTUAL_ENV)
   local venv = os.getenv("VIRTUAL_ENV")
   if venv then
-    local path = venv .. "/bin/snakefmt"
-    if vim.fn.executable(path) == 1 then
-      return { path }
+    local candidates = {
+      venv .. "/bin/snakefmt",
+      venv .. "/Scripts/snakefmt.exe",
+      venv .. "/Scripts/snakefmt",
+    }
+    for _, path in ipairs(candidates) do
+      if vim.fn.executable(path) == 1 then
+        return { path }
+      end
     end
   end
 
   -- 3. Project Environment (.venv)
   local project_venv = vim.fn.finddir(".venv", ".;")
   if project_venv ~= "" then
-    local path = vim.fn.fnamemodify(project_venv, ":p") .. "bin/snakefmt"
-    if vim.fn.executable(path) == 1 then
-      return { path }
+    local venv_base = vim.fn.fnamemodify(project_venv, ":p")
+    local candidates = {
+      venv_base .. "bin/snakefmt",
+      venv_base .. "Scripts/snakefmt.exe",
+      venv_base .. "Scripts/snakefmt",
+    }
+    for _, path in ipairs(candidates) do
+      if vim.fn.executable(path) == 1 then
+        return { path }
+      end
     end
   end
 
