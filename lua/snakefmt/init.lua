@@ -21,6 +21,15 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("Snakefmt", function()
     M.format()
   end, { desc = "Format current buffer with snakefmt" })
+
+  vim.api.nvim_create_user_command("SnakefmtInfo", function()
+    local cmd = paths.get_snakefmt_bin(config.options)
+    if cmd then
+      vim.notify("snakefmt command: " .. table.concat(cmd, " "), vim.log.levels.INFO)
+    else
+      vim.notify("snakefmt: not found", vim.log.levels.WARN)
+    end
+  end, { desc = "Show snakefmt execution info" })
 end
 
 function M.format()
