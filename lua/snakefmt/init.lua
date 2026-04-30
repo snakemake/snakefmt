@@ -44,6 +44,10 @@ function M.format()
 
   vim.system(full_cmd, { stdin = stdin }, function(obj)
     vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+      end
+
       if obj.code == 0 then
         local formatted = vim.split(obj.stdout, "\n")
         if formatted[#formatted] == "" then
