@@ -23,6 +23,7 @@ keywords = [
 dependencies = [
     "click>=8.2.0,<9",
     "black>=26.3.1,<27",
+    "shfmt-py>=3.12.0.2",
 ]
 
 [project.urls]

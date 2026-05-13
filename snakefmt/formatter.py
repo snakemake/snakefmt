@@ -21,6 +21,7 @@ from snakefmt.parser.syntax import (
     Syntax,
     split_code_string,
 )
+from snakefmt.shell_formatter import format_python_string_literal
 from snakefmt.types import TAB
 
 TAB_SIZE = len(TAB)
@@ -398,11 +399,15 @@ class Formatter(Parser):
         target_indent: int,
         inline_formatting: bool,
         param_list: bool = True,
+        keyword_name: str = "",
     ) -> str:
         string_indent = TAB * target_indent
         if inline_formatting:
             target_indent = 0
         val = str(parameter)
+
+        if keyword_name == "shell" and getattr(self.snakefile, "format_shell", True):
+            val = format_python_string_literal(val, target_indent)
 
         try:
             # A snakemake parameter is syntactically like a function parameter
@@ -490,7 +495,7 @@ class Formatter(Parser):
             # here, check if the value is too large to put in one line
             param = parameters.all_params[0]
             param_result = self.format_param(
-                param, target_indent, inline_fmting, param_list
+                param, target_indent, inline_fmting, param_list, parameters.keyword_name
             )
             inline_fmting = param_result.count("\n") == 1
         if inline_fmting:
@@ -507,8 +512,13 @@ class Formatter(Parser):
             result = f"{result}{parameters.comment}\n"
             for param in parameters.all_params:
                 result += self.format_param(
-                    param, target_indent, inline_fmting, param_list
+                    param,
+                    target_indent,
+                    inline_fmting,
+                    param_list,
+                    parameters.keyword_name,
                 )
+
         num_c = len(param.post_comments)
         if num_c > 1 or (not param._has_inline_comment and num_c == 1):
             Warnings.block_comment_below(parameters.keyword_name, keyword_line_nb)

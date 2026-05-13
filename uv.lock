@@ -984,6 +984,12 @@ wheels = [
 ]
 
 [[package]]
+name = "shfmt-py"
+version = "3.12.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/d9/a1ea26749bd19467e9fbfe7b34e6c8df517e01de4028a45b954eebe8c03b/shfmt_py-3.12.0.2.tar.gz", hash = "sha256:6a0dc675b37d000eb236609cf15aedd9e7a538927ea02c57b617908b6f237e9c", size = 4467, upload-time = "2025-07-08T06:54:40.396Z" }
+
+[[package]]
 name = "smart-open"
 version = "7.3.0.post1"
 source = { registry = "https://pypi.org/simple" }
@@ -1011,6 +1017,7 @@ source = { editable = "." }
 dependencies = [
     { name = "black" },
     { name = "click" },
+    { name = "shfmt-py" },
 ]
 
 [package.dev-dependencies]
@@ -1027,6 +1034,7 @@ dev = [
 requires-dist = [
     { name = "black", specifier = ">=26.3.1,<27" },
     { name = "click", specifier = ">=8.2.0,<9" },
+    { name = "shfmt-py", specifier = ">=3.12.0.2" },
 ]
 
 [package.metadata.requires-dev]
