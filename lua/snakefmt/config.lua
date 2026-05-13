@@ -2,6 +2,7 @@ local M = {}
 M.defaults = {
   auto_format = false,
   line_length = nil,
+  format_shell = nil,
   bin_path = nil,
   uvx_fallback = true,
 }

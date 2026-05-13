@@ -50,6 +50,9 @@ function M.format(sync)
     table.insert(full_cmd, "--line-length")
     table.insert(full_cmd, tostring(config.options.line_length))
   end
+  if config.options.format_shell == false then
+    table.insert(full_cmd, "--no-format-shell")
+  end
   table.insert(full_cmd, "-")
 
   if sync then
