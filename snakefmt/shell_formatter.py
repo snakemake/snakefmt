@@ -1,6 +1,7 @@
 import re
 import subprocess
 import textwrap
+import uuid
 
 from snakefmt.exceptions import InvalidShell
 
@@ -10,28 +11,44 @@ TAB = "    "
 # passes through to the shell verbatim, e.g. `awk '{{print $1}}'`).
 # The leading character class avoids matching shell function bodies like
 # `foo() { echo bar }`.
+# Intentionally permissive beyond the first character: in Snakemake shell
+# blocks, ALL single {…} are Snakemake expressions by definition — literal
+# braces must use {{…}}. This correctly captures {input[0]}, {threads:02d},
+# {wildcards.sample}, etc.
 _SNAKEMAKE_VAR_PATTERN = re.compile(r"(?<!\{)\{([a-zA-Z0-9_][^{}]*)\}(?!\})")
 
-_MASK_TEMPLATE = "__SNAKEFMT_VAR_{}__"
 
+def _mask_snakemake_vars(code: str) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
+    """Replace Snakemake `{var}` placeholders with opaque tokens shfmt won't touch.
 
-def _mask_snakemake_vars(code: str) -> tuple[str, tuple[str, ...]]:
-    """Replace Snakemake `{var}` placeholders with opaque tokens shfmt won't touch."""
+    Uses a per-call UUID nonce in the token to eliminate any risk of collision
+    with literal text that happens to look like a mask token.
+
+    Returns (masked_code, tokens, originals) — tokens[i] is the exact string
+    inserted for originals[i], so _unmask_snakemake_vars can replace by value
+    rather than by reconstructing the template.
+    """
+    nonce = uuid.uuid4().hex
+    tokens: list[str] = []
     originals: list[str] = []
 
     def replace(match: re.Match[str]) -> str:
+        token = f"__SNAKEFMT_{nonce}_{len(tokens)}__"
+        tokens.append(token)
         originals.append(match.group(0))
-        return _MASK_TEMPLATE.format(len(originals) - 1)
+        return token
 
     masked = _SNAKEMAKE_VAR_PATTERN.sub(replace, code)
-    return masked, tuple(originals)
+    return masked, tuple(tokens), tuple(originals)
 
 
-def _unmask_snakemake_vars(code: str, originals: tuple[str, ...]) -> str:
-    """Reverse of `_mask_snakemake_vars`. Walks tokens in reverse to avoid
-    substring collisions between e.g. `__SNAKEFMT_VAR_1__` and `__SNAKEFMT_VAR_10__`."""
-    for i in range(len(originals) - 1, -1, -1):
-        code = code.replace(_MASK_TEMPLATE.format(i), originals[i])
+def _unmask_snakemake_vars(
+    code: str, tokens: tuple[str, ...], originals: tuple[str, ...]
+) -> str:
+    """Reverse of `_mask_snakemake_vars`. Replaces each token by its stored
+    string value rather than re-constructing from a template."""
+    for token, original in zip(reversed(tokens), reversed(originals)):
+        code = code.replace(token, original)
     return code
 
 
@@ -53,9 +70,9 @@ def _invoke_shfmt(code: str) -> str:
 
 def format_shell_code(code: str) -> str:
     """Format shell code using shfmt, preserving Snakemake `{var}` placeholders."""
-    masked, originals = _mask_snakemake_vars(code)
+    masked, tokens, originals = _mask_snakemake_vars(code)
     formatted = _invoke_shfmt(masked)
-    return _unmask_snakemake_vars(formatted, originals)
+    return _unmask_snakemake_vars(formatted, tokens, originals)
 
 
 def format_python_string_literal(literal: str, target_indent: int = 0) -> str:
