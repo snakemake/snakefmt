@@ -237,5 +237,10 @@ class TestFormatPythonStringLiteralHeredocs:
     def test_heredoc_with_custom_delimiter_and_newlines(self):
         # Simulates a Python multi-line string containing a heredoc
         literal = '"""\npython <<!EOF!\n\\nif True:\n\npass\n\n\\n\n!EOF!\n"""'
-        expected = '"""\n        python <<!EOF!\n\\nif True:\n\npass\n\n\\n\n!EOF!\n        """'
+        expected = (
+            '"""\n'
+            '        python <<!EOF!\n'
+            '\\nif True:\n\npass\n\n\\n\n!EOF!\n'
+            '        """'
+        )
         assert format_python_string_literal(literal, target_indent=2) == expected
