@@ -9,7 +9,7 @@ TAB = "    "
 # Matches `{{...}}` escaped brace pairs — these encode literal shell `{...}` after
 # Snakemake's str.format() render. Masked FIRST so the single-brace pattern doesn't
 # partially match their inner content. Pattern: any content without nested braces.
-_DOUBLE_BRACE_PATTERN = re.compile(r"\{\{[^{}]*\}\}")
+_DOUBLE_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}", flags=re.DOTALL)
 
 # Matches single `{var}` Snakemake placeholders. The leading character class avoids
 # matching shell function bodies like `foo() { echo bar }`. The negative
@@ -81,7 +81,7 @@ def format_shell_code(code: str) -> str:
     return _unmask_snakemake_vars(formatted, tokens, originals)
 
 
-_HEREDOC_START = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
+_HEREDOC_START = re.compile(r"<<-?\s*['\"]?([^'\"\s<>|;&()]+)['\"]?")
 
 # Matches any Python triple-quoted string literal, with or without a prefix (f, r, b,
 # etc.). Uses `"{3}|'{3}` so the closing backreference \2 matches the same quote style

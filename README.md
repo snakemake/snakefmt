@@ -387,9 +387,10 @@ rule example:
 Bash brace groups (`{ cmd1; cmd2; }`) appear as `{{ cmd1; cmd2; }}` in Snakemake shell strings
 because Snakemake renders the block through `str.format()`, which requires `{{` / `}}` to produce
 literal `{` / `}`. `snakefmt` preserves these double-brace sequences verbatim — the body inside
-a brace group is **not** internally reformatted by `shfmt`. This is intentional: reformatting the
-body would require splitting the `{{` / `}}` delimiters, which would break `str.format()` at
-runtime.
+a brace group is **not** internally reformatted by `shfmt`. This is an implementation trade-off:
+safely unescaping, formatting, and re-escaping the contents without disrupting Snakemake's
+variable interpolation introduces significant parser complexity, so opaque masking is used for
+simplicity and safety.
 
 If you need `shfmt` to format the body of a brace group, wrap it in `# fmt: off` / `# fmt: on`
 and format that section manually.

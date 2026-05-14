@@ -147,6 +147,19 @@ def test_format_shell_code_awk_double_braces():
     assert format_shell_code(code) == code
 
 
+def test_format_shell_code_awk_double_braces_with_inner_var():
+    # {{...}} containing a single {var} must be preserved and not mangled by shfmt.
+    code = "awk '{{print {params.a} }}'\n"
+    assert format_shell_code(code) == code
+
+
+def test_format_shell_code_unquoted_double_braces_with_inner_var():
+    # Unquoted {{...}} containing a variable must be masked entirely by the double
+    # brace pass so that shfmt doesn't reformat the inside as nested brace groups.
+    code = "{{\n    echo {params.a}\n}}\n"
+    assert format_shell_code(code) == code
+
+
 def test_format_python_string_literal_fstring_formatted():
     # F-string shell blocks must be formatted, not skipped.
     # {{output}} is a Snakemake variable in f-string context (Python collapses
@@ -220,3 +233,9 @@ class TestFormatPythonStringLiteralHeredocs:
         result = format_python_string_literal(literal, target_indent=2)
         assert "{output}" in result
         assert "EOF\n" in result
+
+    def test_heredoc_with_custom_delimiter_and_newlines(self):
+        # Simulates a Python multi-line string containing a heredoc
+        literal = '"""\npython <<!EOF!\n\\nif True:\n\npass\n\n\\n\n!EOF!\n"""'
+        expected = '"""\n        python <<!EOF!\n\\nif True:\n\npass\n\n\\n\n!EOF!\n        """'
+        assert format_python_string_literal(literal, target_indent=2) == expected
