@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-13
+- **Updated:** 2026-05-14
 
 ## Context
 
@@ -68,6 +69,27 @@ across any future backend.
 - The shell-formatter call site is structured so that, if any of the revisit
   triggers fires, the replacement work is contained to the implementation of
   `_invoke_shfmt` (or its successor) in `snakefmt/shell_formatter.py`.
+
+## Update — 2026-05-14
+
+`shfmt-py` v4.0.0 was released on 2026-05-13, directly addressing both concerns
+that prompted this ADR:
+
+1. **Version lag resolved:** v4.0.0 bundles shfmt v3.13.1 (the current upstream
+   release at the time of writing).
+2. **Maintenance cadence improved:** The maintainer added Renovate bot automation
+   (PR #40/#57), which will open automated PRs whenever upstream shfmt releases a
+   new version. The single-maintainer lag risk is substantially reduced.
+3. **Versioning decoupled:** The package version (`4.x`) is now independent of the
+   bundled shfmt version. `SHFMT_VERSION` in `setup.py` tracks the binary
+   separately. This means pip version ranges no longer need to encode shfmt minor
+   versions.
+4. **Platform fallback added:** If no pre-built binary exists for a platform,
+   `shfmt-py` now falls back to a system `shfmt` on PATH rather than failing.
+
+The `pyproject.toml` constraint was updated to `shfmt-py>=4.0.0,<5.0.0`.
+None of the revisit triggers fired; the decision to depend on `shfmt-py` remains
+correct and the risk profile has improved materially.
 
 ## Revisit triggers
 
