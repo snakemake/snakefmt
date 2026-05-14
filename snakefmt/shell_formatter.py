@@ -70,7 +70,7 @@ def _invoke_shfmt(code: str) -> str:
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        raise InvalidShell(f"Invalid shell code. shfmt error: {e.stderr}")
+        raise InvalidShell(f"Invalid shell code. shfmt error: {e.stderr}") from e
     return process.stdout
 
 
