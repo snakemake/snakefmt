@@ -1,27 +1,32 @@
 import re
 import subprocess
-import textwrap
 import uuid
 
 from snakefmt.exceptions import InvalidShell
 
 TAB = "    "
 
-# Matches `{var}` while ignoring escaped `{{...}}` braces (which Snakemake
-# passes through to the shell verbatim, e.g. `awk '{{print $1}}'`).
-# The leading character class avoids matching shell function bodies like
-# `foo() { echo bar }`.
-# Intentionally permissive beyond the first character: in Snakemake shell
-# blocks, ALL single {…} are Snakemake expressions by definition — literal
-# braces must use {{…}}. This correctly captures {input[0]}, {threads:02d},
-# {wildcards.sample}, etc.
-_SNAKEMAKE_VAR_PATTERN = re.compile(r"(?<!\{)\{([a-zA-Z0-9_][^{}]*)\}(?!\})")
+# Matches `{{...}}` escaped brace pairs — these encode literal shell `{...}` after
+# Snakemake's str.format() render. Masked FIRST so the single-brace pattern doesn't
+# partially match their inner content. Pattern: any content without nested braces.
+_DOUBLE_BRACE_PATTERN = re.compile(r"\{\{[^{}]*\}\}")
+
+# Matches single `{var}` Snakemake placeholders. The leading character class avoids
+# matching shell function bodies like `foo() { echo bar }`. The negative
+# lookahead/lookbehind guards against `{{...}}` which was already masked above.
+# Intentionally permissive beyond the first character: captures {input[0]},
+# {threads:02d}, {wildcards.sample}, etc.
+_SINGLE_BRACE_PATTERN = re.compile(r"(?<!\{)\{([a-zA-Z0-9_][^{}]*)\}(?!\})")
 
 
 def _mask_snakemake_vars(code: str) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
-    """Replace Snakemake `{var}` placeholders with opaque tokens shfmt won't touch.
+    """Replace Snakemake placeholders and escaped brace pairs with opaque tokens.
 
-    Uses a per-call UUID nonce in the token to eliminate any risk of collision
+    Masks in two passes: `{{...}}` first, then single `{var}` placeholders. This
+    ordering prevents the single-brace pattern from matching inside double-brace
+    content and ensures both forms survive shfmt unchanged.
+
+    Uses a per-call UUID nonce in each token to eliminate any risk of collision
     with literal text that happens to look like a mask token.
 
     Returns (masked_code, tokens, originals) — tokens[i] is the exact string
@@ -38,8 +43,9 @@ def _mask_snakemake_vars(code: str) -> tuple[str, tuple[str, ...], tuple[str, ..
         originals.append(match.group(0))
         return token
 
-    masked = _SNAKEMAKE_VAR_PATTERN.sub(replace, code)
-    return masked, tuple(tokens), tuple(originals)
+    code = _DOUBLE_BRACE_PATTERN.sub(replace, code)
+    code = _SINGLE_BRACE_PATTERN.sub(replace, code)
+    return code, tuple(tokens), tuple(originals)
 
 
 def _unmask_snakemake_vars(
@@ -75,21 +81,54 @@ def format_shell_code(code: str) -> str:
     return _unmask_snakemake_vars(formatted, tokens, originals)
 
 
+_HEREDOC_START = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
+
+# Matches any Python triple-quoted string literal, with or without a prefix (f, r, b,
+# etc.). Uses `"{3}|'{3}` so the closing backreference \2 matches the same quote style
+# without needing backslash escapes that confuse formatters inside raw strings.
+_TRIPLE_QUOTE_RE = re.compile(r"""^([a-zA-Z]*)("{3}|'{3})([\s\S]*?)(\2)$""")
+
+
+def _indent_preserving_heredocs(text: str, indent: str) -> str:
+    """Indent each line by `indent`, skipping heredoc body and terminator lines.
+
+    shfmt does not reformat heredoc bodies. This function mirrors that — it adds
+    the target indent to command lines but leaves heredoc content untouched so that
+    terminator words remain at column 0 (required by bash for `<<EOF`) or with only
+    leading tabs (for `<<-EOF`).
+    """
+    out_lines: list[str] = []
+    in_heredoc: str | None = None
+    for line in text.splitlines(keepends=True):
+        stripped = line.rstrip("\n")
+        if in_heredoc is not None:
+            out_lines.append(line)
+            if stripped == in_heredoc or stripped.lstrip("\t") == in_heredoc:
+                in_heredoc = None
+            continue
+        out_lines.append(indent + line if line.strip() else line)
+        m = _HEREDOC_START.search(line)
+        if m:
+            in_heredoc = m.group(1)
+    return "".join(out_lines)
+
+
 def format_python_string_literal(literal: str, target_indent: int = 0) -> str:
-    """Extracts shell code from a Python string literal, formats it, and re-wraps it."""
-    # We only format multiline strings for safety, as single line strings
-    # might just be a single command or not worth formatting.
-    # This also avoids issues with implicitly concatenated strings.
+    """Extracts shell code from a Python string literal, formats it, and re-wraps it.
+
+    Only multiline triple-quoted strings are formatted. Single-line strings and any
+    form that doesn't match a simple triple-quote pattern are returned unchanged.
+    The literal is expected to arrive from `str(parameter)` — the caller guarantees
+    no leading whitespace beyond what the parser appends (handled by `rstrip` below).
+    """
     # Strip trailing whitespace: the parser appends a NEWLINE token after the
     # closing triple-quote, so the literal arrives as '"""..."""\n'. The caller
     # already rstrips the result, so this is safe.
     literal = literal.rstrip()
-    match = re.fullmatch(r'^([a-zA-Z]*)(""")([\s\S]*?)(\2)$', literal)
-    if not match:
-        match = re.fullmatch(r"^([a-zA-Z]*)(''')([\s\S]*?)(\2)$", literal)
+    match = _TRIPLE_QUOTE_RE.fullmatch(literal)
 
     if not match:
-        return literal  # Not a simple multiline string literal, don't format
+        return literal  # not a triple-quoted string literal; return unchanged
 
     prefix = match.group(1)
     quote = match.group(2)
@@ -100,9 +139,9 @@ def format_python_string_literal(literal: str, target_indent: int = 0) -> str:
     # Ensure it ends with a single newline before the closing quotes
     formatted_content = formatted_content.rstrip("\n") + "\n"
 
-    # Indent the content
+    # Indent the content, preserving heredoc terminator placement
     used_indent = TAB * target_indent
-    indented_content = textwrap.indent(formatted_content, used_indent)
+    indented_content = _indent_preserving_heredocs(formatted_content, used_indent)
 
     # Prepend a newline if the first line is indented so it drops below opening quote
     if indented_content and not indented_content.startswith("\n"):

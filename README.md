@@ -382,6 +382,18 @@ rule example:
         """
 ```
 
+#### Brace groups
+
+Bash brace groups (`{ cmd1; cmd2; }`) appear as `{{ cmd1; cmd2; }}` in Snakemake shell strings
+because Snakemake renders the block through `str.format()`, which requires `{{` / `}}` to produce
+literal `{` / `}`. `snakefmt` preserves these double-brace sequences verbatim — the body inside
+a brace group is **not** internally reformatted by `shfmt`. This is intentional: reformatting the
+body would require splitting the `{{` / `}}` delimiters, which would break `str.format()` at
+runtime.
+
+If you need `shfmt` to format the body of a brace group, wrap it in `# fmt: off` / `# fmt: on`
+and format that section manually.
+
 #### Invalid shell
 
 If `shfmt` cannot parse the shell body, `snakefmt` raises an `InvalidShell` error rather than silently leaving the block unformatted.

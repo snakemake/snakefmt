@@ -62,6 +62,7 @@ class Formatter(Parser):
         line_length: Optional[int] = None,
         sort_directives: bool = False,
         black_config_file: Optional[PathLike] = None,
+        format_shell: bool = False,
     ):
         self.result: str = ""
         self.lagging_comments: str = ""
@@ -71,6 +72,7 @@ class Formatter(Parser):
         self.keywords: dict[str, str] = {}  # cache to sort
 
         self.black_mode = read_black_config(black_config_file)
+        self.format_shell = format_shell
 
         if line_length is not None:
             self.black_mode.line_length = line_length
@@ -406,7 +408,7 @@ class Formatter(Parser):
             target_indent = 0
         val = str(parameter)
 
-        if keyword_name == "shell" and getattr(self.snakefile, "format_shell", True):
+        if keyword_name == "shell" and self.format_shell:
             val = format_python_string_literal(val, target_indent)
 
         try:

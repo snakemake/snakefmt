@@ -2926,7 +2926,10 @@ class TestShellBlockFormatting:
 
     def test_default_on_formats_shell(self):
         """Shell formatting is enabled by default and reformats shell content."""
-        assert setup_formatter(self._UNFORMATTED).get_formatted() == self._FORMATTED
+        assert (
+            setup_formatter(self._UNFORMATTED, format_shell=True).get_formatted()
+            == self._FORMATTED
+        )
 
     def test_format_shell_false_preserves_shell(self):
         """Setting format_shell=False leaves the shell body untouched."""
@@ -2936,8 +2939,7 @@ class TestShellBlockFormatting:
         from snakefmt.parser.parser import Snakefile
 
         smk = Snakefile(StringIO(self._UNFORMATTED))
-        smk.format_shell = False
-        assert Formatter(smk).get_formatted() == self._UNFORMATTED
+        assert Formatter(smk, format_shell=False).get_formatted() == self._UNFORMATTED
 
     def test_fmt_off_opts_out_of_shell_formatting(self):
         """A # fmt: off / # fmt: on region prevents shell formatting."""
@@ -2953,7 +2955,7 @@ class TestShellBlockFormatting:
             f'{TAB * 2}"""\n'
             "# fmt: on\n"
         )
-        assert setup_formatter(code).get_formatted() == code
+        assert setup_formatter(code, format_shell=True).get_formatted() == code
 
     def test_snakemake_placeholders_preserved_end_to_end(self):
         """{var}, {var.attr}, and {{escaped}} placeholders survive the full
@@ -2987,4 +2989,68 @@ class TestShellBlockFormatting:
             f"{TAB * 2}fi\n"
             f'{TAB * 2}"""\n'
         )
-        assert setup_formatter(unformatted).get_formatted() == expected
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_heredoc_terminator_at_column_zero(self):
+        """<<EOF terminator must stay at column 0 after snakefmt re-indents content."""
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}cat <<EOF >/dev/null\n"
+            f"line1\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}cat <<EOF >/dev/null\n"
+            f"line1\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_heredoc_with_snakemake_variable(self):
+        """Snakemake {output} in a heredoc command line survives the full pipeline.
+
+        shfmt reformats the command line (strips the space before the redirect),
+        but leaves the heredoc body and terminator untouched.
+        """
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}cat <<EOF > {{output}}\n"  # space before {output}
+            f"content\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}cat <<EOF >{{output}}\n"  # space removed by shfmt
+            f"content\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )

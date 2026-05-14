@@ -261,12 +261,12 @@ def main(
 
         try:
             snakefile = Snakefile(StringIO(original_content))
-            snakefile.format_shell = format_shell
             formatter = Formatter(
                 snakefile,
                 line_length=line_length,
                 sort_directives=sort_directives,
                 black_config_file=config,
+                format_shell=format_shell,
             )
             formatted_content = formatter.get_formatted()
         except Exception as error:
