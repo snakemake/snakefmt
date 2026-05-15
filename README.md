@@ -395,10 +395,29 @@ simplicity and safety.
 If you need `shfmt` to format the body of a brace group, wrap it in `# fmt: off` / `# fmt: on`
 and format that section manually.
 
+#### Heredoc handling
+
+`snakefmt` masks heredoc bodies before passing shell code to `shfmt`, and restores them afterwards. This means:
+
+- **Heredoc bodies are never reformatted** — `shfmt` does not reformat heredoc content, and neither does `snakefmt`.
+- **Snakemake-style escape prefixes on the terminator are supported.** For example, a heredoc that ends with `\n!EOF!` instead of a bare `!EOF!` at column 0 is detected and handled correctly — no `# fmt: off` required.
+
+```
+shell:
+    """
+    python <<!EOF!
+    \nif True:
+        print("hello")
+    \n!EOF!
+    """
+```
+
+Standard heredoc forms (`<<EOF`, `<<-EOF`, `<<'EOF'`) are also supported and the terminator placement requirement (column 0 for `<<EOF`, leading tabs only for `<<-EOF`) is preserved after formatting.
+
 #### Invalid shell
 
 If `shfmt` cannot parse the shell body, `snakefmt` raises an `InvalidShell` error rather than silently leaving the block unformatted.
-To work around malformed (or intentionally non-standard) shell, either:
+To work around genuinely invalid shell, either:
 
 - Disable shell formatting for the whole run with `-F` / `--no-format-shell`, or
 - Wrap the rule in `# fmt: off` / `# fmt: on` directives (see below) to opt that block out.

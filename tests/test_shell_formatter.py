@@ -170,6 +170,33 @@ def test_format_python_string_literal_fstring_formatted():
     assert result.startswith('f"""')
 
 
+def test_format_shell_code_heredoc_with_snakemake_escape_terminator():
+    code = "python <<!EOF!\n" "\\nif True:\n" "    pass\n" "\n" "\\n!EOF!\n"
+    assert format_shell_code(code) == code
+
+
+def test_format_shell_code_heredoc_body_never_reformatted():
+    code = "cat <<EOF\n" "if true\nthen\necho yes\nfi\n" "EOF\n"
+    assert format_shell_code(code) == code
+
+
+def test_format_shell_code_multiple_heredocs():
+    code = "cat <<EOF\nbody1\nEOF\n" "cat <<END\nbody2\nEND\n"
+    assert format_shell_code(code) == code
+
+
+def test_format_shell_code_heredoc_surrounded_by_formatted_shell():
+    unformatted = "if true\nthen\n" "cat <<EOF\nbody\nEOF\n" "fi\n"
+    expected = "if true; then\n" "    cat <<EOF\nbody\nEOF\n" "fi\n"
+    assert format_shell_code(unformatted) == expected
+
+
+def test_format_shell_code_truly_unclosed_heredoc_raises():
+    code = "cat <<EOF\nbody with no terminator anywhere\n"
+    with pytest.raises(InvalidShell):
+        format_shell_code(code)
+
+
 def test_format_shell_code_long_line_no_spurious_wrap():
     # shfmt with -i 4 -ci -bn is syntactic only — no length-based line wrapping.
     # Mask tokens (~50 chars each) must not cause spurious line breaks post-unmask.
@@ -239,8 +266,8 @@ class TestFormatPythonStringLiteralHeredocs:
         literal = '"""\npython <<!EOF!\n\\nif True:\n\npass\n\n\\n\n!EOF!\n"""'
         expected = (
             '"""\n'
-            '        python <<!EOF!\n'
-            '\\nif True:\n\npass\n\n\\n\n!EOF!\n'
+            "        python <<!EOF!\n"
+            "\\nif True:\n\npass\n\n\\n\n!EOF!\n"
             '        """'
         )
         assert format_python_string_literal(literal, target_indent=2) == expected

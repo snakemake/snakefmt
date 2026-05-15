@@ -74,11 +74,78 @@ def _invoke_shfmt(code: str) -> str:
     return process.stdout
 
 
+_HEREDOC_TOKEN_FMT = "__SNAKEFMT_HEREDOC_{nonce}_{idx}__"
+
+
+def _looks_like_terminator(line: str, delim: str) -> bool:
+    stripped = line.rstrip()
+    if not stripped.endswith(delim):
+        return False
+    prefix = stripped[: -len(delim)]
+    return re.fullmatch(r"[\s]*(\\[a-z])*", prefix) is not None
+
+
+def _mask_heredocs(code: str) -> tuple[str, tuple[tuple[str, str], ...]]:
+    """Replace heredoc body+terminator with a placeholder so shfmt can parse around it.
+
+    Returns (masked_code, blocks) where blocks[i] is (token, original_block_text).
+    """
+    nonce = uuid.uuid4().hex
+    out_lines: list[str] = []
+    blocks: list[tuple[str, str]] = []
+    lines = code.splitlines(keepends=True)
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m = _HEREDOC_START.search(line)
+        if not m:
+            out_lines.append(line)
+            i += 1
+            continue
+
+        delim = m.group(1)
+        out_lines.append(line)
+        i += 1
+
+        body_start = i
+        terminator_idx: int | None = None
+        while i < len(lines):
+            if _looks_like_terminator(lines[i], delim):
+                terminator_idx = i
+                break
+            i += 1
+
+        if terminator_idx is None:
+            out_lines.extend(lines[body_start:])
+            return "".join(out_lines), tuple(blocks)
+
+        original_block = "".join(lines[body_start : terminator_idx + 1])
+        token = _HEREDOC_TOKEN_FMT.format(nonce=nonce, idx=len(blocks))
+        blocks.append((token, original_block))
+
+        out_lines.append(token + "\n")
+        out_lines.append(delim + "\n")
+        i = terminator_idx + 1
+
+    return "".join(out_lines), tuple(blocks)
+
+
+def _unmask_heredocs(code: str, blocks: tuple[tuple[str, str], ...]) -> str:
+    """Restore heredoc bodies + terminators masked by _mask_heredocs."""
+    for token, original in blocks:
+        marker = re.compile(re.escape(token) + r"[^\n]*\n[^\n]*\n")
+        code = marker.sub(lambda _m: original, code, count=1)
+    return code
+
+
 def format_shell_code(code: str) -> str:
     """Format shell code using shfmt, preserving Snakemake `{var}` placeholders."""
-    masked, tokens, originals = _mask_snakemake_vars(code)
+    masked, var_tokens, var_originals = _mask_snakemake_vars(code)
+    masked, heredoc_blocks = _mask_heredocs(masked)
     formatted = _invoke_shfmt(masked)
-    return _unmask_snakemake_vars(formatted, tokens, originals)
+    formatted = _unmask_heredocs(formatted, heredoc_blocks)
+    return _unmask_snakemake_vars(formatted, var_tokens, var_originals)
 
 
 _HEREDOC_START = re.compile(r"<<-?\s*['\"]?([^'\"\s<>|;&()]+)['\"]?")
