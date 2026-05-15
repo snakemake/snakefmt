@@ -94,6 +94,14 @@ def get_snakefiles_in_dir(
     show_default=True,
 )
 @click.option(
+    "--format-shell/--no-format-shell",
+    "-f/-F",
+    "format_shell",
+    default=True,
+    help="Format shell directives using shfmt.",
+    show_default=True,
+)
+@click.option(
     "--check",
     is_flag=True,
     help=(
@@ -174,6 +182,7 @@ def main(
     ctx: click.Context,
     line_length: int,
     sort_directives: bool,
+    format_shell: bool,
     check: bool,
     diff: bool,
     compact_diff: bool,
@@ -257,6 +266,7 @@ def main(
                 line_length=line_length,
                 sort_directives=sort_directives,
                 black_config_file=config,
+                format_shell=format_shell,
             )
             formatted_content = formatter.get_formatted()
         except Exception as error:

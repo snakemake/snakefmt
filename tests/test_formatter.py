@@ -861,7 +861,14 @@ rule a:
   \t\tTabbed
     """
 '''
-        formatter = setup_formatter(snakecode)
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        snakefile = Snakefile(StringIO(snakecode))
+        snakefile.format_shell = False
+        formatter = Formatter(snakefile)
 
         expected = f'''
 rule a:
@@ -888,7 +895,14 @@ EOF
 bash tmp.txt
         """
 '''
-        formatter = setup_formatter(snakecode)
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        snakefile = Snakefile(StringIO(snakecode))
+        snakefile.format_shell = False
+        formatter = Formatter(snakefile)
 
         assert formatter.get_formatted() == snakecode
 
@@ -901,7 +915,14 @@ bash tmp.txt
             f"{TAB * 1}print('Hello, world!')\n"
             f'{TAB * 2}"""'
         )
-        formatter = setup_formatter(snakecode)
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        snakefile = Snakefile(StringIO(snakecode))
+        snakefile.format_shell = False
+        formatter = Formatter(snakefile)
         expected = (
             "rule a:\n"
             f"{TAB * 1}shell:\n"
@@ -2873,4 +2894,163 @@ class TestFmtOffNext:
             f"rule d:\n"
             f"{TAB}input:\n"
             f'{TAB * 2}"qux",\n'
+        )
+
+
+class TestShellBlockFormatting:
+    """End-to-end tests for shell block formatting via shfmt.
+
+    The unformatted input uses an if/then/fi block that shfmt normalises to
+    `if ...; then` form — a visible, deterministic transformation we can assert on.
+    """
+
+    _UNFORMATTED = (
+        "rule align:\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}if [ -s /tmp/out ]\n"
+        f"{TAB * 2}then\n"
+        f"{TAB * 2}echo done\n"
+        f"{TAB * 2}fi\n"
+        f'{TAB * 2}"""\n'
+    )
+    _FORMATTED = (
+        "rule align:\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}if [ -s /tmp/out ]; then\n"
+        f"{TAB * 3}echo done\n"
+        f"{TAB * 2}fi\n"
+        f'{TAB * 2}"""\n'
+    )
+
+    def test_default_on_formats_shell(self):
+        """Shell formatting is enabled by default and reformats shell content."""
+        assert (
+            setup_formatter(self._UNFORMATTED, format_shell=True).get_formatted()
+            == self._FORMATTED
+        )
+
+    def test_format_shell_false_preserves_shell(self):
+        """Setting format_shell=False leaves the shell body untouched."""
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        smk = Snakefile(StringIO(self._UNFORMATTED))
+        assert Formatter(smk, format_shell=False).get_formatted() == self._UNFORMATTED
+
+    def test_fmt_off_opts_out_of_shell_formatting(self):
+        """A # fmt: off / # fmt: on region prevents shell formatting."""
+        code = (
+            "# fmt: off\n"
+            "rule align:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+            "# fmt: on\n"
+        )
+        assert setup_formatter(code, format_shell=True).get_formatted() == code
+
+    def test_snakemake_placeholders_preserved_end_to_end(self):
+        """{var}, {var.attr}, and {{escaped}} placeholders survive the full
+        parse -> mask -> shfmt -> unmask -> render pipeline."""
+        unformatted = (
+            "rule align:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"reads.fq",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"aligned.bam",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}awk '{{{{print $1}}}}' {{input}} > {{output}}\n"
+            f"{TAB * 2}if [ -s {{output}} ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule align:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"reads.fq",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"aligned.bam",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}awk '{{{{print $1}}}}' {{input}} >{{output}}\n"
+            f"{TAB * 2}if [ -s {{output}} ]; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_heredoc_terminator_at_column_zero(self):
+        """<<EOF terminator must stay at column 0 after snakefmt re-indents content."""
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}cat <<EOF >/dev/null\n"
+            f"line1\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}cat <<EOF >/dev/null\n"
+            f"line1\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_heredoc_with_snakemake_variable(self):
+        """Snakemake {output} in a heredoc command line survives the full pipeline.
+
+        shfmt reformats the command line (strips the space before the redirect),
+        but leaves the heredoc body and terminator untouched.
+        """
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}cat <<EOF > {{output}}\n"  # space before {output}
+            f"content\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}cat <<EOF >{{output}}\n"  # space removed by shfmt
+            f"content\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
         )
