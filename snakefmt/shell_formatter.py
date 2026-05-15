@@ -191,11 +191,12 @@ def format_python_string_literal(literal: str, target_indent: int = 0) -> str:
     # Strip trailing whitespace: the parser appends a NEWLINE token after the
     # closing triple-quote, so the literal arrives as '"""..."""\n'. The caller
     # already rstrips the result, so this is safe.
-    literal = literal.rstrip()
-    match = _TRIPLE_QUOTE_RE.fullmatch(literal)
+    # rstrip only for matching/processing; non-matching literals are returned verbatim.
+    original = literal
+    match = _TRIPLE_QUOTE_RE.fullmatch(literal.rstrip())
 
     if not match:
-        return literal  # not a triple-quoted string literal; return unchanged
+        return original  # not a triple-quoted string literal; return unchanged
 
     prefix = match.group(1)
     quote = match.group(2)
