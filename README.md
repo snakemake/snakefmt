@@ -235,6 +235,9 @@ snakefmt - < Snakefile
 
 ### Full Usage
 
+<details>
+<summary>Show full help output</summary>
+
 ```
 $ snakefmt --help
 Usage: snakefmt [OPTIONS] [SRC]...
@@ -289,9 +292,14 @@ Options:
   -v, --verbose                   Turns on debug-level logger.
 ```
 
+</details>
+
 ### Directive Sorting
 
 By default, `snakefmt` sorts rule and module directives (like `input`, `output`, `shell`, etc.) into a consistent order. This makes rules easier to read and allows for quicker cross-referencing between inputs, outputs, and the resources used by the execution command.
+
+<details>
+<summary>Directive ordering details</summary>
 
 Directives are grouped by their functional role in the following order:
 
@@ -305,6 +313,8 @@ Directives are grouped by their functional role in the following order:
 8.  **Action**: `shell`, `run`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
 
 This ordering ensures that the directives most frequently used in execution blocks (like `threads`, `resources`, and `params`) are placed immediately above the action directive.
+
+</details>
 
 You can disable this feature using the `--no-sort` flag.
 
@@ -369,6 +379,9 @@ format_shell = false
 
 `shfmt` is invoked with `-i 4 -ci -bn` (four-space indentation, indented switch cases, binary operators may start a line).
 
+<details>
+<summary>Advanced details: placeholders, heredocs, brace groups, invalid shell</summary>
+
 #### Snakemake placeholders
 
 Snakemake `{var}` placeholders are masked before `shfmt` runs so it does not mis-parse them, then restored verbatim afterwards.
@@ -422,6 +435,8 @@ To work around genuinely invalid shell, either:
 - Disable shell formatting for the whole run with `-F` / `--no-format-shell`, or
 - Wrap the rule in `# fmt: off` / `# fmt: on` directives (see below) to opt that block out.
 
+</details>
+
 ### Format Directives
 
 `snakefmt` supports comment directives to control formatting behaviour for specific regions of code.
@@ -453,6 +468,9 @@ rule c:
 ```
 
 > **Note:** inside `run:` blocks and other Python contexts, `# fmt: off` / `# fmt: on` is passed through to [Black][black], which handles it natively.
+
+<details>
+<summary>Additional directives: <code># fmt: off[sort]</code>, <code># fmt: off[next]</code>, <code># fmt: skip</code></summary>
 
 #### `# fmt: off[sort]`
 
@@ -502,6 +520,8 @@ rule also_formatted:
 
 > **Note:** `# fmt: skip` is not yet supported within Snakemake rule blocks.
 > It currently applies only to plain Python lines outside of rules, checkpoints, and similar Snakemake constructs.
+
+</details>
 
 ### Configuration
 
@@ -566,7 +586,11 @@ Then [install pre-commit](https://pre-commit.com/#installation) and initialize t
 
 [GitHub Actions](https://github.com/features/actions) in combination with [super-linter](https://github.com/github/super-linter) allows you to automatically run `snakefmt` on all Snakefiles in your repository e.g. whenever you push a new commit.
 
-To do so, create the file `.github/workflows/linter.yml` in your repository:
+<details>
+<summary>Show GitHub Actions workflow configuration</summary>
+
+Create `.github/workflows/linter.yml` in your repository:
+
 ```yaml
 ---
 name: Lint
@@ -607,10 +631,13 @@ jobs:
 ```
 
 Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
+
 ```toml
 [tool.black]
 skip_string_normalization = true
 ```
+
+</details>
 
 For more information check the `super-linter` readme.
 
@@ -620,6 +647,9 @@ If you can't get enough of badges, then feel free to show others you're using `s
 in your project.
 
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
+
+<details>
+<summary>Copy badge markup</summary>
 
 ### Markdown
 
@@ -634,6 +664,8 @@ in your project.
     :target: https://github.com/snakemake/snakefmt
 ```
 
+</details>
+
 ## Changes
 
 See [`CHANGELOG.md`][changes].
@@ -646,7 +678,10 @@ See [CONTRIBUTING.md][contributing].
 
 [![DOI][doi-shield]][doi]
 
-```Bibtex
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
 @article{snakemake2021,
   doi = {10.12688/f1000research.29032.2},
   url = {https://doi.org/10.12688/f1000research.29032.2},
@@ -660,6 +695,8 @@ See [CONTRIBUTING.md][contributing].
   journal = {F1000Research}
 }
 ```
+
+</details>
 
 
 [snakemake]: https://snakemake.readthedocs.io/
