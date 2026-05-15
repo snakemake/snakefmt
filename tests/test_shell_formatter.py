@@ -107,9 +107,9 @@ awk '{{print $1}}' {input}
 
 def test_format_shell_code_many_variables():
     # Tests that __SNAKEFMT_VAR_1__ doesn't accidentally replace __SNAKEFMT_VAR_10__
-    vars = [f"{{var{i}}}" for i in range(15)]
-    unformatted = "echo " + " ".join(vars) + "\n"
-    expected = "echo " + " ".join(vars) + "\n"
+    placeholders = [f"{{var{i}}}" for i in range(15)]
+    unformatted = "echo " + " ".join(placeholders) + "\n"
+    expected = "echo " + " ".join(placeholders) + "\n"
     assert format_shell_code(unformatted) == expected
 
 
