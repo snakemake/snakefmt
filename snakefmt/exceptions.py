@@ -56,3 +56,7 @@ class InvalidBlackConfiguration(Exception):
 
 class MalformattedToml(Exception):
     pass
+
+
+class InvalidShell(Exception):
+    pass

@@ -11,6 +11,7 @@ def setup_formatter(
     line_length: int | None = None,
     sort_params: bool = False,
     black_config_file=None,
+    format_shell: bool = False,
 ):
     stream = StringIO(snake)
     smk = Snakefile(stream)
@@ -20,4 +21,5 @@ def setup_formatter(
         line_length=line_length,
         sort_directives=sort_params,
         black_config_file=black_config_file,
+        format_shell=format_shell,
     )
