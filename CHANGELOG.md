@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.0](https://github.com/snakemake/snakefmt/compare/v1.1.0...v2.0.0) (2026-05-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* shell blocks in rules are now formatted by shfmt by default. Existing Snakefiles may see whitespace and structure changes in their shell directives. Use `--no-format-shell` or `format_shell = false` in `pyproject.toml` to opt out.
+
+### Features
+
+* format shell directives using shfmt ([#295](https://github.com/snakemake/snakefmt/issues/295)) ([a8d131b](https://github.com/snakemake/snakefmt/commit/a8d131b62d88c503d55d8b2e2ebc6a94c28a34d4))
+
 ## [1.1.0](https://github.com/snakemake/snakefmt/compare/v1.0.0...v1.1.0) (2026-04-07)
 
 
