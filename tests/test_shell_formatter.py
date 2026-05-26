@@ -325,7 +325,7 @@ class TestFormatPythonStringLiteralMultilineStrings:
         # \ in normal code
         literal = '"""\n        echo \\$foo\n        """'
         f1 = format_python_string_literal(literal, target_indent=2)
-        assert 'echo \\$foo' in f1
+        assert "echo \\$foo" in f1
 
     def test_comments_diverse_boundaries(self):
         # Comment at line start, comment after space
