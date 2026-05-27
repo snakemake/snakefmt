@@ -375,13 +375,15 @@ def test_indent_preserving_heredocs_direct_edge_cases():
     res = _indent_preserving_heredocs(text, "    ")
     assert res == "    echo \\\\\n"
 
-    # 5. Comment boundaries after control characters and inside words
+    # 5. Comment boundaries after control characters and inside words (valid syntax)
     text = (
         "# start comment\n"
         "echo bar;# control ;\n"
         "echo bar&# control &\n"
-        "echo bar|# control |\n"
+        "echo bar |# control |\n"
+        "cat\n"
         "(# control (\n"
+        "echo inside\n"
         ")# control )\n"
         "echo foo#bar\n"
     )
@@ -390,8 +392,10 @@ def test_indent_preserving_heredocs_direct_edge_cases():
         "    # start comment\n"
         "    echo bar;# control ;\n"
         "    echo bar&# control &\n"
-        "    echo bar|# control |\n"
+        "    echo bar |# control |\n"
+        "    cat\n"
         "    (# control (\n"
+        "    echo inside\n"
         "    )# control )\n"
         "    echo foo#bar\n"
     )
