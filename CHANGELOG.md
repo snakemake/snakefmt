@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.1](https://github.com/snakemake/snakefmt/compare/v2.0.0...v2.0.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* prevent repeated indentation of multiline shell strings ([#299](https://github.com/snakemake/snakefmt/issues/299)) ([7b0d97f](https://github.com/snakemake/snakefmt/commit/7b0d97fa0a2d85d0d1d09bc17e58047366dad1c0))
+
 ## [2.0.0](https://github.com/snakemake/snakefmt/compare/v1.1.0...v2.0.0) (2026-05-22)
 
 
