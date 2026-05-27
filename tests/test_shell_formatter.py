@@ -271,3 +271,131 @@ class TestFormatPythonStringLiteralHeredocs:
             '        """'
         )
         assert format_python_string_literal(literal, target_indent=2) == expected
+
+
+class TestFormatPythonStringLiteralMultilineStrings:
+    def test_multiline_single_quoted_string_idempotent(self):
+        # Multi-line single-quoted string inside the shell block (e.g. bash -c '...')
+        literal = (
+            '"""\n'
+            "        squashfs-mount image.sqsh:/env -- bash -c '\n"
+            "            source /env/bin/activate\n"
+            "            echo hello\n"
+            "            '\n"
+            '        """'
+        )
+
+        # First run formats the outer code and should not mangle the
+        # inner string's indent
+        f1 = format_python_string_literal(literal, target_indent=2)
+        # Second run should produce the exact same output (idempotency)
+        f2 = format_python_string_literal(f1, target_indent=2)
+
+        assert f1 == f2
+
+    def test_multiline_double_quoted_string_idempotent(self):
+        # Multi-line double-quoted string inside the shell block (e.g. echo "...")
+        literal = (
+            '"""\n        echo "line 1\n        line 2\n        line 3"\n        """'
+        )
+
+        f1 = format_python_string_literal(literal, target_indent=2)
+        f2 = format_python_string_literal(f1, target_indent=2)
+
+        assert f1 == f2
+
+    def test_multiline_backtick_string_idempotent(self):
+        # Multi-line backtick string inside the shell block
+        literal = (
+            '"""\n        echo `line 1\n        line 2\n        line 3`\n        """'
+        )
+
+        f1 = format_python_string_literal(literal, target_indent=2)
+        f2 = format_python_string_literal(f1, target_indent=2)
+
+        assert f1 == f2
+
+    def test_double_quote_escaping(self):
+        # \" inside double quotes
+        literal = '"""\n        echo "line 1 \\" still inside \\" line 2"\n        """'
+        f1 = format_python_string_literal(literal, target_indent=2)
+        assert '\\" still inside \\"' in f1
+
+    def test_general_escapes(self):
+        # \ in normal code
+        literal = '"""\n        echo \\$foo\n        """'
+        f1 = format_python_string_literal(literal, target_indent=2)
+        assert "echo \\$foo" in f1
+
+    def test_comments_diverse_boundaries(self):
+        # Comment at line start, comment after space
+        literal = (
+            '"""\n'
+            "        # start comment\n"
+            "        echo foo # inline comment\n"
+            '        """'
+        )
+        f1 = format_python_string_literal(literal, target_indent=2)
+        assert "        # start comment" in f1
+
+    def test_non_triple_quoted_string_returned_unchanged(self):
+        literal = '"echo hello"'
+        assert format_python_string_literal(literal, target_indent=2) == literal
+
+    def test_newline_prepending_branches(self):
+        # 1. indented content is non-empty (does not start with newline)
+        literal1 = '"""\nls\n"""'
+        f1 = format_python_string_literal(literal1, target_indent=2)
+        assert f1.startswith('"""\n        ls')
+
+        # 2. indented content is empty
+        literal2 = '"""\n"""'
+        f2 = format_python_string_literal(literal2, target_indent=2)
+        assert f2 == '"""\n        """'
+
+
+def test_indent_preserving_heredocs_direct_edge_cases():
+    # 1. Backtick state transition
+    text = "echo `line 1\nline 2\nline 3`\n"
+    res = _indent_preserving_heredocs(text, "    ")
+    assert res == "    echo `line 1\nline 2\nline 3`\n"
+
+    # 2. Escaped backtick inside backticks
+    text = "echo `line 1 \\` line 2`\n"
+    res = _indent_preserving_heredocs(text, "    ")
+    assert res == "    echo `line 1 \\` line 2`\n"
+
+    # 3. Escaped double quote inside double quotes
+    text = 'echo "line 1 \\" line 2"\n'
+    res = _indent_preserving_heredocs(text, "    ")
+    assert res == '    echo "line 1 \\" line 2"\n'
+
+    # 4. Escaped backslash in normal code
+    text = "echo \\\\\n"
+    res = _indent_preserving_heredocs(text, "    ")
+    assert res == "    echo \\\\\n"
+
+    # 5. Comment boundaries after control characters and inside words (valid syntax)
+    text = (
+        "# start comment\n"
+        "echo bar;# control ;\n"
+        "echo bar&# control &\n"
+        "echo bar |# control |\n"
+        "cat\n"
+        "(# control (\n"
+        "echo inside\n"
+        ")# control )\n"
+        "echo foo#bar\n"
+    )
+    res = _indent_preserving_heredocs(text, "    ")
+    assert res == (
+        "    # start comment\n"
+        "    echo bar;# control ;\n"
+        "    echo bar&# control &\n"
+        "    echo bar |# control |\n"
+        "    cat\n"
+        "    (# control (\n"
+        "    echo inside\n"
+        "    )# control )\n"
+        "    echo foo#bar\n"
+    )

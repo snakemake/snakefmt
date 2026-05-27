@@ -157,26 +157,73 @@ _TRIPLE_QUOTE_RE = re.compile(r"""^([a-zA-Z]*)("{3}|'{3})([\s\S]*?)(\2)$""")
 
 
 def _indent_preserving_heredocs(text: str, indent: str) -> str:
-    """Indent each line by `indent`, skipping heredoc body and terminator lines.
+    """Indent each line by `indent`, skipping heredoc bodies, heredoc terminator
+    lines, and multi-line shell string literals (single/double quotes or backticks).
 
-    shfmt does not reformat heredoc bodies. This function mirrors that — it adds
-    the target indent to command lines but leaves heredoc content untouched so that
-    terminator words remain at column 0 (required by bash for `<<EOF`) or with only
-    leading tabs (for `<<-EOF`).
+    shfmt does not reformat heredoc bodies or re-indent multiline string literal
+    bodies. This function mirrors that — it adds the target indent to outer command
+    lines but leaves heredoc and multiline string content untouched.
     """
     out_lines: list[str] = []
-    in_heredoc: str | None = None
+    state: str | None = None  # Can be: None, "'", '"', '`', 'HEREDOC'
+    heredoc_delim: str | None = None
+
     for line in text.splitlines(keepends=True):
         stripped = line.rstrip("\n")
-        if in_heredoc is not None:
+
+        # Do not indent lines starting inside a multiline string or heredoc.
+        should_indent = state is None
+
+        if state == "HEREDOC":
+            if stripped == heredoc_delim or stripped.lstrip("\t") == heredoc_delim:
+                state = None
+                heredoc_delim = None
+        else:
+            # Scan character by character to track quote/backtick state transitions
+            i = 0
+            n = len(line)
+            while i < n:
+                char = line[i]
+                if state == "'":
+                    if char == "'":
+                        state = None
+                elif state == '"':
+                    if char == "\\":
+                        i += 1  # Skip escaped character inside double quotes
+                    elif char == '"':
+                        state = None
+                elif state == "`":
+                    if char == "\\":
+                        i += 1  # Skip escaped character inside backticks
+                    elif char == "`":
+                        state = None
+                else:  # state is None
+                    if char == "\\":
+                        i += 1  # Skip escaped character in normal code
+                    elif char == "#":
+                        # Comments can only start at the beginning of a word
+                        if i == 0 or line[i - 1].isspace() or line[i - 1] in ";|&()":
+                            break  # Rest of line is comment: ignore
+                    elif char == "'":
+                        state = "'"
+                    elif char == '"':
+                        state = '"'
+                    elif char == "`":
+                        state = "`"
+                i += 1
+
+            # If we end the line in state None, check if a new heredoc starts
+            if state is None:
+                m = _HEREDOC_START.search(line)
+                if m:
+                    state = "HEREDOC"
+                    heredoc_delim = m.group(1)
+
+        if should_indent and line.strip():
+            out_lines.append(indent + line)
+        else:
             out_lines.append(line)
-            if stripped == in_heredoc or stripped.lstrip("\t") == in_heredoc:
-                in_heredoc = None
-            continue
-        out_lines.append(indent + line if line.strip() else line)
-        m = _HEREDOC_START.search(line)
-        if m:
-            in_heredoc = m.group(1)
+
     return "".join(out_lines)
 
 
