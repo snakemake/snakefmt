@@ -104,7 +104,12 @@ class Formatter(Parser):
         if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.block_indent)
             if self.keyword_indent > 0:
-                formatted = self.align_strings(formatted, self.keyword_indent)
+                indent_subsequent = not self.syntax.accepts_python_code
+                formatted = self.align_strings(
+                    formatted,
+                    self.keyword_indent,
+                    indent_multiline_subsequent=indent_subsequent,
+                )
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
@@ -368,7 +373,9 @@ class Formatter(Parser):
             fmted = textwrap.dedent(s)
         return fmted
 
-    def align_strings(self, string: str, target_indent: int) -> str:
+    def align_strings(
+        self, string: str, target_indent: int, indent_multiline_subsequent: bool = False
+    ) -> str:
         """
         Takes an ensemble of strings and indents/reindents it
         """
@@ -388,11 +395,20 @@ class Formatter(Parser):
         )
         split_code = fakewrap.split(mask_string)
 
-        # After indenting, we put those strings back exactly as they were
-        indented = "".join(
-            s.replace("\t", TAB) if i % 2 else split_code[i // 2]
-            for i, s in enumerate(split_string)
-        )
+        # After indenting, we put those strings back
+        indented_parts = []
+        for i, s in enumerate(split_string):
+            if i % 2:
+                # Multiline string: indent subsequent lines if requested
+                lines = s.replace("\t", TAB).splitlines(keepends=True)
+                if indent_multiline_subsequent and len(lines) > 1:
+                    s = lines[0] + "".join(used_indent + line for line in lines[1:])
+                else:
+                    s = "".join(lines)
+                indented_parts.append(s)
+            else:
+                indented_parts.append(split_code[i // 2])
+        indented = "".join(indented_parts)
         return indented
 
     def format_param(
