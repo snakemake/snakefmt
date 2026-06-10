@@ -980,54 +980,136 @@ rule a:
 
     def test_multiline_docstring_inside_rule_preserves_indentation(self):
         """https://github.com/snakemake/snakefmt/issues/303"""
-        snakecode = f"""rule test:
-{TAB * 1}""\"
-{TAB * 1}Comment
-{TAB * 1}""\"
-{TAB * 1}input:
-{TAB * 2}"test.txt",
-"""
-        expected = f"""rule test:
-{TAB * 1}""\"
-{TAB * 1}Comment
-{TAB * 1}""\"
-{TAB * 1}input:
-{TAB * 2}"test.txt",
-"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == expected
+        assert formatter.get_formatted() == snakecode
 
     def test_multiline_docstring_inside_checkpoint_preserves_indentation(self):
         """https://github.com/snakemake/snakefmt/issues/303"""
-        snakecode = f"""checkpoint test:
-{TAB * 1}""\"
-{TAB * 1}Checkpoint comment
-{TAB * 1}""\"
-{TAB * 1}input:
-{TAB * 2}"test.txt",
-"""
-        expected = f"""checkpoint test:
-{TAB * 1}""\"
-{TAB * 1}Checkpoint comment
-{TAB * 1}""\"
-{TAB * 1}input:
-{TAB * 2}"test.txt",
-"""
+        snakecode = (
+            "checkpoint test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Checkpoint comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == expected
+        assert formatter.get_formatted() == snakecode
 
     def test_single_line_docstring_inside_rule_remains_intact(self):
         """https://github.com/snakemake/snakefmt/issues/303"""
-        snakecode = f"""rule test:
-{TAB * 1}""\"Comment""\"
-{TAB * 1}input:
-{TAB * 2}"test.txt",
-"""
-        expected = f"""rule test:
-{TAB * 1}""\"Comment""\"
-{TAB * 1}input:
-{TAB * 2}"test.txt",
-"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""Comment"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_with_blank_line_inside_rule(self):
+        """A blank line inside a docstring stays empty (no trailing whitespace)"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}First paragraph.\n"
+            "\n"
+            f"{TAB * 1}Second paragraph.\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        # The expected output equals the input: the blank line stays a bare "\n".
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_preserves_relative_indentation(self):
+        """Indented lines within a docstring keep their relative indentation"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Summary line.\n"
+            f"{TAB * 2}Indented detail.\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_followed_by_comment_inside_rule(self):
+        """A docstring followed by a comment is still indented under the rule"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}# trailing comment\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        # Black inserts a blank line between the docstring and the comment.
+        expected = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            "\n"
+            f"{TAB * 1}# trailing comment\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_collapsing_docstring_inside_rule_keeps_black_normalisation(self):
+        """Black still collapses a single-line docstring; indentation is preserved"""
+        snakecode = (
+            "rule a:\n"
+            f'{TAB * 1}"""The rule a\n'
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        expected = (
+            "rule a:\n"
+            f'{TAB * 1}"""The rule a"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_multiline_docstring_inside_nested_rule_preserves_indentation(self):
+        """A docstring in a rule nested under an if-block keeps its deeper indent"""
+        snakecode = (
+            "if True:\n"
+            f"{TAB * 1}rule test:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}Nested comment\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"test.txt",\n'
+        )
+        # snakefmt inserts a blank line after the `if True:` header.
+        expected = (
+            "if True:\n"
+            "\n"
+            f"{TAB * 1}rule test:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}Nested comment\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"test.txt",\n'
+        )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
@@ -2128,6 +2210,67 @@ def test_index_of_first_docstring_match():
     from snakefmt.formatter import index_of_first_docstring
 
     assert index_of_first_docstring('"""docstring"""') == 14
+
+
+class TestDocstringHelpers:
+    """Unit tests for the is_docstring / indent_docstring helpers (issue #303)."""
+
+    @pytest.mark.parametrize(
+        "string",
+        [
+            # Real rule/checkpoint docstring buffers reaching is_docstring():
+            '"""single line"""',  # single-line docstring buffer
+            '"""\nmultiline\n"""',  # the issue #303 multiline buffer
+            'r"""raw docstring"""',  # raw docstring
+            "'''single quotes'''",  # single-quoted docstring
+            '"""docstring"""\n# trailing comment',  # docstring + comment (Hocnonsense)
+            # Defensive: leading/trailing whitespace only guards the .strip().
+            '  \n"""leading/trailing whitespace"""\n  ',
+        ],
+    )
+    def test_is_docstring_true(self, string):
+        from snakefmt.formatter import is_docstring
+
+        assert is_docstring(string) is True
+
+    @pytest.mark.parametrize(
+        "string",
+        [
+            # Real buffers that must NOT be treated as docstrings:
+            "# just a comment",  # comment-only rule buffer
+            'x = """assigned triple-quoted"""',  # assignment, not a docstring
+            # Defensive: these can't occur as a directive-context buffer, but the
+            # helper must still reject them (empty is short-circuited earlier;
+            # arbitrary Python is invalid inside a rule directive context).
+            "",
+            "x = 1",
+            '"""docstring"""\nx = 1',  # docstring followed by code
+            'x = 1\n"""docstring"""',  # code followed by docstring
+        ],
+    )
+    def test_is_docstring_false(self, string):
+        from snakefmt.formatter import is_docstring
+
+        assert is_docstring(string) is False
+
+    def test_indent_docstring_single_line(self):
+        from snakefmt.formatter import indent_docstring
+
+        assert indent_docstring('"""doc"""\n', 1) == f'{TAB * 1}"""doc"""\n'
+
+    def test_indent_docstring_multiline(self):
+        from snakefmt.formatter import indent_docstring
+
+        docstring = '"""\nline\n"""\n'
+        expected = f'{TAB * 2}"""\n{TAB * 2}line\n{TAB * 2}"""\n'
+        assert indent_docstring(docstring, 2) == expected
+
+    def test_indent_docstring_leaves_blank_lines_without_trailing_whitespace(self):
+        from snakefmt.formatter import indent_docstring
+
+        docstring = '"""\na\n\nb\n"""\n'
+        expected = f'{TAB * 1}"""\n{TAB * 1}a\n\n{TAB * 1}b\n{TAB * 1}"""\n'
+        assert indent_docstring(docstring, 1) == expected
 
 
 class TestFmtOffOn:
