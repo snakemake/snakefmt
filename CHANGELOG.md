@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.2](https://github.com/snakemake/snakefmt/compare/v2.0.1...v2.0.2) (2026-06-11)
+
+
+### Bug Fixes
+
+* preserve multiline docstring indentation under rules/checkpoints ([#304](https://github.com/snakemake/snakefmt/issues/304)) ([6fd0a5c](https://github.com/snakemake/snakefmt/commit/6fd0a5c563571b247585129a950c167cc6cc766d))
+
+
+### Documentation
+
+* replace PyPI badges with personalized downloads badge ([#301](https://github.com/snakemake/snakefmt/issues/301)) ([e034b36](https://github.com/snakemake/snakefmt/commit/e034b36601c73d57582f1f86b2e5a62b40ffad06))
+
 ## [2.0.1](https://github.com/snakemake/snakefmt/compare/v2.0.0...v2.0.1) (2026-05-27)
 
 
