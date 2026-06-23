@@ -1070,6 +1070,27 @@ rule a:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
+    def test_multiline_docstring_with_same_line_comment_inside_rule(self):
+        """Closing quote with same-line comment is formatted correctly"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}""" # comment\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        expected = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""  # comment\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
     def test_collapsing_docstring_inside_rule_keeps_black_normalisation(self):
         """Black still collapses a single-line docstring; indentation is preserved"""
         snakecode = (
