@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.3](https://github.com/snakemake/snakefmt/compare/v2.0.2...v2.0.3) (2026-06-25)
+
+
+### Bug Fixes
+
+* skip fmt-directive and indent processing for inline comments ([#305](https://github.com/snakemake/snakefmt/issues/305)) ([#307](https://github.com/snakemake/snakefmt/issues/307)) ([d3a06b2](https://github.com/snakemake/snakefmt/commit/d3a06b27cfb8e1995871dcef37201e65c353527d))
+
 ## [2.0.2](https://github.com/snakemake/snakefmt/compare/v2.0.1...v2.0.2) (2026-06-11)
 
 
