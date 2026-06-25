@@ -756,41 +756,62 @@ class Parser(ABC):
                     token, block_indent, self.cur_indent, buffer, True, pythonable
                 )
             elif token.type == tokenize.COMMENT:
-                fmt_dir = FMT_DIRECTIVE.from_token(token)
-                if (
-                    fmt_dir
-                    and col_nb(token) == 0
-                    and not (fmt_dir.disable and "next" in fmt_dir.modifiers)
-                ):
-                    # col-0 comments report cur_indent=0 to trigger context_exit;
-                    # fmt directives at other columns report actual cur_indent.
-                    return Status(token, block_indent, 0, buffer, False, pythonable)
-                # Comments arrive in the token stream *before* any following
-                # INDENT/DEDENT tokens, so self.cur_indent still reflects the
-                # previous (potentially higher) level.  Delegate to
-                # _determine_comment_indent which peeks ahead and applies the
-                # two snapping rules.
-                effective_indent = self._determine_comment_indent(token)
-                self.syntax.cur_indent = effective_indent
-                if effective_indent < max(self.keyword_indent, self.block_indent):
-                    return Status(
-                        token, block_indent, effective_indent, buffer, False, pythonable
-                    )
-                # `# fmt: off[next]` always needs parser-level handling.
-                # Plain `# fmt: off` is parser-level only in global context; in other
-                # Python contexts it is handled by Black.
-                if (
-                    fmt_dir
-                    and fmt_dir.disable
-                    and (
-                        "next" in fmt_dir.modifiers
-                        or "sort" in fmt_dir.modifiers
-                        or (not fmt_dir.modifiers and self.in_global_context)
-                    )
-                ):
-                    return Status(
-                        token, block_indent, effective_indent, buffer, False, pythonable
-                    )
+                is_inline = (
+                    prev_token is not None
+                    and prev_token.type
+                    not in {
+                        tokenize.NL,
+                        tokenize.NEWLINE,
+                        tokenize.INDENT,
+                        tokenize.DEDENT,
+                    }
+                    and prev_token.end[0] == token.start[0]
+                )
+                if not is_inline:
+                    fmt_dir = FMT_DIRECTIVE.from_token(token)
+                    if (
+                        fmt_dir
+                        and col_nb(token) == 0
+                        and not (fmt_dir.disable and "next" in fmt_dir.modifiers)
+                    ):
+                        # col-0 comments report cur_indent=0 to trigger context_exit;
+                        # fmt directives at other columns report actual cur_indent.
+                        return Status(token, block_indent, 0, buffer, False, pythonable)
+                    # Comments arrive in the token stream *before* any following
+                    # INDENT/DEDENT tokens, so self.cur_indent still reflects the
+                    # previous (potentially higher) level.  Delegate to
+                    # _determine_comment_indent which peeks ahead and applies the
+                    # two snapping rules.
+                    effective_indent = self._determine_comment_indent(token)
+                    self.syntax.cur_indent = effective_indent
+                    if effective_indent < max(self.keyword_indent, self.block_indent):
+                        return Status(
+                            token,
+                            block_indent,
+                            effective_indent,
+                            buffer,
+                            False,
+                            pythonable,
+                        )
+                    # Plain `# fmt: off` is parser-level only in global context;
+                    # in other Python contexts it is handled by Black.
+                    if (
+                        fmt_dir
+                        and fmt_dir.disable
+                        and (
+                            "next" in fmt_dir.modifiers
+                            or "sort" in fmt_dir.modifiers
+                            or (not fmt_dir.modifiers and self.in_global_context)
+                        )
+                    ):
+                        return Status(
+                            token,
+                            block_indent,
+                            effective_indent,
+                            buffer,
+                            False,
+                            pythonable,
+                        )
 
             elif is_newline(token):
                 self.queriable, newline = True, True
