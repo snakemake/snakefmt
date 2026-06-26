@@ -80,6 +80,34 @@ def indent_docstring(docstring: str, target_indent: int) -> str:
     return textwrap.indent(docstring, TAB * target_indent)
 
 
+def align_strings(string: str, target_indent: int) -> str:
+    """
+    Takes an ensemble of strings and indents/reindents it
+    """
+    used_indent = TAB * target_indent
+    split_string = split_code_string(string)
+    if len(split_string) == 1:
+        return textwrap.indent(split_string[0], used_indent)
+
+    # First, masks all multi-line strings
+    mask_string = "`~!@#$%^&*|?"
+    while mask_string in string:
+        mask_string += mask_string
+    mask_string = f'"""{mask_string}"""'
+    fakewrap = textwrap.indent(
+        "".join(mask_string if i % 2 else s for i, s in enumerate(split_string)),
+        used_indent,
+    )
+    split_code = fakewrap.split(mask_string)
+
+    # After indenting, we put those strings back exactly as they were
+    indented = "".join(
+        s.replace("\t", TAB) if i % 2 else split_code[i // 2]
+        for i, s in enumerate(split_string)
+    )
+    return indented
+
+
 class Formatter(Parser):
     def __init__(
         self,
@@ -136,7 +164,7 @@ class Formatter(Parser):
                     # string, so indent the whole docstring directly. See issue #303.
                     formatted = indent_docstring(formatted, self.keyword_indent)
                 else:
-                    formatted = self.align_strings(formatted, self.keyword_indent)
+                    formatted = align_strings(formatted, self.keyword_indent)
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
@@ -400,33 +428,6 @@ class Formatter(Parser):
             fmted = textwrap.dedent(s)
         return fmted
 
-    def align_strings(self, string: str, target_indent: int) -> str:
-        """
-        Takes an ensemble of strings and indents/reindents it
-        """
-        used_indent = TAB * target_indent
-        split_string = split_code_string(string)
-        if len(split_string) == 1:
-            return textwrap.indent(split_string[0], used_indent)
-
-        # First, masks all multi-line strings
-        mask_string = "`~!@#$%^&*|?"
-        while mask_string in string:
-            mask_string += mask_string
-        mask_string = f'"""{mask_string}"""'
-        fakewrap = textwrap.indent(
-            "".join(mask_string if i % 2 else s for i, s in enumerate(split_string)),
-            used_indent,
-        )
-        split_code = fakewrap.split(mask_string)
-
-        # After indenting, we put those strings back exactly as they were
-        indented = "".join(
-            s.replace("\t", TAB) if i % 2 else split_code[i // 2]
-            for i, s in enumerate(split_string)
-        )
-        return indented
-
     def format_param(
         self,
         parameter: Parameter,
@@ -498,7 +499,7 @@ class Formatter(Parser):
             else:
                 val = content
 
-        val = self.align_strings(val, target_indent)
+        val = align_strings(val, target_indent)
 
         result = ""
         if not inline_formatting:

@@ -12,6 +12,7 @@ import black.parsing
 import pytest
 
 from snakefmt.exceptions import InvalidPython
+from snakefmt.formatter import align_strings
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
@@ -2292,6 +2293,24 @@ class TestDocstringHelpers:
         docstring = '"""\na\n\nb\n"""\n'
         expected = f'{TAB * 1}"""\n{TAB * 1}a\n\n{TAB * 1}b\n{TAB * 1}"""\n'
         assert indent_docstring(docstring, 1) == expected
+
+
+class TestAlignStrings:
+    """Unit tests for the align_strings helper function."""
+
+    def test_align_strings_single_line(self):
+        assert align_strings("param = 1", 1) == f"{TAB * 1}param = 1"
+        assert align_strings("param = 1", 2) == f"{TAB * 2}param = 1"
+
+    def test_align_strings_multiline_code(self):
+        code = "a = 1\nb = 2"
+        expected = f"{TAB * 1}a = 1\n{TAB * 1}b = 2"
+        assert align_strings(code, 1) == expected
+
+    def test_align_strings_preserves_triple_quoted_strings(self):
+        code = 'x = """\nline1\nline2\n"""'
+        expected = f'{TAB * 1}x = """\nline1\nline2\n"""'
+        assert align_strings(code, 1) == expected
 
 
 class TestFmtOffOn:
