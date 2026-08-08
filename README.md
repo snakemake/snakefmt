@@ -639,7 +639,7 @@ skip_string_normalization = true
 
 For more information check the `super-linter` readme.
 
-Alternatively, [MegaLinter](https://megalinter.io) is another linters aggregator that
+Alternatively, [MegaLinter](https://megalinter.io) is another linter aggregator that
 runs `snakefmt` out of the box on any CI system - see its
 [snakefmt page](https://megalinter.io/latest/descriptors/snakemake_snakefmt/) for setup.
 
