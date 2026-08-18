@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.4](https://github.com/snakemake/snakefmt/compare/v2.0.3...v2.0.4) (2026-08-18)
+
+
+### Documentation
+
+* mention MegaLinter in the CI integration section ([#314](https://github.com/snakemake/snakefmt/issues/314)) ([06b1871](https://github.com/snakemake/snakefmt/commit/06b18718ecff658e6314a24fbc3820aa80abaaf8))
+
 ## [2.0.3](https://github.com/snakemake/snakefmt/compare/v2.0.2...v2.0.3) (2026-06-25)
 
 
