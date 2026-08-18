@@ -639,6 +639,10 @@ skip_string_normalization = true
 
 For more information check the `super-linter` readme.
 
+Alternatively, [MegaLinter](https://megalinter.io) is another linter aggregator that
+runs `snakefmt` out of the box on any CI system - see its
+[snakefmt page](https://megalinter.io/latest/descriptors/snakemake_snakefmt/) for setup.
+
 ## Plug Us
 
 If you can't get enough of badges, then feel free to show others you're using `snakefmt`
