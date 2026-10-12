@@ -971,8 +971,10 @@ class TestTopLevelKeywordsAfterNestedSnakecode:
             f"{TAB}input:\n"
             f'{TAB * 2}"in.txt",\n'
         )
+        expected = f"{formatted_nested}\n\n{formatted_rule}"
         formatter = setup_formatter(f"{nested}\n\n{rule}", sort_params=True)
-        assert formatter.get_formatted() == f"{formatted_nested}\n\n{formatted_rule}"
+        assert formatter.get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
 
 class TestStringFormatting:
