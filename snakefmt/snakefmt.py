@@ -1,9 +1,10 @@
+import json
 import logging
 import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Iterator, List, Optional, Pattern, Set, Union
+from typing import Iterator, List, Optional, Pattern, Set, Tuple, Union
 
 import click
 from black.files import get_gitignore
@@ -12,6 +13,7 @@ from pathspec import PathSpec
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
 from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
+from snakefmt.directive_order import DirectiveOrderType, effective_directive_order
 from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
 from snakefmt.parser.parser import Snakefile
@@ -92,6 +94,30 @@ def get_snakefiles_in_dir(
     default=True,
     help="Sort directives in rules and modules.",
     show_default=True,
+)
+@click.option(
+    "-o",
+    "--directive-order",
+    "directive_order",
+    type=DirectiveOrderType(),
+    default=None,
+    metavar="NAMES",
+    help=(
+        "Comma-separated directives to sort first, in the order given. The other "
+        "directives follow in the default order. Action directives (run, shell, "
+        "script, ...) cannot be listed as they always come last. "
+        "In the config file this is an array of strings."
+    ),
+)
+@click.option(
+    "-p",
+    "--print-directive-order",
+    "print_directive_order",
+    is_flag=True,
+    help=(
+        "Print the directive order in effect as a `directive_order = [...]` line "
+        "for the config file, then exit."
+    ),
 )
 @click.option(
     "--format-shell/--no-format-shell",
@@ -182,6 +208,8 @@ def main(
     ctx: click.Context,
     line_length: int,
     sort_directives: bool,
+    directive_order: Optional[Tuple[str, ...]],
+    print_directive_order: bool,
     format_shell: bool,
     check: bool,
     diff: bool,
@@ -200,9 +228,21 @@ def main(
     Files are modified in-place by default; use diff, check, or
      `snakefmt - < Snakefile` to avoid this.
     """
+    if print_directive_order:
+        order = effective_directive_order(directive_order or ())
+        click.echo(f"directive_order = {json.dumps(order)}")
+        ctx.exit(0)
+
     log_level = logging.DEBUG if verbose else logging.INFO
     LogConfig.init(log_level)
     logger = LogConfig.get_logger()
+
+    if directive_order and not sort_directives:
+        logger.warning(
+            "A directive order was given but sorting is disabled (--no-sort), "
+            "so the directive order is ignored."
+        )
+        directive_order = None
 
     if not src:
         click.echo(
@@ -265,6 +305,7 @@ def main(
                 snakefile,
                 line_length=line_length,
                 sort_directives=sort_directives,
+                directive_order=directive_order or (),
                 black_config_file=config,
                 format_shell=format_shell,
             )

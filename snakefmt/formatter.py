@@ -3,7 +3,7 @@ import textwrap
 import tokenize
 from ast import parse as ast_parse
 from copy import copy
-from typing import Optional
+from typing import Optional, Sequence
 
 import black.parsing
 
@@ -116,6 +116,7 @@ class Formatter(Parser):
         sort_directives: bool = False,
         black_config_file: Optional[PathLike] = None,
         format_shell: bool = False,
+        directive_order: Sequence[str] = (),
     ):
         self.result: str = ""
         self.lagging_comments: str = ""
@@ -123,6 +124,8 @@ class Formatter(Parser):
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
+        # directives to sort first (in this order); the rest follow in default order
+        self.directive_order = tuple(directive_order)
 
         self.black_mode = read_black_config(black_config_file)
         self.format_shell = format_shell
@@ -233,7 +236,7 @@ class Formatter(Parser):
         else:  # not a PythonCode context, collect keywords to sort
             self.previous_result += self.result + formatted
             self.result = ""
-            self.keyword_spec = self.vocab.ordered()
+            self.keyword_spec = self.vocab.ordered(self.directive_order)
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool

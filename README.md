@@ -59,6 +59,7 @@ design and specifications of [Black][black].
   - [Full Usage](#full-usage)
   - [Shell Block Formatting](#shell-block-formatting)
   - [Directive Sorting](#directive-sorting)
+    - [Custom directive order](#custom-directive-order)
   - [Format Directives](#format-directives)
   - [Configuration](#configuration)
 - [Integration](#integration)
@@ -253,6 +254,15 @@ Options:
                                   [default: 88]
   -s, --sort / -S, --no-sort      Sort directives in rules and modules.
                                   [default: sort]
+  -o, --directive-order NAMES     Comma-separated directives to sort first, in
+                                  the order given. The other directives follow
+                                  in the default order. Action directives
+                                  (run, shell, script, ...) cannot be listed
+                                  as they always come last. In the config file
+                                  this is an array of strings.
+  -p, --print-directive-order     Print the directive order in effect as a
+                                  `directive_order = [...]` line for the
+                                  config file, then exit.
   -f, --format-shell / -F, --no-format-shell
                                   Format shell directives using shfmt.
                                   [default: format-shell]
@@ -303,18 +313,51 @@ Directives are grouped by their functional role in the following order:
 
 1.  **Identity & Early Control**: `name`, `default_target`
 2.  **I/O Contract**: `input`, `output`, `log`, `benchmark`
-3.  **Wildcard & Path Qualification**: `wildcard_constraints`, `pathvars`
-4.  **Scheduling & Control**: `priority`, `retries`, `group`, `localrule`, `cache`, `handover`
+3.  **Wildcard & Path Qualification**: `pathvars`, `wildcard_constraints`
+4.  **Scheduling & Control**: `cache`, `priority`, `retries`, `group`, `localrule`, `handover`
 5.  **Execution Environment**: `shadow`, `conda`, `container`, `singularity`, `containerized`, `envmodules`
 6.  **Execution Resources & Parameters**: `threads`, `resources`, `params`
 7.  **Annotation / Runtime Display**: `message`
-8.  **Action**: `shell`, `run`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
+8.  **Action**: `run`, `shell`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
 
 This ordering ensures that the directives most frequently used in execution blocks (like `threads`, `resources`, and `params`) are placed immediately above the action directive.
+
+Modules sort their directives in this order: `name`, `pathvars`, `snakefile`, `config`, `skip_validation`, `prefix`, `replace_prefix`, `meta_wrapper`.
 
 </details>
 
 You can disable this feature using the `--no-sort` flag.
+
+#### Custom directive order
+
+If you prefer a different order, list the directives that should come first with `-o/--directive-order`, as a comma-separated list:
+
+```shell
+snakefmt --directive-order params,input,output workflow/
+```
+
+or set `directive_order` in your `pyproject.toml`:
+
+```toml
+[tool.snakefmt]
+directive_order = ["params", "input", "output"]
+```
+
+The listed directives come first, in the order given. All the other directives follow in the default order above, so you only need to list the ones you want to move.
+With the example above, a rule is sorted as `params`, `input`, `output`, `name`, `default_target`, `log`, `benchmark`, ..., `threads`, `resources`, `message`, followed by the action.
+
+- The same list applies to `rule`, `checkpoint`, `use rule ... with:` and `module` blocks. Each of them only uses the directives it knows and ignores the rest, e.g. `snakefile` has no effect on rules and `input` has no effect on modules.
+- Action directives (`run`, `shell`, `script`, `notebook`, `wrapper`, `cwl` and `template_engine`) can't be listed. Snakemake allows only one action per rule and no directive may follow it, so actions always come last.
+- Unknown directives, directives listed more than once and action directives are errors, and `snakefmt` stops before formatting anything.
+- Directives inside a `# fmt: off[sort]` region keep their original order.
+- With `--no-sort` (or `sort_directives = false`) nothing is sorted, so a custom order is ignored and `snakefmt` logs a warning.
+
+To see the order that is in effect, for example to check how your partial list was merged with the default order, use `-p/--print-directive-order`.
+It prints the complete order as a single `directive_order = [...]` line that you can paste into your `pyproject.toml`, and exits without formatting anything:
+
+```shell
+snakefmt --directive-order params,input --print-directive-order
+```
 
 ### Shell Block Formatting
 

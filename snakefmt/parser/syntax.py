@@ -6,7 +6,7 @@ import tokenize
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from re import match as re_match
-from typing import ClassVar, NamedTuple, Optional, Type
+from typing import ClassVar, NamedTuple, Optional, Sequence, Type
 
 from snakefmt import fstring_tokeniser_in_use
 from snakefmt.exceptions import (
@@ -286,9 +286,15 @@ class Vocabulary:
         return self.spec[keyword]
 
     @classmethod
-    def ordered(cls):
+    def ordered(cls, directive_order: Sequence[str] = ()) -> "list[str]":
+        """
+        Directive names in sorting order: the names in `directive_order` that this
+        vocabulary recognises come first, in the order given; all the others follow
+        in the default order of the grammar's spec.
+        """
         assert isinstance(cls.spec, OrderedDict)
-        return list(cls.spec)
+        listed = [keyword for keyword in directive_order if keyword in cls.spec]
+        return listed + [keyword for keyword in cls.spec if keyword not in listed]
 
 
 class Syntax(ABC):
