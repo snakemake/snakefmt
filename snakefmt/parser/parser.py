@@ -622,8 +622,9 @@ class Parser(ABC):
             self.syntax.add_processed_keyword(status.token, status.token.string)
             cur_indent = param_context.cur_indent
             # A parameter nested in Python can dedent below its own context's
-            # keyword indent (e.g. back to the top level), with no context_exit.
-            self._drop_stale_indents(cur_indent)
+            # keyword indent (e.g. back to the top level), with no context_exit,
+            # so trim the stale indent levels here too.
+            del self.indents[cur_indent + 1 :]
             if param_context.token.type == tokenize.COMMENT and not param_context.eof:
                 cur_indent = self._determine_comment_indent(param_context.token)
             return Status(
@@ -654,16 +655,10 @@ class Parser(ABC):
         self.block_indent = self.cur_indent
         if self.keyword_indent > 0:
             self.syntax.keyword_indent = status.cur_indent + 1
-        self._drop_stale_indents(status.cur_indent)
-
-    def _drop_stale_indents(self, cur_indent: int) -> None:
-        """Trims indent levels deeper than `cur_indent` from `self.indents`.
-
-        ParameterSyntax consumes INDENT/DEDENT tokens without updating
-        Parser.indents, leaving stale deeper-level entries. Trimming them lets
-        get_next_queriable compute the correct cur_indent for the next block.
-        """
-        del self.indents[cur_indent + 1 :]
+        # ParameterSyntax consumes INDENT/DEDENT tokens without updating
+        # Parser.indents, leaving stale deeper-level entries. Trim them now
+        # so get_next_queriable computes the correct cur_indent for the next block.
+        del self.indents[status.cur_indent + 1 :]
 
     def _determine_comment_indent(self, comment_token: Token) -> int:
         """
