@@ -228,14 +228,19 @@ def main(
     Files are modified in-place by default; use diff, check, or
      `snakefmt - < Snakefile` to avoid this.
     """
-    if print_directive_order:
-        order = effective_directive_order(directive_order or ())
-        click.echo(f"directive_order = {json.dumps(order)}")
-        ctx.exit(0)
-
     log_level = logging.DEBUG if verbose else logging.INFO
     LogConfig.init(log_level)
     logger = LogConfig.get_logger()
+
+    if print_directive_order:
+        if not sort_directives:
+            logger.warning(
+                "Sorting is disabled (--no-sort), so the printed directive order "
+                "is not applied."
+            )
+        order = effective_directive_order(directive_order or ())
+        click.echo(f"directive_order = {json.dumps(order)}")
+        ctx.exit(0)
 
     if directive_order and not sort_directives:
         logger.warning(

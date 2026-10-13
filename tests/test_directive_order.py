@@ -415,6 +415,41 @@ class TestPrintDirectiveOrder:
         assert "'shell' is an action directive" in result.stderr
 
 
+class TestPrintDirectiveOrderWithNoSort:
+    warning = (
+        "Sorting is disabled (--no-sort), so the printed directive order "
+        "is not applied."
+    )
+
+    def warnings(self, caplog) -> list[str]:
+        return [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+
+    def test_cli_no_sort_prints_the_order_with_a_warning(
+        self, cli_runner, tmp_path, caplog
+    ):
+        config = write_config(tmp_path, "")
+        args = ["--config", config, "--no-sort", "-p", "-o", "params,input"]
+        result = cli_runner.invoke(main, args)
+        assert result.exit_code == 0
+        assert result.stdout == PARAMS_INPUT_ORDER_TOML
+        assert self.warnings(caplog) == [self.warning]
+
+    def test_config_no_sort_prints_the_order_with_a_warning(
+        self, cli_runner, tmp_path, caplog
+    ):
+        config = write_config(tmp_path, "sort_directives = false")
+        result = cli_runner.invoke(main, ["--config", config, "-p"])
+        assert result.exit_code == 0
+        assert result.stdout == DEFAULT_ORDER_TOML
+        assert self.warnings(caplog) == [self.warning]
+
+    def test_no_warning_when_sorting(self, cli_runner, tmp_path, caplog):
+        config = write_config(tmp_path, "")
+        result = cli_runner.invoke(main, ["--config", config, "-p"])
+        assert result.exit_code == 0
+        assert self.warnings(caplog) == []
+
+
 MODULE_CODE = (
     "module m:\n"
     f'{TAB}config: "c"\n'

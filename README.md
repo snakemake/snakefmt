@@ -350,7 +350,7 @@ With the example above, a rule is sorted as `params`, `input`, `output`, `name`,
 - Action directives (`run`, `shell`, `script`, `notebook`, `wrapper`, `cwl` and `template_engine`) can't be listed. Snakemake allows only one action per rule and no directive may follow it, so actions always come last.
 - Unknown directives, directives listed more than once and action directives are errors, and `snakefmt` stops before formatting anything.
 - Directives inside a `# fmt: off[sort]` region keep their original order.
-- With `--no-sort` (or `sort_directives = false`) nothing is sorted, so a custom order is ignored and `snakefmt` logs a warning.
+- With `--no-sort` (or `sort_directives = false`) nothing is sorted, so a custom order is ignored and `snakefmt` logs a warning. `-p/--print-directive-order` still prints the order, with the same kind of warning.
 
 To see the order that is in effect, for example to check how your partial list was merged with the default order, use `-p/--print-directive-order`.
 It prints the complete order as a single `directive_order = [...]` line that you can paste into your `pyproject.toml`, and exits without formatting anything:
