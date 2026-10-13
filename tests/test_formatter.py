@@ -802,6 +802,179 @@ class TestComplexPythonFormatting:
         assert formatter.get_formatted() == snakecode
 
 
+# (input, expected output) of a Snakemake keyword nested inside a Python block
+NESTED_SNAKECODE = [
+    pytest.param(
+        f'if x:\n{TAB * 1}include: "a.smk"\n',
+        f'if x:\n\n{TAB * 1}include: "a.smk"\n',
+        id="include-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}include: r\n",
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}include: r\n",
+        id="include-doubly-nested",
+    ),
+    pytest.param(
+        f'if x:\n{TAB * 1}configfile: "a.yaml"\n',
+        f'if x:\n\n{TAB * 1}configfile: "a.yaml"\n',
+        id="configfile-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}configfile: r\n",
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}configfile: r\n",
+        id="configfile-doubly-nested",
+    ),
+    pytest.param(
+        f'if x:\n{TAB * 1}rule a:\n{TAB * 2}input:\n{TAB * 3}"a"\n',
+        f'if x:\n\n{TAB * 1}rule a:\n{TAB * 2}input:\n{TAB * 3}"a",\n',
+        id="named-rule-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a"\n',
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a",\n',
+        id="named-rule-doubly-nested",
+    ),
+    pytest.param(
+        f'if x:\n{TAB * 1}rule:\n{TAB * 2}input:\n{TAB * 3}"a"\n',
+        f'if x:\n\n{TAB * 1}rule:\n{TAB * 2}input:\n{TAB * 3}"a",\n',
+        id="anonymous-rule-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a"\n',
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a",\n',
+        id="anonymous-rule-doubly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}rule a:\n{TAB * 2}run:\n{TAB * 3}print(1)\n",
+        f"if x:\n\n{TAB * 1}rule a:\n{TAB * 2}run:\n{TAB * 3}print(1)\n",
+        id="rule-with-run-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}run:\n"
+        f"{TAB * 4}print(1)\n",
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}run:\n"
+        f"{TAB * 4}print(1)\n",
+        id="rule-with-run-doubly-nested",
+    ),
+]
+
+
+class TestTopLevelKeywordsAfterNestedSnakecode:
+    """https://github.com/snakemake/snakefmt/issues/319
+
+    A Snakemake keyword nested inside a Python block must not change how a later
+    top-level rule, or its `run:` directive, is parsed.
+    """
+
+    rule_with_run = f'rule clean:\n{TAB * 1}run:\n{TAB * 2}shell("echo hi")\n'
+
+    @staticmethod
+    def assert_formats_to(snakecode: str, expected: str) -> None:
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+        reformatter = setup_formatter(expected)
+        assert reformatter.get_formatted() == expected
+
+    @pytest.mark.parametrize(
+        ["rule_between", "formatted_rule_between"],
+        [
+            pytest.param("", "", id="directly"),
+            pytest.param(
+                f'rule other:\n{TAB * 1}input:\n{TAB * 2}"a"\n\n\n',
+                f'rule other:\n{TAB * 1}input:\n{TAB * 2}"a",\n\n\n',
+                id="after-plain-rule",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(["nested", "formatted_nested"], NESTED_SNAKECODE)
+    def test_rule_with_run_after_nested_snakecode(
+        self, nested, formatted_nested, rule_between, formatted_rule_between
+    ):
+        snakecode = (
+            f"{nested}\n\n"
+            f"{rule_between}"
+            f"{self.rule_with_run}\n\n"
+            f'rule after:\n{TAB * 1}input:\n{TAB * 2}"b"\n'
+        )
+        expected = (
+            f"{formatted_nested}\n\n"
+            f"{formatted_rule_between}"
+            f"{self.rule_with_run}\n\n"
+            f'rule after:\n{TAB * 1}input:\n{TAB * 2}"b",\n'
+        )
+        self.assert_formats_to(snakecode, expected)
+
+    @pytest.mark.parametrize(
+        ["top_level_keyword", "formatted_top_level_keyword"],
+        [
+            pytest.param(
+                f'rule b:\n{TAB * 1}input: "b"\n',
+                f'rule b:\n{TAB * 1}input:\n{TAB * 2}"b",\n',
+                id="rule",
+            ),
+            pytest.param('include: "b"\n', 'include: "b"\n', id="include"),
+        ],
+    )
+    def test_python_else_after_nested_keyword_then_top_level_keyword(
+        self, top_level_keyword, formatted_top_level_keyword
+    ):
+        snakecode = (
+            "if x:\n"
+            f'{TAB * 1}include: "a"\n'
+            "else:\n"
+            f"{TAB * 1}y = 1\n"
+            f"{top_level_keyword}"
+        )
+        expected = (
+            "if x:\n\n"
+            f'{TAB * 1}include: "a"\n\n'
+            "else:\n"
+            f"{TAB * 1}y = 1\n\n\n"
+            f"{formatted_top_level_keyword}"
+        )
+        self.assert_formats_to(snakecode, expected)
+
+    @pytest.mark.parametrize(["nested", "formatted_nested"], NESTED_SNAKECODE)
+    def test_fmt_off_sort_in_top_level_rule_after_nested_snakecode(
+        self, nested, formatted_nested
+    ):
+        rule = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+        )
+        formatted_rule = (
+            "rule all:\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB * 2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+        )
+        formatter = setup_formatter(f"{nested}\n\n{rule}", sort_params=True)
+        assert formatter.get_formatted() == f"{formatted_nested}\n\n{formatted_rule}"
+
+
 class TestStringFormatting:
     """Naming: tpq = triple quoted string"""
 

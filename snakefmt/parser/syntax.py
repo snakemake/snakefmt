@@ -360,8 +360,7 @@ class KeywordSyntax(Syntax):
         if incident_syntax is not None:
             if self.token.type != tokenize.NEWLINE:
                 NewlineError(self.line_nb, self.keyword_line)
-            if not from_python:
-                incident_syntax.add_processed_keyword(self.token, self.keyword_line)
+            incident_syntax.add_processed_keyword(self.token, self.keyword_line)
 
     def validate_keyword_line(self, snakefile: TokenIterator):
         self.token = next(snakefile)
