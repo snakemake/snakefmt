@@ -286,11 +286,13 @@ class Vocabulary:
         return self.spec[keyword]
 
     @classmethod
-    def ordered(cls, directive_order: Sequence[str] = ()) -> "list[str]":
+    def ordered(cls, directive_order: Sequence[str] = ()) -> list[str]:
         """
-        Directive names in sorting order: the names in `directive_order` that this
-        vocabulary recognises come first, in the order given; all the others follow
-        in the default order of the grammar's spec.
+        Directive names in sorting order. `directive_order` is a custom order, which
+        the caller must have checked is complete (see `snakefmt.directive_order`): its
+        names that this vocabulary recognises come first, in the order given. Any other
+        directive follows in the default order of the grammar's spec, which for the
+        complete order of a rule's directives means the actions, which always come last.
         """
         assert isinstance(cls.spec, OrderedDict)
         listed = [keyword for keyword in directive_order if keyword in cls.spec]

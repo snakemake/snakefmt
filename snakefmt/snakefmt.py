@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 import sys
@@ -13,7 +12,12 @@ from pathspec import PathSpec
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
 from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
-from snakefmt.directive_order import DirectiveOrderType, effective_directive_order
+from snakefmt.directive_order import (
+    MODULE_ORDER,
+    RULE_ORDER,
+    DirectiveOrderType,
+    format_effective_orders,
+)
 from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
 from snakefmt.parser.parser import Snakefile
@@ -99,14 +103,26 @@ def get_snakefiles_in_dir(
     "-o",
     "--directive-order",
     "directive_order",
-    type=DirectiveOrderType(),
+    type=DirectiveOrderType(RULE_ORDER),
     default=None,
     metavar="NAMES",
     help=(
-        "Comma-separated directives to sort first, in the order given. The other "
-        "directives follow in the default order. Action directives (run, shell, "
-        "script, ...) cannot be listed as they always come last. "
-        "In the config file this is an array of strings."
+        "Comma-separated order of all the directives of rules, checkpoints and "
+        "`use rule` blocks. Action directives (run, shell, script, ...) are not "
+        "listed as they always come last. In the config file this is an array of "
+        "strings. Use --print-directive-order to see the default order."
+    ),
+)
+@click.option(
+    "-m",
+    "--module-directive-order",
+    "module_directive_order",
+    type=DirectiveOrderType(MODULE_ORDER),
+    default=None,
+    metavar="NAMES",
+    help=(
+        "Comma-separated order of all the directives of modules. In the config file "
+        "this is an array of strings."
     ),
 )
 @click.option(
@@ -115,8 +131,8 @@ def get_snakefiles_in_dir(
     "print_directive_order",
     is_flag=True,
     help=(
-        "Print the directive order in effect as a `directive_order = [...]` line "
-        "for the config file, then exit."
+        "Print the directive orders in effect, as lines for the config file and as "
+        "command line options, then exit."
     ),
 )
 @click.option(
@@ -209,6 +225,7 @@ def main(
     line_length: int,
     sort_directives: bool,
     directive_order: Optional[Tuple[str, ...]],
+    module_directive_order: Optional[Tuple[str, ...]],
     print_directive_order: bool,
     format_shell: bool,
     check: bool,
@@ -238,16 +255,15 @@ def main(
                 "Sorting is disabled (--no-sort), so the printed directive order "
                 "is not applied."
             )
-        order = effective_directive_order(directive_order or ())
-        click.echo(f"directive_order = {json.dumps(order)}")
+        click.echo(format_effective_orders(directive_order, module_directive_order))
         ctx.exit(0)
 
-    if directive_order and not sort_directives:
+    if (directive_order or module_directive_order) and not sort_directives:
         logger.warning(
             "A directive order was given but sorting is disabled (--no-sort), "
             "so the directive order is ignored."
         )
-        directive_order = None
+        directive_order = module_directive_order = None
 
     if not src:
         click.echo(
@@ -311,6 +327,7 @@ def main(
                 line_length=line_length,
                 sort_directives=sort_directives,
                 directive_order=directive_order or (),
+                module_directive_order=module_directive_order or (),
                 black_config_file=config,
                 format_shell=format_shell,
             )

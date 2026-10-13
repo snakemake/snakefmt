@@ -254,15 +254,20 @@ Options:
                                   [default: 88]
   -s, --sort / -S, --no-sort      Sort directives in rules and modules.
                                   [default: sort]
-  -o, --directive-order NAMES     Comma-separated directives to sort first, in
-                                  the order given. The other directives follow
-                                  in the default order. Action directives
-                                  (run, shell, script, ...) cannot be listed
-                                  as they always come last. In the config file
-                                  this is an array of strings.
-  -p, --print-directive-order     Print the directive order in effect as a
-                                  `directive_order = [...]` line for the
-                                  config file, then exit.
+  -o, --directive-order NAMES     Comma-separated order of all the directives
+                                  of rules, checkpoints and `use rule` blocks.
+                                  Action directives (run, shell, script, ...)
+                                  are not listed as they always come last. In
+                                  the config file this is an array of strings.
+                                  Use --print-directive-order to see the
+                                  default order.
+  -m, --module-directive-order NAMES
+                                  Comma-separated order of all the directives
+                                  of modules. In the config file this is an
+                                  array of strings.
+  -p, --print-directive-order     Print the directive orders in effect, as
+                                  lines for the config file and as command
+                                  line options, then exit.
   -f, --format-shell / -F, --no-format-shell
                                   Format shell directives using shfmt.
                                   [default: format-shell]
@@ -330,34 +335,46 @@ You can disable this feature using the `--no-sort` flag.
 
 #### Custom directive order
 
-If you prefer a different order, list the directives that should come first with `-o/--directive-order`, as a comma-separated list:
+If you prefer a different order, you can set your own. There are two orders, because rules and modules have different directives:
 
-```shell
-snakefmt --directive-order params,input,output workflow/
+- `-o/--directive-order` (`directive_order` in the config file) is the order of the directives in `rule`, `checkpoint` and `use rule ... with:` blocks.
+- `-m/--module-directive-order` (`module_directive_order` in the config file) is the order of the directives in `module` blocks.
+
+An order has to list **every** directive of its block type exactly once, so the order is never ambiguous.
+The easiest way to write one is to start from the orders in effect, which `-p/--print-directive-order` prints as lines you can paste into your `pyproject.toml`, and as command line options.
+It exits without formatting anything:
+
+```
+$ snakefmt --print-directive-order
+# pyproject.toml, under [tool.snakefmt]:
+directive_order = ["name", "default_target", "input", "output", "log", "benchmark", "pathvars", "wildcard_constraints", "cache", "priority", "retries", "group", "localrule", "handover", "shadow", "conda", "container", "singularity", "containerized", "envmodules", "threads", "resources", "params", "message"]
+module_directive_order = ["name", "pathvars", "snakefile", "config", "skip_validation", "prefix", "replace_prefix", "meta_wrapper"]
+
+# command line:
+--directive-order name,default_target,input,output,log,benchmark,pathvars,wildcard_constraints,cache,priority,retries,group,localrule,handover,shadow,conda,container,singularity,containerized,envmodules,threads,resources,params,message --module-directive-order name,pathvars,snakefile,config,skip_validation,prefix,replace_prefix,meta_wrapper
 ```
 
-or set `directive_order` in your `pyproject.toml`:
+Paste the lines you want into your `pyproject.toml` and move the directives around.
+For example, to sort `snakefile` and `config` first in modules:
 
 ```toml
 [tool.snakefmt]
-directive_order = ["params", "input", "output"]
+module_directive_order = ["snakefile", "config", "name", "pathvars", "skip_validation", "prefix", "replace_prefix", "meta_wrapper"]
 ```
 
-The listed directives come first, in the order given. All the other directives follow in the default order above, so you only need to list the ones you want to move.
-With the example above, a rule is sorted as `params`, `input`, `output`, `name`, `default_target`, `log`, `benchmark`, ..., `threads`, `resources`, `message`, followed by the action.
-
-- The same list applies to `rule`, `checkpoint`, `use rule ... with:` and `module` blocks. Each of them only uses the directives it knows and ignores the rest, e.g. `snakefile` has no effect on rules and `input` has no effect on modules.
-- Action directives (`run`, `shell`, `script`, `notebook`, `wrapper`, `cwl` and `template_engine`) can't be listed. Snakemake allows only one action per rule and no directive may follow it, so actions always come last.
-- Unknown directives, directives listed more than once and action directives are errors, and `snakefmt` stops before formatting anything.
-- Directives inside a `# fmt: off[sort]` region keep their original order.
-- With `--no-sort` (or `sort_directives = false`) nothing is sorted, so a custom order is ignored and `snakefmt` logs a warning. `-p/--print-directive-order` still prints the order, with the same kind of warning.
-
-To see the order that is in effect, for example to check how your partial list was merged with the default order, use `-p/--print-directive-order`.
-It prints the complete order as a single `directive_order = [...]` line that you can paste into your `pyproject.toml`, and exits without formatting anything:
+or on the command line:
 
 ```shell
-snakefmt --directive-order params,input --print-directive-order
+snakefmt --module-directive-order snakefile,config,name,pathvars,skip_validation,prefix,replace_prefix,meta_wrapper workflow/
 ```
+
+`-p` prints the orders that are in effect after reading your configuration and command line options, so you can check them.
+
+- Action directives (`run`, `shell`, `script`, `notebook`, `wrapper`, `cwl` and `template_engine`) are not part of the rule order. Snakemake allows only one action per rule and no directive may follow it, so actions always come last.
+- `snakefmt` stops before formatting anything if an order has a directive that doesn't exist for its block type (for example `snakefile` in the rule order, or `input` in the module order), a directive listed more than once, an action directive, or if it is incomplete.
+  For an incomplete order, the error lists the missing directives and shows a complete order, with your directives first and the missing ones after them in the default order, in the same two forms as above so you can check it and paste it.
+- Directives inside a `# fmt: off[sort]` region keep their original order.
+- With `--no-sort` (or `sort_directives = false`) nothing is sorted, so custom orders are ignored and `snakefmt` logs a warning. `-p` still prints the orders, with the same kind of warning.
 
 ### Shell Block Formatting
 

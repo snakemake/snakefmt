@@ -10,6 +10,7 @@ import black.parsing
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.logging import Warnings
+from snakefmt.parser.grammar import SnakeModule, SnakeRule, SnakeUseRule
 from snakefmt.parser.parser import Parser, Snakefile, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
@@ -19,6 +20,7 @@ from snakefmt.parser.syntax import (
     ParamList,
     SingleParam,
     Syntax,
+    Vocabulary,
     split_code_string,
 )
 from snakefmt.shell_formatter import format_python_string_literal
@@ -117,6 +119,7 @@ class Formatter(Parser):
         black_config_file: Optional[PathLike] = None,
         format_shell: bool = False,
         directive_order: Sequence[str] = (),
+        module_directive_order: Sequence[str] = (),
     ):
         self.result: str = ""
         self.lagging_comments: str = ""
@@ -124,8 +127,12 @@ class Formatter(Parser):
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
-        # directives to sort first (in this order); the rest follow in default order
-        self.directive_order = tuple(directive_order)
+        # custom directive order of each kind of block; empty means the default order
+        self.directive_orders: dict[type[Vocabulary], tuple[str, ...]] = {
+            SnakeRule: tuple(directive_order),
+            SnakeUseRule: tuple(directive_order),
+            SnakeModule: tuple(module_directive_order),
+        }
 
         self.black_mode = read_black_config(black_config_file)
         self.format_shell = format_shell
@@ -236,7 +243,9 @@ class Formatter(Parser):
         else:  # not a PythonCode context, collect keywords to sort
             self.previous_result += self.result + formatted
             self.result = ""
-            self.keyword_spec = self.vocab.ordered(self.directive_order)
+            self.keyword_spec = self.vocab.ordered(
+                self.directive_orders.get(type(self.vocab), ())
+            )
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
