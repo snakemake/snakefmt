@@ -101,8 +101,8 @@ def get_snakefiles_in_dir(
 )
 @click.option(
     "-o",
-    "--directive-order",
-    "directive_order",
+    RULE_ORDER.flag,
+    RULE_ORDER.config_key,
     type=DirectiveOrderType(RULE_ORDER),
     default=None,
     metavar="NAMES",
@@ -115,8 +115,8 @@ def get_snakefiles_in_dir(
 )
 @click.option(
     "-m",
-    "--module-directive-order",
-    "module_directive_order",
+    MODULE_ORDER.flag,
+    MODULE_ORDER.config_key,
     type=DirectiveOrderType(MODULE_ORDER),
     default=None,
     metavar="NAMES",
