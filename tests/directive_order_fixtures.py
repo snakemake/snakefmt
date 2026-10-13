@@ -274,14 +274,36 @@ CUSTOM_BOTH_PRINT = (
     "pathvars,skip_validation,replace_prefix,meta_wrapper\n"
 )
 
-INCOMPLETE_RULE_ORDER_MESSAGE = (
-    "incomplete directive order, missing rule directives: name, default_target, "
-    "output, log, benchmark, pathvars, wildcard_constraints, cache, priority, "
-    "retries, group, localrule, handover, shadow, conda, container, singularity, "
-    "containerized, envmodules, threads, resources, message\n"
+DEFAULT_RULE_ORDER_ARG = ",".join(DEFAULT_RULE_ORDER)
+DEFAULT_MODULE_ORDER_ARG = ",".join(DEFAULT_MODULE_ORDER)
+RULE_VALID_NAMES = ", ".join(DEFAULT_RULE_ORDER)
+MODULE_VALID_NAMES = ", ".join(DEFAULT_MODULE_ORDER)
+
+# The orders shown in a message about an invalid order
+RULE_DEFAULT_BLOCK = (
+    "# pyproject.toml, under [tool.snakefmt]:\n"
+    'directive_order = ["name", "default_target", "input", "output", "log", '
+    '"benchmark", "pathvars", "wildcard_constraints", "cache", "priority", '
+    '"retries", "group", "localrule", "handover", "shadow", "conda", '
+    '"container", "singularity", "containerized", "envmodules", "threads", '
+    '"resources", "params", "message"]\n'
     "\n"
-    "Adding them in default order after yours gives:\n"
+    "# command line:\n"
+    "--directive-order name,default_target,input,output,log,benchmark,pathvars,"
+    "wildcard_constraints,cache,priority,retries,group,localrule,handover,shadow,"
+    "conda,container,singularity,containerized,envmodules,threads,resources,"
+    "params,message"
+)
+MODULE_DEFAULT_BLOCK = (
+    "# pyproject.toml, under [tool.snakefmt]:\n"
+    'module_directive_order = ["name", "pathvars", "snakefile", "config", '
+    '"skip_validation", "prefix", "replace_prefix", "meta_wrapper"]\n'
     "\n"
+    "# command line:\n"
+    "--module-directive-order name,pathvars,snakefile,config,skip_validation,"
+    "prefix,replace_prefix,meta_wrapper"
+)
+PARAMS_INPUT_COMPLETED_BLOCK = (
     "# pyproject.toml, under [tool.snakefmt]:\n"
     'directive_order = ["params", "input", "name", "default_target", "output", '
     '"log", "benchmark", "pathvars", "wildcard_constraints", "cache", '
@@ -295,12 +317,7 @@ INCOMPLETE_RULE_ORDER_MESSAGE = (
     "handover,shadow,conda,container,singularity,containerized,envmodules,"
     "threads,resources,message"
 )
-INCOMPLETE_MODULE_ORDER_MESSAGE = (
-    "incomplete directive order, missing module directives: name, pathvars, "
-    "snakefile, skip_validation, replace_prefix, meta_wrapper\n"
-    "\n"
-    "Adding them in default order after yours gives:\n"
-    "\n"
+PREFIX_CONFIG_COMPLETED_BLOCK = (
     "# pyproject.toml, under [tool.snakefmt]:\n"
     'module_directive_order = ["prefix", "config", "name", "pathvars", '
     '"snakefile", "skip_validation", "replace_prefix", "meta_wrapper"]\n'
@@ -308,4 +325,68 @@ INCOMPLETE_MODULE_ORDER_MESSAGE = (
     "# command line:\n"
     "--module-directive-order prefix,config,name,pathvars,snakefile,"
     "skip_validation,replace_prefix,meta_wrapper"
+)
+
+MISSING_FROM_PARAMS_INPUT = (
+    "name, default_target, output, log, benchmark, pathvars, wildcard_constraints, "
+    "cache, priority, retries, group, localrule, handover, shadow, conda, "
+    "container, singularity, containerized, envmodules, threads, resources, message"
+)
+MISSING_FROM_PREFIX_CONFIG = (
+    "name, pathvars, snakefile, skip_validation, replace_prefix, meta_wrapper"
+)
+ACTION_REASON = (
+    "(Snakemake allows only one action per rule and no directive may follow it, "
+    "so actions are always sorted last)"
+)
+VALID_ORDER_INTRO = (
+    "A valid order based on yours, with the invalid directives removed and the "
+    "missing ones added in default order, is:"
+)
+
+INCOMPLETE_RULE_ORDER_MESSAGE = (
+    f"incomplete directive order, missing rule directives: {MISSING_FROM_PARAMS_INPUT}"
+    "\n\nAdding them in default order after yours gives:\n\n"
+    f"{PARAMS_INPUT_COMPLETED_BLOCK}"
+)
+INCOMPLETE_MODULE_ORDER_MESSAGE = (
+    "incomplete directive order, missing module directives: "
+    f"{MISSING_FROM_PREFIX_CONFIG}"
+    "\n\nAdding them in default order after yours gives:\n\n"
+    f"{PREFIX_CONFIG_COMPLETED_BLOCK}"
+)
+
+# for `-o params,input,params,shell,foo`
+SEVERAL_PROBLEMS_RULE_ORDER_MESSAGE = (
+    "invalid directive order:\n"
+    "- action directives are not allowed in the directive order: 'shell' "
+    f"{ACTION_REASON}\n"
+    "- unknown rule directives: 'foo' "
+    f"(valid rule directives are: {RULE_VALID_NAMES})\n"
+    "- directives listed more than once: 'params'\n"
+    f"- missing rule directives: {MISSING_FROM_PARAMS_INPUT}\n"
+    f"\n{VALID_ORDER_INTRO}\n\n"
+    f"{PARAMS_INPUT_COMPLETED_BLOCK}"
+)
+# for `-o params,run,input,foo,params,bar,shell,input,foo,run`
+REPEATED_NAMES_RULE_ORDER_MESSAGE = (
+    "invalid directive order:\n"
+    "- action directives are not allowed in the directive order: 'run', 'shell' "
+    f"{ACTION_REASON}\n"
+    "- unknown rule directives: 'foo', 'bar' "
+    f"(valid rule directives are: {RULE_VALID_NAMES})\n"
+    "- directives listed more than once: 'params', 'input'\n"
+    f"- missing rule directives: {MISSING_FROM_PARAMS_INPUT}\n"
+    f"\n{VALID_ORDER_INTRO}\n\n"
+    f"{PARAMS_INPUT_COMPLETED_BLOCK}"
+)
+# for `-m prefix,shell,prefix,config`
+SEVERAL_PROBLEMS_MODULE_ORDER_MESSAGE = (
+    "invalid directive order:\n"
+    "- unknown module directives: 'shell' "
+    f"(valid module directives are: {MODULE_VALID_NAMES})\n"
+    "- directives listed more than once: 'prefix'\n"
+    f"- missing module directives: {MISSING_FROM_PREFIX_CONFIG}\n"
+    f"\n{VALID_ORDER_INTRO}\n\n"
+    f"{PREFIX_CONFIG_COMPLETED_BLOCK}"
 )

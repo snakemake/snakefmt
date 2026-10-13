@@ -19,6 +19,7 @@ from snakefmt.types import TAB
 from tests import setup_formatter
 from tests.directive_order_fixtures import (
     ACTION_DIRECTIVES,
+    ACTION_REASON,
     CUSTOM_BOTH_PRINT,
     CUSTOM_MODULE_ORDER,
     CUSTOM_MODULE_ORDER_ARG,
@@ -27,21 +28,31 @@ from tests.directive_order_fixtures import (
     CUSTOM_RULE_ORDER_ARG,
     CUSTOM_RULE_PRINT,
     DEFAULT_MODULE_ORDER,
+    DEFAULT_MODULE_ORDER_ARG,
     DEFAULT_PRINT,
     DEFAULT_RULE_ORDER,
+    DEFAULT_RULE_ORDER_ARG,
     INCOMPLETE_MODULE_ORDER_MESSAGE,
     INCOMPLETE_RULE_ORDER_MESSAGE,
     MODULE_CODE,
     MODULE_CUSTOM_ORDER,
+    MODULE_DEFAULT_BLOCK,
     MODULE_DEFAULT_ORDER,
     MODULE_UNSORTED,
+    MODULE_VALID_NAMES,
+    REPEATED_NAMES_RULE_ORDER_MESSAGE,
     RULE_CODE,
     RULE_CUSTOM_ORDER,
+    RULE_DEFAULT_BLOCK,
     RULE_DEFAULT_ORDER,
     RULE_UNSORTED,
+    RULE_VALID_NAMES,
+    SEVERAL_PROBLEMS_MODULE_ORDER_MESSAGE,
+    SEVERAL_PROBLEMS_RULE_ORDER_MESSAGE,
     USE_RULE_CODE,
     USE_RULE_CUSTOM_ORDER,
     USE_RULE_DEFAULT_ORDER,
+    VALID_ORDER_INTRO,
 )
 
 
@@ -82,12 +93,20 @@ def assert_rejected(result, flags: str, message: str) -> None:
     assert f"Error: Invalid value for {flags}: {message}\n" in result.stderr
 
 
-def action_directive_message(action: str) -> str:
+def invalid_order_message(problem: str, completed_block: str) -> str:
+    """The message about a complete order with one invalid entry added."""
     return (
-        f"'{action}' is an action directive and cannot be part of the directive "
-        "order: Snakemake allows only one action per rule and no directive may "
-        "follow it, so actions are always sorted last"
+        f"invalid directive order:\n- {problem}\n\n"
+        f"{VALID_ORDER_INTRO}\n\n{completed_block}"
     )
+
+
+def action_directive_message(action: str) -> str:
+    problem = (
+        "action directives are not allowed in the directive order: "
+        f"'{action}' {ACTION_REASON}"
+    )
+    return invalid_order_message(problem, RULE_DEFAULT_BLOCK)
 
 
 def toml_array(order: tuple) -> str:
@@ -278,74 +297,100 @@ class TestDirectiveOrderOptions:
 
 
 class TestDirectiveOrderValidation:
+    rule_flags = "'-o' / '--directive-order'"
+    module_flags = "'-m' / '--module-directive-order'"
+
     def test_unknown_rule_directive(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-o", "input,foo"])
-        assert_rejected(
-            result,
-            "'-o' / '--directive-order'",
-            "unknown rule directive 'foo'; valid rule directives are: "
-            + ", ".join(DEFAULT_RULE_ORDER),
+        order = f"{DEFAULT_RULE_ORDER_ARG},foo"
+        result = run_cli(cli_runner, ["--config", config, "-o", order])
+        problem = (
+            f"unknown rule directives: 'foo' (valid rule directives are: "
+            f"{RULE_VALID_NAMES})"
         )
+        message = invalid_order_message(problem, RULE_DEFAULT_BLOCK)
+        assert_rejected(result, self.rule_flags, message)
 
     def test_module_directive_in_the_rule_order(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-o", "input,snakefile"])
-        assert_rejected(
-            result,
-            "'-o' / '--directive-order'",
-            "unknown rule directive 'snakefile'; valid rule directives are: "
-            + ", ".join(DEFAULT_RULE_ORDER),
+        order = f"{DEFAULT_RULE_ORDER_ARG},snakefile"
+        result = run_cli(cli_runner, ["--config", config, "-o", order])
+        problem = (
+            f"unknown rule directives: 'snakefile' (valid rule directives are: "
+            f"{RULE_VALID_NAMES})"
         )
+        message = invalid_order_message(problem, RULE_DEFAULT_BLOCK)
+        assert_rejected(result, self.rule_flags, message)
 
     def test_unknown_module_directive(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-m", "name,foo"])
-        assert_rejected(
-            result,
-            "'-m' / '--module-directive-order'",
-            "unknown module directive 'foo'; valid module directives are: "
-            + ", ".join(DEFAULT_MODULE_ORDER),
+        order = f"{DEFAULT_MODULE_ORDER_ARG},foo"
+        result = run_cli(cli_runner, ["--config", config, "-m", order])
+        problem = (
+            f"unknown module directives: 'foo' (valid module directives are: "
+            f"{MODULE_VALID_NAMES})"
         )
+        message = invalid_order_message(problem, MODULE_DEFAULT_BLOCK)
+        assert_rejected(result, self.module_flags, message)
 
     def test_rule_directive_in_the_module_order(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-m", "name,input"])
-        assert_rejected(
-            result,
-            "'-m' / '--module-directive-order'",
-            "unknown module directive 'input'; valid module directives are: "
-            + ", ".join(DEFAULT_MODULE_ORDER),
+        order = f"{DEFAULT_MODULE_ORDER_ARG},input"
+        result = run_cli(cli_runner, ["--config", config, "-m", order])
+        problem = (
+            f"unknown module directives: 'input' (valid module directives are: "
+            f"{MODULE_VALID_NAMES})"
         )
+        message = invalid_order_message(problem, MODULE_DEFAULT_BLOCK)
+        assert_rejected(result, self.module_flags, message)
 
     def test_duplicate_rule_directive(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-o", "input,output,input"])
-        assert_rejected(
-            result,
-            "'-o' / '--directive-order'",
-            "directive 'input' is listed more than once",
+        order = f"{DEFAULT_RULE_ORDER_ARG},input"
+        result = run_cli(cli_runner, ["--config", config, "-o", order])
+        message = invalid_order_message(
+            "directives listed more than once: 'input'", RULE_DEFAULT_BLOCK
         )
+        assert_rejected(result, self.rule_flags, message)
 
     def test_duplicate_module_directive(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-m", "name,config,name"])
-        assert_rejected(
-            result,
-            "'-m' / '--module-directive-order'",
-            "directive 'name' is listed more than once",
+        order = f"{DEFAULT_MODULE_ORDER_ARG},name"
+        result = run_cli(cli_runner, ["--config", config, "-m", order])
+        message = invalid_order_message(
+            "directives listed more than once: 'name'", MODULE_DEFAULT_BLOCK
         )
+        assert_rejected(result, self.module_flags, message)
 
     @pytest.mark.parametrize("action", ACTION_DIRECTIVES)
     def test_action_directive_in_the_rule_order(self, cli_runner, config, action):
-        result = run_cli(cli_runner, ["--config", config, "-o", f"input,{action}"])
-        assert_rejected(
-            result,
-            "'-o' / '--directive-order'",
-            action_directive_message(action),
-        )
+        order = f"{DEFAULT_RULE_ORDER_ARG},{action}"
+        result = run_cli(cli_runner, ["--config", config, "-o", order])
+        assert_rejected(result, self.rule_flags, action_directive_message(action))
 
     def test_action_directive_in_the_module_order_is_unknown(self, cli_runner, config):
-        result = run_cli(cli_runner, ["--config", config, "-m", "name,shell"])
+        order = f"{DEFAULT_MODULE_ORDER_ARG},shell"
+        result = run_cli(cli_runner, ["--config", config, "-m", order])
+        problem = (
+            f"unknown module directives: 'shell' (valid module directives are: "
+            f"{MODULE_VALID_NAMES})"
+        )
+        message = invalid_order_message(problem, MODULE_DEFAULT_BLOCK)
+        assert_rejected(result, self.module_flags, message)
+
+    def test_several_problems_in_the_rule_order_are_reported_together(
+        self, cli_runner, config
+    ):
+        order = "params,input,params,shell,foo"
+        result = run_cli(cli_runner, ["--config", config, "-o", order])
+        assert_rejected(result, self.rule_flags, SEVERAL_PROBLEMS_RULE_ORDER_MESSAGE)
+
+    def test_names_are_reported_once_in_the_order_given(self, cli_runner, config):
+        order = "params,run,input,foo,params,bar,shell,input,foo,run"
+        result = run_cli(cli_runner, ["--config", config, "-o", order])
+        assert_rejected(result, self.rule_flags, REPEATED_NAMES_RULE_ORDER_MESSAGE)
+
+    def test_several_problems_in_the_module_order_are_reported_together(
+        self, cli_runner, config
+    ):
+        order = "prefix,shell,prefix,config"
+        result = run_cli(cli_runner, ["--config", config, "-m", order])
         assert_rejected(
-            result,
-            "'-m' / '--module-directive-order'",
-            "unknown module directive 'shell'; valid module directives are: "
-            + ", ".join(DEFAULT_MODULE_ORDER),
+            result, self.module_flags, SEVERAL_PROBLEMS_MODULE_ORDER_MESSAGE
         )
 
     def test_incomplete_rule_order(self, cli_runner, config):
@@ -370,16 +415,17 @@ class TestDirectiveOrderValidation:
     def test_invalid_config_order_is_rejected_before_formatting(
         self, cli_runner, tmp_path
     ):
-        config = write_config(tmp_path, 'module_directive_order = ["name", "input"]')
+        order = toml_array((*DEFAULT_MODULE_ORDER, "input"))
+        config = write_config(tmp_path, f"module_directive_order = {order}")
         snakefile = tmp_path / "Snakefile"
         snakefile.write_text(RULE_CODE)
         result = cli_runner.invoke(main, ["--config", config, str(snakefile)])
-        assert_rejected(
-            result,
-            "'-m' / '--module-directive-order'",
-            "unknown module directive 'input'; valid module directives are: "
-            + ", ".join(DEFAULT_MODULE_ORDER),
+        problem = (
+            f"unknown module directives: 'input' (valid module directives are: "
+            f"{MODULE_VALID_NAMES})"
         )
+        message = invalid_order_message(problem, MODULE_DEFAULT_BLOCK)
+        assert_rejected(result, self.module_flags, message)
         assert snakefile.read_text() == RULE_CODE
 
     def test_non_string_config_entries_are_rejected(self, cli_runner, tmp_path):
@@ -488,7 +534,8 @@ class TestPrintDirectiveOrder:
         assert snakefile.read_text() == RULE_CODE
 
     def test_rejects_an_invalid_order(self, cli_runner, config):
-        result = cli_runner.invoke(main, ["--config", config, "-p", "-o", "shell"])
+        order = f"{DEFAULT_RULE_ORDER_ARG},shell"
+        result = cli_runner.invoke(main, ["--config", config, "-p", "-o", order])
         assert_rejected(
             result, "'-o' / '--directive-order'", action_directive_message("shell")
         )

@@ -8,6 +8,7 @@ order must list every directive of its block type.
 """
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
@@ -18,6 +19,10 @@ from snakefmt.parser.grammar import SnakeModule, SnakeRule, SnakeUseRule
 # Directives that run something. Snakemake allows a single action per rule and no
 # directive may follow it, so the actions always come last.
 ACTION_DIRECTIVES = frozenset(SnakeRule.spec).difference(SnakeUseRule.spec)
+
+
+def quote(names: Sequence[str]) -> str:
+    return ", ".join(f"'{name}'" for name in names)
 
 
 @dataclass(frozen=True)
@@ -38,36 +43,60 @@ class DirectiveOrderOption:
         return f"{self.flag} {','.join(order)}"
 
     def complete(self, order: Sequence[str]) -> list[str]:
-        """`order` followed by the missing directives, in default order."""
-        return [*order, *(name for name in self.default if name not in order)]
+        """
+        The valid directives of `order`, at their first occurrence, followed by the
+        missing directives in default order.
+        """
+        listed = [name for name in dict.fromkeys(order) if name in self.default]
+        return [*listed, *(name for name in self.default if name not in listed)]
 
     def validate(self, order: Sequence[str]) -> None:
-        """Raises a ValueError describing the first problem with `order`."""
-        seen = set()
-        for name in order:
-            if name in self.actions:
-                raise ValueError(
-                    f"'{name}' is an action directive and cannot be part of the "
-                    "directive order: Snakemake allows only one action per rule and "
-                    "no directive may follow it, so actions are always sorted last"
-                )
-            if name not in self.default:
-                raise ValueError(
-                    f"unknown {self.block} directive '{name}'; valid {self.block} "
-                    f"directives are: {', '.join(self.default)}"
-                )
-            if name in seen:
-                raise ValueError(f"directive '{name}' is listed more than once")
-            seen.add(name)
+        """
+        Raises a ValueError listing all the problems of `order`: action directives,
+        unknown directives, directives listed more than once and missing directives.
+        """
+        actions = [name for name in dict.fromkeys(order) if name in self.actions]
+        unknown = [
+            name
+            for name in dict.fromkeys(order)
+            if name not in self.default and name not in self.actions
+        ]
+        counts = Counter(name for name in order if name in self.default)
+        repeated = [name for name, count in counts.items() if count > 1]
+        missing = [name for name in self.default if name not in counts]
 
-        missing = [name for name in self.default if name not in seen]
-        if missing:
-            raise ValueError(
-                f"incomplete directive order, missing {self.block} directives: "
-                f"{', '.join(missing)}\n\n"
-                "Adding them in default order after yours gives:\n\n"
-                + format_orders([(self, self.complete(order))])
+        problems = []
+        if actions:
+            problems.append(
+                "action directives are not allowed in the directive order: "
+                f"{quote(actions)} (Snakemake allows only one action per rule and no "
+                "directive may follow it, so actions are always sorted last)"
             )
+        if unknown:
+            problems.append(
+                f"unknown {self.block} directives: {quote(unknown)} (valid "
+                f"{self.block} directives are: {', '.join(self.default)})"
+            )
+        if repeated:
+            problems.append(f"directives listed more than once: {quote(repeated)}")
+
+        if not problems and not missing:
+            return
+        completed = format_orders([(self, self.complete(order))])
+        missing_problem = f"missing {self.block} directives: {', '.join(missing)}"
+        if not problems:
+            raise ValueError(
+                f"incomplete directive order, {missing_problem}\n\n"
+                f"Adding them in default order after yours gives:\n\n{completed}"
+            )
+        if missing:
+            problems.append(missing_problem)
+        listed_problems = "".join(f"\n- {problem}" for problem in problems)
+        raise ValueError(
+            f"invalid directive order:{listed_problems}\n\n"
+            "A valid order based on yours, with the invalid directives removed and "
+            f"the missing ones added in default order, is:\n\n{completed}"
+        )
 
 
 RULE_ORDER = DirectiveOrderOption(
