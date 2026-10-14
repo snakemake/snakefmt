@@ -971,8 +971,10 @@ class TestTopLevelKeywordsAfterNestedSnakecode:
             f"{TAB}input:\n"
             f'{TAB * 2}"in.txt",\n'
         )
+        expected = f"{formatted_nested}\n\n{formatted_rule}"
         formatter = setup_formatter(f"{nested}\n\n{rule}", sort_params=True)
-        assert formatter.get_formatted() == f"{formatted_nested}\n\n{formatted_rule}"
+        assert formatter.get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
 
 class TestStringFormatting:
@@ -2794,21 +2796,35 @@ class TestFmtOffSort:
             code1 = code + "\n\n# fmt: on\n" + code
             expected = formatted + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+            assert (
+                setup_formatter(expected, sort_params=True).get_formatted() == expected
+            )
 
             # `# fmt: off[sort]` disables sorting for the rest of the rule
             code1 = "# fmt: off[sort]\n" + code
             expected = "# fmt: off[sort]\n" + setup_formatter(code).get_formatted()
             assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+            assert (
+                setup_formatter(expected, sort_params=True).get_formatted() == expected
+            )
 
             # `# fmt: on[sort]` re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on[sort]\n" + code
             expected2 = expected + "\n\n# fmt: on[sort]\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+            assert (
+                setup_formatter(expected2, sort_params=True).get_formatted()
+                == expected2
+            )
 
             # plain `# fmt: on` also re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on\n" + code
             expected2 = expected + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+            assert (
+                setup_formatter(expected2, sort_params=True).get_formatted()
+                == expected2
+            )
 
     def test_fmt_off_sort_dedent(self):
         """`# fmt: on` or `on[sort]` at a deeper indentation level than `off[sort]`
@@ -2835,6 +2851,7 @@ class TestFmtOffSort:
             "\n\n" + formatted2
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_on_noeffect(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
@@ -2860,6 +2877,7 @@ class TestFmtOffSort:
             + formatted3
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_nothing(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
@@ -2867,6 +2885,7 @@ class TestFmtOffSort:
         code = code1.rstrip() + "\n\nif 1:\n pass\n\n\n" + code3
         expected = formatted1 + f"\n\nif 1:\n{TAB}pass\n\n\n" + formatted3
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive(self):
         """
@@ -2919,6 +2938,7 @@ class TestFmtOffSort:
             f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive2(self):
         """
@@ -2966,6 +2986,7 @@ class TestFmtOffSort:
             f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive_empty(self):
         code = (
@@ -3004,6 +3025,121 @@ class TestFmtOffSort:
             f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+    def test_fmt_on_sort_directly_followed_by_directive(self):
+        """
+        No blank line is added after `# fmt: on[sort]`,
+        and formatting the output again leaves it unchanged (issue #321).
+        """
+        code = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}run:\n"
+            f"{TAB * 2}x = 1\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB * 2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}run:\n"
+            f"{TAB * 2}x = 1\n"
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+    @pytest.mark.parametrize(
+        "region_end, expected_region_end",
+        [
+            # blank lines after `# fmt: on[sort]`, as left behind by issue #321
+            (
+                f"{TAB}# fmt: on[sort]\n\n\n",
+                f"{TAB}# fmt: on[sort]\n",
+            ),
+            # a comment before `# fmt: on[sort]` makes the parser reach it from
+            # Python code rather than from the previous directive
+            (
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n",
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n",
+            ),
+            (
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n\n\n",
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n",
+            ),
+        ],
+        ids=["blank_lines_after", "comment_before", "comment_before_blank_lines_after"],
+    )
+    def test_fmt_on_sort_no_blank_line_before_next_directive(
+        self, region_end, expected_region_end
+    ):
+        code = (
+            "rule all:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output: 'out.txt'\n" + region_end + f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n' + expected_region_end + f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+    def test_fmt_on_sort_ends_rule(self):
+        """Blank lines after a rule-ending `# fmt: on[sort]` don't accumulate"""
+        code = (
+            "rule a:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            "\n"
+            "\n"
+            "rule b:\n"
+            f"{TAB}output: 'o'\n"
+            f"{TAB}input: 'i'\n"
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            "\n"
+            "\n"
+            "rule b:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
 
 class TestFmtOffNext:

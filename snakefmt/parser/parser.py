@@ -220,7 +220,7 @@ class Parser(ABC):
                         token_indent = status.cur_indent
                         sort_on = token_indent * TAB + status.token.line.strip() + "\n"
                         self.flush_sort_signal(sort_on)
-                        status = self.get_next_queriable()
+                        status = self._next_status_after_sort_signal()
                         self.buffer = status.buffer
                     continue
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
@@ -455,7 +455,10 @@ class Parser(ABC):
         verbatim = self._reindent(
             lines, string_interior_lines, origin_indent, added_indent
         )
-        next_status = self.get_next_queriable()
+        if lines:
+            next_status = self.get_next_queriable()
+        else:  # _consume_fmt_off_in_python flushed all lines as a sort signal
+            next_status = self._next_status_after_sort_signal()
         if consuming_next and verbatim:
             # Strip extra trailing blank lines; the following block's separator
             # logic (add_newlines) will provide the correct spacing.
@@ -536,6 +539,17 @@ class Parser(ABC):
     @abstractmethod
     def flush_sort_signal(self, verbatim: str) -> None:
         """Commit fmt:on sort signal directly."""
+
+    def _next_status_after_sort_signal(self) -> Status:
+        """Reads on past a flushed `# fmt: on[sort]` signal.
+
+        The signal already ends with the newline of its comment line, so drop that
+        newline from the buffer, along with any blank lines after it. Otherwise
+        they lead the next directive and move with it when it is sorted, adding a
+        blank line on every formatting pass (issue #321).
+        """
+        status = self.get_next_queriable()
+        return status._replace(buffer=status.buffer.lstrip("\n"))
 
     def _consume_fmt_off(self, start_token: Token, min_indent: int):
         verbatim, next_status = self._consume_python(
