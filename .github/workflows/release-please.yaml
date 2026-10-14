@@ -13,7 +13,7 @@ jobs:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
-          release-type: python
+          # config lives in release-please-config.json and .release-please-manifest.json
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
