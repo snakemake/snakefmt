@@ -6,7 +6,7 @@ import tokenize
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from re import match as re_match
-from typing import ClassVar, NamedTuple, Optional, Type
+from typing import ClassVar, NamedTuple, Optional, Sequence, Type
 
 from snakefmt import fstring_tokeniser_in_use
 from snakefmt.exceptions import (
@@ -286,9 +286,17 @@ class Vocabulary:
         return self.spec[keyword]
 
     @classmethod
-    def ordered(cls):
+    def ordered(cls, directive_order: Sequence[str] = ()) -> list[str]:
+        """
+        Directive names in sorting order. `directive_order` is a custom order, which
+        the caller must have checked is complete (see `snakefmt.directive_order`): its
+        names that this vocabulary recognises come first, in the order given. Any other
+        directive follows in the default order of the grammar's spec, which for the
+        complete order of a rule's directives means the actions, which always come last.
+        """
         assert isinstance(cls.spec, OrderedDict)
-        return list(cls.spec)
+        listed = [keyword for keyword in directive_order if keyword in cls.spec]
+        return listed + [keyword for keyword in cls.spec if keyword not in listed]
 
 
 class Syntax(ABC):

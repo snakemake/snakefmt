@@ -12,6 +12,8 @@ def setup_formatter(
     sort_params: bool = False,
     black_config_file=None,
     format_shell: bool = False,
+    directive_order: tuple[str, ...] = (),
+    module_directive_order: tuple[str, ...] = (),
 ):
     stream = StringIO(snake)
     smk = Snakefile(stream)
@@ -22,4 +24,6 @@ def setup_formatter(
         sort_directives=sort_params,
         black_config_file=black_config_file,
         format_shell=format_shell,
+        directive_order=directive_order,
+        module_directive_order=module_directive_order,
     )
