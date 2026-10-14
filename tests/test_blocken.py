@@ -17,7 +17,7 @@ from snakefmt.blocken import (
     tokenize,
 )
 from snakefmt.config import read_black_config
-from snakefmt.types import TAB
+from snakefmt.blocken import TAB
 
 if sys.version_info >= (3, 12):
     from snakefmt.blocken import consume_fstring
