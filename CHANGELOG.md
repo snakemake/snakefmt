@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.1.0](https://github.com/snakemake/snakefmt/compare/v2.0.3...v2.1.0) (2026-10-14)
+
+
+### Features
+
+* add --directive-order to customise directive sorting ([#318](https://github.com/snakemake/snakefmt/issues/318)) ([#323](https://github.com/snakemake/snakefmt/issues/323)) ([64be478](https://github.com/snakemake/snakefmt/commit/64be4784376a6081f2542ec2fe01a80a67faf095))
+
+
+### Bug Fixes
+
+* parse run: after a Snakemake keyword nested in Python ([#319](https://github.com/snakemake/snakefmt/issues/319)) ([#320](https://github.com/snakemake/snakefmt/issues/320)) ([a947a45](https://github.com/snakemake/snakefmt/commit/a947a450341d7ccfff2db3a0dee8a33ba49ac781))
+* stop `# fmt: on[sort]` gaining a blank line on every pass ([#321](https://github.com/snakemake/snakefmt/issues/321)) ([#322](https://github.com/snakemake/snakefmt/issues/322)) ([83d1f91](https://github.com/snakemake/snakefmt/commit/83d1f91c3f340f0f59e4af0cd8b0c05024f1c3a8))
+
+
+### Documentation
+
+* mention MegaLinter in the CI integration section ([#314](https://github.com/snakemake/snakefmt/issues/314)) ([06b1871](https://github.com/snakemake/snakefmt/commit/06b18718ecff658e6314a24fbc3820aa80abaaf8))
+
 ## [2.0.3](https://github.com/snakemake/snakefmt/compare/v2.0.2...v2.0.3) (2026-06-25)
 
 
