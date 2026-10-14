@@ -1534,70 +1534,69 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
         for i, block in enumerate(self.body_blocks):
             assert not tail_noncoding, "no tail_noncoding before body_blocks"
             if i == 0 and isinstance(block, PythonBlock):
-                body = block.formatted(mode)
-                formatted.append(body)
+                formatted.append(block.formatted(mode))
                 for line in block.head_linestrs:
                     state = state.update(line.lstrip())
-            else:
-                assert isinstance(
-                    block, SnakemakeBlock
-                ), "Unexpected block type in snakemake keyword block"
-                noncoding = tokens2linestrs(iter(block.colon_line.head_noncoding))
-                directive = ""
-                for line in noncoding:  # here noncoding is already formated
-                    linelstrip = line.lstrip()
-                    last_sort_off = state.sort_directives
-                    if linelstrip:
-                        # only non-empty lines are formattable
-                        if state.found_skip(linelstrip):
-                            directive += line
-                        else:
-                            directive += indent + format_black(linelstrip, mode, 0)
-                        state = state.update(linelstrip)
-                    if state.not_format:
-                        if directives:
-                            formatted.extend(self.sort_directives(directives))
-                        if directive:
-                            formatted.append(directive)
-                            directive = ""
-                        if not linelstrip:
-                            formatted.extend(
-                                deindent_lines(
-                                    block.indent_str, self.deindent_level + 1, [line]
-                                )
-                            )
-                    elif not state.sort_directives:
-                        if directives:
-                            formatted.extend(self.sort_directives(directives))
-                        if directive:
-                            formatted.append(directive)
-                            directive = ""
-                    elif not last_sort_off:
-                        # state.sort_directives switched on, this comment is
-                        #  actually `# fmt: on[sort]` directive,
-                        # so split from next directive
+                continue
+            assert isinstance(
+                block, SnakemakeBlock
+            ), "Unexpected block type in snakemake keyword block"
+            noncoding = tokens2linestrs(iter(block.colon_line.head_noncoding))
+            directive = ""
+            for line in noncoding:  # here noncoding is already formated
+                linelstrip = line.lstrip()
+                last_sort_off = state.sort_directives
+                if linelstrip:
+                    # only non-empty lines are formattable
+                    if state.found_skip(linelstrip):
+                        directive += line
+                    else:
+                        directive += indent + format_black(linelstrip, mode, 0)
+                    state = state.update(linelstrip)
+                if state.not_format:
+                    if directives:
+                        formatted.extend(self.sort_directives(directives, order))
+                    if directive:
                         formatted.append(directive)
                         directive = ""
-                if state.not_format:
-                    formatted.extend(
-                        deindent_lines(
-                            block.indent_str,
-                            self.deindent_level + 1,
-                            [block.colon_line.body[-1].line]
-                            + [
-                                line
-                                for block in block.body_blocks
-                                for line in block.full_linestrs
-                            ],
+                    if not linelstrip:
+                        formatted.extend(
+                            deindent_lines(
+                                block.indent_str, self.deindent_level + 1, [line]
+                            )
                         )
-                    )
-                else:
-                    directive += block.formatted(mode, state)
-                    if state.sort_directives:
-                        directives[block.keyword] = directive
-                    else:
-                        assert not directives, "Already flushed once fmt: off[sort]"
+                elif not state.sort_directives:
+                    if directives:
+                        formatted.extend(self.sort_directives(directives, order))
+                    if directive:
                         formatted.append(directive)
+                        directive = ""
+                elif not last_sort_off:
+                    # state.sort_directives switched on, this comment is
+                    #  actually `# fmt: on[sort]` directive,
+                    # so split from next directive
+                    formatted.append(directive)
+                    directive = ""
+            if state.not_format:
+                formatted.extend(
+                    deindent_lines(
+                        block.indent_str,
+                        self.deindent_level + 1,
+                        [block.colon_line.body[-1].line]
+                        + [
+                            line
+                            for block in block.body_blocks
+                            for line in block.full_linestrs
+                        ],
+                    )
+                )
+            else:
+                directive += block.formatted(mode, state)
+                if state.sort_directives:
+                    directives[block.keyword] = directive
+                else:
+                    assert not directives, "Already flushed once fmt: off[sort]"
+                    formatted.append(directive)
             if block.tail_noncoding:
                 tail_noncoding = tokens2linestrs(iter(block.tail_noncoding))
             # no `\n` between
