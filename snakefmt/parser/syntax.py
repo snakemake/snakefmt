@@ -61,7 +61,9 @@ if fstring_tokeniser_in_use:
 
 
 def split_code_string(string: str) -> list[str]:
-    """Splits a code string into individual lines, preserving leading whitespace.
+    """Splits code into alternating segments of code and multiline strings.
+    Even-indexed elements are code segments, odd-indexed are multiline string literals.
+
     >>> string = '''a = 1\nb = f\"\"\"\n{a}\n1\n2\n\"\"\"\nc=2'''
     >>> split_code_string(string)
     ['a = 1\nb = ', 'f\"\"\"\n{a}\n1\n2\n\"\"\"', '\nc=2']
