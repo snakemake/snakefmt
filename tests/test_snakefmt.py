@@ -8,9 +8,9 @@ from unittest import mock
 import pytest
 from black.files import get_gitignore
 
+from snakefmt.blocken import TAB
 from snakefmt.diff import ExitCode
 from snakefmt.snakefmt import construct_regex, get_snakefiles_in_dir, main
-from snakefmt.blocken import TAB
 
 
 class TestCLIBasic:

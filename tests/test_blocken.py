@@ -3,6 +3,7 @@ import sys
 import pytest
 
 from snakefmt.blocken import (
+    TAB,
     FormatState,
     GlobalBlock,
     IfForTryWithBlock,
@@ -17,7 +18,6 @@ from snakefmt.blocken import (
     tokenize,
 )
 from snakefmt.config import read_black_config
-from snakefmt.blocken import TAB
 
 if sys.version_info >= (3, 12):
     from snakefmt.blocken import consume_fstring

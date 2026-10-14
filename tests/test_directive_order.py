@@ -11,11 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from snakefmt.blocken import Module, Rule, UseRule
+from snakefmt.blocken import TAB, Module, Rule, UseRule
 from snakefmt.directive_order import ACTION_DIRECTIVES as GRAMMAR_ACTIONS
 from snakefmt.directive_order import MODULE_ORDER, RULE_ORDER
 from snakefmt.snakefmt import main
-from snakefmt.blocken import TAB
 from tests import setup_formatter
 from tests.directive_order_fixtures import (
     ACTION_DIRECTIVES,

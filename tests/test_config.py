@@ -7,6 +7,7 @@ import click
 import pytest
 
 from snakefmt import DEFAULT_LINE_LENGTH, DEFAULT_TARGET_VERSIONS
+from snakefmt.blocken import TAB
 from snakefmt.config import (
     find_pyproject_toml,
     inject_snakefmt_config,
@@ -15,7 +16,6 @@ from snakefmt.config import (
 )
 from snakefmt.exceptions import MalformattedToml
 from snakefmt.snakefmt import main
-from snakefmt.blocken import TAB
 from tests import setup_formatter
 
 
