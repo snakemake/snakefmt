@@ -1553,6 +1553,15 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                 formatted.append(block.formatted(mode))
                 for line in block.head_linestrs:
                     state = state.update(line.lstrip())
+                # A blank line the user wrote between the docstring and the first directive is kept
+                if len(self.body_blocks) > 1:
+                    block = self.body_blocks[1]
+                    assert isinstance(
+                        block, SnakemakeBlock
+                    ), "Unexpected block type in snakemake keyword block"
+                    following = block.colon_line.head_noncoding
+                    if following and following[0].type == tokenize.NL:
+                        formatted.append("\n")
                 continue
             assert isinstance(
                 block, SnakemakeBlock
