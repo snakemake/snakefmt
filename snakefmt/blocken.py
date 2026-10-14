@@ -1559,7 +1559,8 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                 formatted.append(block.formatted(mode))
                 for line in block.head_linestrs:
                     state = state.update(line.lstrip())
-                # A blank line the user wrote between the docstring and the first directive is kept
+                # A blank line the user wrote between the docstring
+                # and the first directive is kept
                 if len(self.body_blocks) > 1:
                     block = self.body_blocks[1]
                     assert isinstance(
