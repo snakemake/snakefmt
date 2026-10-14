@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - master
+  # retry a release's PyPI publish, e.g. after the publish step failed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build and publish to PyPI, e.g. v2.1.0"
+        required: true
+        type: string
 
 jobs:
   release-please:
@@ -11,34 +18,38 @@ jobs:
     steps:
 
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        if: ${{ github.event_name == 'push' }}
         id: release
         with:
           # config lives in release-please-config.json and .release-please-manifest.json
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created || inputs.tag }}
+        with:
+          # refs/tags/ so a manual run can only publish a tag, never a branch
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) }}
 
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created || inputs.tag }}
         with:
           enable-cache: true
 
       - name: Install Python 3.11
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created || inputs.tag }}
         run: uv python install 3.11
 
       - name: Install dependencies
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created || inputs.tag }}
         run:  make install-ci
 
       - name: Build a binary wheel and a source tarball
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created || inputs.tag }}
         run:  make build
 
       - name: Publish to PyPI
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created || inputs.tag }}
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           user:     __token__
