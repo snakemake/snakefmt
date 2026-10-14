@@ -337,10 +337,12 @@ class FormatState(NamedTuple):
 
     def update(self, comment: str):
         """check single line comment line for pattern:
+        ```
         # fmt: off
         # fmt: off[option1, option2, ...]
         # fmt: on
         # fmt: on[option1, option2, ...]
+        ```
 
         Currently, options can be:
         - sort: whether to sort snakemake directives (e.g. input, output, params, etc.)
@@ -780,7 +782,7 @@ class DocumentSymbol(NamedTuple):
     symbol_kind: str
     position_start: tuple[int, int]
     position_end: tuple[int, int]
-    block: "Block"
+    block: Block
 
 
 class PythonBlock(Block):
@@ -826,6 +828,10 @@ class ColonBlock(Block):
         return self._keyword()
 
     def split_colon_line(self):
+        """Split the colon line into two parts:
+        - lines before the colon
+        - token iterator starting from the colon token (inclusive)
+        """
         token_iter = TokenIterator(
             "", iter(self.colon_line.body + [self.colon_line.end])
         )
@@ -1050,6 +1056,10 @@ class SnakemakeBlock(ColonBlock):
         return "".join(formatted)
 
     def format_head(self, mode: Mode) -> tuple[str, list[TokenInfo]]:
+        """Return the formatted head of the block,
+        If it starts a inner block,
+        the post_colon tokens will be used to format with the body.
+        """
         indent = TAB * self.deindent_level
         if self.colon_line.body[-1].type == tokenize.COMMENT:
             line = self.colon_line.body[-1].line
@@ -1075,7 +1085,13 @@ class SnakemakeBlock(ColonBlock):
     @abstractmethod
     def format_body(
         self, mode: Mode, state: FormatState, post_colon: list[TokenInfo]
-    ) -> str: ...
+    ) -> str:
+        """Return the formatted body of the block,
+        mode: black mode
+        state: format state,
+        post_colon: tokens after the colon in the head line.
+            If any, must start with the colon
+        """
 
     def compilation(self):
         raise NotImplementedError
@@ -1462,7 +1478,7 @@ class Global_Wildcard_Constraints(SnakemakeArgumentsBlock): ...
 class Scattergather(SnakemakeArgumentsBlock): ...
 
 
-@_register("resource_scope")
+@_register("resource_scopes")
 class ResourceScope(SnakemakeArgumentsBlock): ...
 
 
@@ -1623,28 +1639,28 @@ class Module(NamedBlock, SnakemakeKeywordBlock):
     @_register()
     class Name(SnakemakeInlineArgumentBlock): ...
 
+    @_register()
+    class Pathvars(SnakemakeArgumentsBlock): ...
+
     # Reference
     @_register()
     class Snakefile(SnakemakeUnnamedArgumentBlock): ...
 
-    @_register()
-    class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
-
     # Override
-    @_register()
-    class Skip_Validation(SnakemakeUnnamedArgumentBlock): ...
-
     @_register()
     class Config(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
-    class Pathvars(SnakemakeArgumentsBlock): ...
+    class Skip_Validation(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
     class Prefix(SnakemakeUnnamedArgumentBlock): ...
 
     @_register()
     class Replace_Prefix(SnakemakeUnnamedArgumentBlock): ...
+
+    @_register()
+    class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
 
 
 class _Rule(NamedBlock, SnakemakeKeywordBlock):
@@ -1820,8 +1836,9 @@ class Rule(_Rule):
                 tokens += block.tail_noncoding
             # `format_head` keeps the leading `:` as post_colon[0] (contract
             # shared with PythonArgumentsBlock.format_post_colon), so skip it.
+            stream = iter(tokens)
             before: list[str] = []
-            for token in tokens:
+            for token in stream:
                 if token.type in _SHELL_IGNORED_TOKENS:
                     before.append(token.string)
                 else:
@@ -1859,11 +1876,11 @@ class Rule(_Rule):
     @_register()
     class Wrapper(Script): ...
 
-    @_register("template_engine")
-    class TemplateEngine(Script): ...
-
     @_register()
     class CWL(Script): ...
+
+    @_register("template_engine")
+    class TemplateEngine(Script): ...
 
     subautomata = {**_Rule.subautomata, **exec_subautomata}
 
