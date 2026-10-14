@@ -19,6 +19,7 @@ import black.parsing
 
 from snakefmt.config import Mode, read_black_config
 from snakefmt.exceptions import InvalidPython, UnsupportedSyntax
+from snakefmt.shell_formatter import format_python_string_literal
 from snakefmt.types import TAB
 
 _FMT_DIRECTIVE_RE = re.compile(
@@ -328,6 +329,7 @@ class FormatState(NamedTuple):
     fmt_on: bool = True
     sort_directives: bool | None = None
     skip_next: bool = False  # one-time directive for the next snakemake block
+    format_shell: bool = False
 
     @property
     def not_format(self):
@@ -486,30 +488,32 @@ class Block(ABC):
     Starting of blocks (file or new indent):
         the space and comments until the first indenting keyword
           are considered a block of their own.
+
     All other spaces are considered part of the previous block's trailing empty lines.
 
     Comment belongness:
         Only comments with neither empty lines between/after the next block
           nor different indent levels are considered part of the same block.
-        e.g.:
-            sth # block 1
-            # comment 1 -> block 1
+        ```python
+        sth # block 1
+        # comment 1 -> block 1
 
-            # comment 2 -> block 1
+        # comment 2 -> block 1
 
-            # comment 3 -> block 2
-            def func(): # block 2
-                pass # block 2.1
-                # comment 4 -> block 2.1
-            # comment 5 -> block 2
+        # comment 3 -> block 2
+        def func(): # block 2
+            pass # block 2.1
+            # comment 4 -> block 2.1
+        # comment 5 -> block 2
 
-            rule example: # block 3
-                input: "data.txt" # block 3.1 and 3.1.1
-                # comment 6 -> block 3.1
-                output: # block 3.2
-                    "result.txt" # block 3.2.1
-                    # comment 7 -> block 3.2.1
-                # comment 8 -> block 3.3
+        rule example: # block 3
+            input: "data.txt" # block 3.1 and 3.1.1
+            # comment 6 -> block 3.1
+            output: # block 3.2
+                "result.txt" # block 3.2.1
+                # comment 7 -> block 3.2.1
+            # comment 8 -> block 3.3
+        ```
 
     Indent of comments:
         determined by the following real code line and previous indents.
@@ -518,15 +522,17 @@ class Block(ABC):
         its effective indent level is not directly knowable.
 
         principles:
-            follow_indent = indent of the following real code line
-            if EOF:
-                follow_indent = 0
-            rule 1 (always):
-                indent of comments >= follow_indent
-            rule 2 (if follow_indent < self.indents[-1]):
-                indent of comments = epsilon + max(
-                    i for i in self.indents if i <= comment_indent
-                )
+        ```python
+        follow_indent = indent of the following real code line
+        if EOF:
+            follow_indent = 0
+        rule 1 (always):
+            indent of comments >= follow_indent
+        rule 2 (if follow_indent < self.indents[-1]):
+            indent of comments = epsilon + max(
+                i for i in self.indents if i <= comment_indent
+            )
+        ```
     """
 
     __slots__ = ("deindent_level", "head_lines", "body_blocks", "tail_noncoding")
@@ -1460,7 +1466,7 @@ class Scattergather(SnakemakeArgumentsBlock): ...
 class ResourceScope(SnakemakeArgumentsBlock): ...
 
 
-@_register("storage")
+@_register()
 class Storage(SnakemakeArgumentsBlock): ...
 
 
@@ -1733,6 +1739,7 @@ class UseRule(_Rule):
         use rule * from other_workflow exclude ruleC
         use rule * from other_workflow as other_*
         use rule * from other_workflow
+        use rule a,b from other_workflow
         """
         assert len(self.head_lines) == 1, "use directive should only have one head line"
         head_line = tokens2linestrs(iter(self.head_lines[0].body))
@@ -1754,6 +1761,16 @@ class UseRule(_Rule):
         return "".join(formatted)
 
 
+_SHELL_IGNORED_TOKENS = (
+    tokenize.NL,
+    tokenize.NEWLINE,
+    tokenize.INDENT,
+    tokenize.DEDENT,
+    tokenize.ENDMARKER,
+    tokenize.COMMENT,
+)
+
+
 @_register()
 class Rule(_Rule):
     # Action
@@ -1765,7 +1782,74 @@ class Rule(_Rule):
     class AbstractCmd(SnakemakeUnnamedArgumentBlock, Run): ...
 
     @_register()
-    class Shell(AbstractCmd): ...
+    class Shell(AbstractCmd):
+        def format_body(
+            self, mode: Mode, state: FormatState, post_colon: list[TokenInfo]
+        ) -> str:
+            """Format the shell body with `shfmt` when it is a lone string literal.
+
+            Expressions such as concatenations are left to the Python formatter
+            by falling back to the parent. Blank and comment lines around the
+            literal are handled by Black, which already formats the body.
+            """
+            if state.format_shell:
+                formatted = self.format_shell_body(mode, post_colon)
+                if formatted is not None:
+                    return formatted
+            return super().format_body(mode, state, post_colon)
+
+        def format_shell_body(
+            self, mode: Mode, post_colon: list[TokenInfo]
+        ) -> str | None:
+            """
+            Case Literal String: format the string as shell code with shfmt.
+            Case Literal String + comma: format the string as shell code with shfmt.
+            Case _: return None, super().format_body instead
+
+            Replace the only literal string in the body, remove comma if any,
+            and format with black
+            """
+
+            tokens = post_colon[1:]
+            if self.body_blocks:
+                block, *blocks = self.body_blocks
+                if blocks:
+                    return None
+                tokens.extend(
+                    (token for line in block.head_lines for token in line.iter)
+                )
+                tokens += block.tail_noncoding
+            # `format_head` keeps the leading `:` as post_colon[0] (contract
+            # shared with PythonArgumentsBlock.format_post_colon), so skip it.
+            before: list[str] = []
+            for token in tokens:
+                if token.type in _SHELL_IGNORED_TOKENS:
+                    before.append(token.string)
+                else:
+                    break
+            else:
+                return None
+            if token.type != tokenize.STRING:
+                return None
+            after: list[str] = []
+            for rest in tokens:
+                if rest.type in _SHELL_IGNORED_TOKENS:
+                    after.append(rest.string)
+                elif rest.type == tokenize.OP and rest.string == ",":
+                    continue
+                else:
+                    return None
+            target = self.deindent_level + 1
+            formatted = format_python_string_literal(token.string, target)
+            # Rebuild the body around the formatted literal, then let Black
+            # handle comments, blank lines and indentation.
+            return format_black(
+                "".join(before) + formatted + "".join(after),
+                mode,
+                self.deindent_level,
+                partial="(",
+                start_token=token,
+            )
 
     @_register()
     class Script(AbstractCmd): ...
@@ -1797,9 +1881,10 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    __slots__ = ("mode", "sort_directives")
+    __slots__ = ("mode", "sort_directives", "format_shell")
     mode: Mode
     sort_directives: bool
+    format_shell: bool
 
     subautomata = {**python_subautomata, **global_snakemake_subautomata}
 
@@ -1810,7 +1895,10 @@ class GlobalBlock(Block):
         self.body_blocks = self.consume_subblocks(tokens)
 
     def get_formatted(
-        self, mode: Mode | None = None, sort_directives: bool | None = None
+        self,
+        mode: Mode | None = None,
+        sort_directives: bool | None = None,
+        format_shell: bool | None = None,
     ):
         if mode is None:
             mode = getattr(self, "mode", None)
@@ -1818,7 +1906,11 @@ class GlobalBlock(Block):
                 raise ValueError("Mode should be provided for formatting")
         if sort_directives is None:
             sort_directives = getattr(self, "sort_directives", None)
-        state = FormatState(sort_directives=sort_directives or None)
+        if format_shell is None:
+            format_shell = bool(getattr(self, "format_shell", False))
+        state = FormatState(
+            sort_directives=sort_directives or None, format_shell=format_shell
+        )
         # if set to None, it will not be enabled by `# fmt: on`
         python_codes: list[str] = []
         snakemake_codes: list[tuple[str, str]] = []
@@ -1871,6 +1963,7 @@ def setup_formatter(
     line_length: int | None = None,
     sort_params: bool = False,
     black_config_file=None,
+    format_shell=False,
 ):
     formatter = parse(snake)
     mode = read_black_config(black_config_file) or Mode()
@@ -1879,4 +1972,5 @@ def setup_formatter(
 
     formatter.mode = mode
     formatter.sort_directives = sort_params
+    formatter.format_shell = format_shell
     return formatter
