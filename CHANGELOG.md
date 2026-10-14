@@ -6,6 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.3](https://github.com/snakemake/snakefmt/compare/v2.0.2...v2.0.3) (2026-06-25)
+
+
+### Bug Fixes
+
+* skip fmt-directive and indent processing for inline comments ([#305](https://github.com/snakemake/snakefmt/issues/305)) ([#307](https://github.com/snakemake/snakefmt/issues/307)) ([d3a06b2](https://github.com/snakemake/snakefmt/commit/d3a06b27cfb8e1995871dcef37201e65c353527d))
+
+## [2.0.2](https://github.com/snakemake/snakefmt/compare/v2.0.1...v2.0.2) (2026-06-11)
+
+
+### Bug Fixes
+
+* preserve multiline docstring indentation under rules/checkpoints ([#304](https://github.com/snakemake/snakefmt/issues/304)) ([6fd0a5c](https://github.com/snakemake/snakefmt/commit/6fd0a5c563571b247585129a950c167cc6cc766d))
+
+
+### Documentation
+
+* replace PyPI badges with personalized downloads badge ([#301](https://github.com/snakemake/snakefmt/issues/301)) ([e034b36](https://github.com/snakemake/snakefmt/commit/e034b36601c73d57582f1f86b2e5a62b40ffad06))
+
+## [2.0.1](https://github.com/snakemake/snakefmt/compare/v2.0.0...v2.0.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* prevent repeated indentation of multiline shell strings ([#299](https://github.com/snakemake/snakefmt/issues/299)) ([7b0d97f](https://github.com/snakemake/snakefmt/commit/7b0d97fa0a2d85d0d1d09bc17e58047366dad1c0))
+
+## [2.0.0](https://github.com/snakemake/snakefmt/compare/v1.1.0...v2.0.0) (2026-05-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* shell blocks in rules are now formatted by shfmt by default. Existing Snakefiles may see whitespace and structure changes in their shell directives. Use `--no-format-shell` or `format_shell = false` in `pyproject.toml` to opt out.
+
+### Features
+
+* format shell directives using shfmt ([#295](https://github.com/snakemake/snakefmt/issues/295)) ([a8d131b](https://github.com/snakemake/snakefmt/commit/a8d131b62d88c503d55d8b2e2ebc6a94c28a34d4))
+
+## [1.1.0](https://github.com/snakemake/snakefmt/compare/v1.0.0...v1.1.0) (2026-04-07)
+
+
+### Features
+
+* add `# fmt: off` to disable formatting ([#280](https://github.com/snakemake/snakefmt/issues/280)) ([e7201e1](https://github.com/snakemake/snakefmt/commit/e7201e126cd447b71948ac54608741f3315400f1))
+
 ## [1.0.0](https://github.com/snakemake/snakefmt/compare/v0.11.5...v1.0.0) (2026-03-24)
 
 

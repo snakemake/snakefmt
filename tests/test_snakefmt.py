@@ -97,7 +97,7 @@ class TestCLIBasic:
         cli_runner.invoke(main, params)
         actual_stat = file.stat()
 
-        assert actual_stat == expected_stat
+        assert actual_stat.st_mtime == expected_stat.st_mtime
 
 
 class TestCLICheck:

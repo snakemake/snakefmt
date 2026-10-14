@@ -20,6 +20,7 @@ design and specifications of [Black][black].
 > **Recent Changes:**
 > 1. **Rule and module directives are now sorted by default:** `snakefmt` will automatically sort the order of directives inside rules (e.g. `input`, `output`, `shell`) and modules into a consistent order. You can opt out of this by using the `--no-sort` CLI flag.
 > 2. **Black upgraded to v26:** The underlying `black` formatter has been upgraded to v26. You will see changes in how implicitly concatenated strings are wrapped (they are now collapsed onto a single line if they fit within the line limit) and other minor adjustments compared to previous versions.
+> 3. **Shell blocks are now formatted using `shfmt`:** `snakefmt` now formats the body of `shell:` directives using [`shfmt`](https://github.com/mvdan/sh). This is enabled by default and will reformat shell code that was previously left untouched. You can opt out with `--no-format-shell` (`-F`) or `format_shell = false` in `pyproject.toml`. See [Shell Block Formatting](#shell-block-formatting) for details.
 >
 > **Example of expected differences:**
 > ```python
@@ -46,7 +47,7 @@ design and specifications of [Black][black].
 
 [TOC]: #
 
-# Table of Contents
+## Table of Contents
 - [Install](#install)
   - [PyPi](#pypi)
   - [Conda](#conda)
@@ -56,7 +57,9 @@ design and specifications of [Black][black].
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Full Usage](#full-usage)
+  - [Shell Block Formatting](#shell-block-formatting)
   - [Directive Sorting](#directive-sorting)
+    - [Custom directive order](#custom-directive-order)
   - [Format Directives](#format-directives)
   - [Configuration](#configuration)
 - [Integration](#integration)
@@ -75,10 +78,8 @@ design and specifications of [Black][black].
 
 ### PyPi
 
-
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snakefmt)
 ![PyPI - Version](https://img.shields.io/pypi/v/snakefmt)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/snakefmt)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/snakefmt?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/snakefmt)
 
 ```sh
 pip install snakefmt
@@ -233,6 +234,9 @@ snakefmt - < Snakefile
 
 ### Full Usage
 
+<details>
+<summary>Show full help output</summary>
+
 ```
 $ snakefmt --help
 Usage: snakefmt [OPTIONS] [SRC]...
@@ -246,61 +250,250 @@ Usage: snakefmt [OPTIONS] [SRC]...
   Snakefile` to avoid this.
 
 Options:
-  -l, --line-length INT       Lines longer than INT will be wrapped. [default:
-                              88]
-  -s, --sort / -S, --no-sort  Sort directives in rules and modules.  [default:
-                              sort]
-  --check                     Don't write the files back, just return the
-                              status. Return code 0 means nothing would
-                              change. Return code 1 means some files would be
-                              reformatted. Return code 123 means there was an
-                              error.
-  -d, --diff                  Don't write the files back, just output a diff
-                              for each file to stdout.
-  --compact-diff              Same as --diff but only shows lines that would
-                              change plus a few lines of context.
-  --include PATTERN           A regular expression that matches files and
-                              directories that should be included on recursive
-                              searches.  An empty value means all files are
-                              included regardless of the name.  Use forward
-                              slashes for directories on all platforms
-                              (Windows, too).  Exclusions are calculated
-                              first, inclusions later.  [default:
-                              (\.smk$|^Snakefile)]
-  --exclude PATTERN           A regular expression that matches files and
-                              directories that should be excluded on recursive
-                              searches.  An empty value means no paths are
-                              excluded. Use forward slashes for directories on
-                              all platforms (Windows, too). Exclusions are
-                              calculated first, inclusions later.  [default: (
-                              \.snakemake/|\.eggs/|\.git/|\.hg/|\.mypy_cache/|
-                              \.nox/|\.tox/|\.venv/|\.svn/|_build/|buck-
-                              out/|/build/|/dist/|\.template/)]
-  -c, --config PATH           Read configuration from PATH. By default, will
-                              try to read from `./pyproject.toml`
-  -h, --help                  Show this message and exit.
-  -V, --version               Show the version and exit.
-  -v, --verbose               Turns on debug-level logger.
+  -l, --line-length INT           Lines longer than INT will be wrapped.
+                                  [default: 88]
+  -s, --sort / -S, --no-sort      Sort directives in rules and modules.
+                                  [default: sort]
+  -o, --directive-order NAMES     Comma-separated order of all the directives
+                                  of rules, checkpoints and `use rule` blocks.
+                                  Action directives (run, shell, script, ...)
+                                  are not listed as they always come last. In
+                                  the config file this is an array of strings.
+                                  Use --print-directive-order to see the
+                                  default order.
+  -m, --module-directive-order NAMES
+                                  Comma-separated order of all the directives
+                                  of modules. In the config file this is an
+                                  array of strings.
+  -p, --print-directive-order     Print the directive orders in effect, as
+                                  lines for the config file and as command
+                                  line options, then exit.
+  -f, --format-shell / -F, --no-format-shell
+                                  Format shell directives using shfmt.
+                                  [default: format-shell]
+  --check                         Don't write the files back, just return the
+                                  status. Return code 0 means nothing would
+                                  change. Return code 1 means some files would
+                                  be reformatted. Return code 123 means there
+                                  was an error.
+  -d, --diff                      Don't write the files back, just output a
+                                  diff for each file to stdout.
+  --compact-diff                  Same as --diff but only shows lines that
+                                  would change plus a few lines of context.
+  --include PATTERN               A regular expression that matches files and
+                                  directories that should be included on
+                                  recursive searches.  An empty value means
+                                  all files are included regardless of the
+                                  name.  Use forward slashes for directories
+                                  on all platforms (Windows, too).  Exclusions
+                                  are calculated first, inclusions later.
+                                  [default: (\.smk$|^Snakefile)]
+  --exclude PATTERN               A regular expression that matches files and
+                                  directories that should be excluded on
+                                  recursive searches.  An empty value means no
+                                  paths are excluded. Use forward slashes for
+                                  directories on all platforms (Windows, too).
+                                  Exclusions are calculated first, inclusions
+                                  later.  [default: (\.snakemake/|\.eggs/|\.gi
+                                  t/|\.hg/|\.mypy_cache/|\.nox/|\.tox/|\.venv/
+                                  |\.svn/|_build/|buck-
+                                  out/|/build/|/dist/|\.template/)]
+  -c, --config PATH               Read configuration from PATH. By default,
+                                  will try to read from `./pyproject.toml`
+  -h, --help                      Show this message and exit.
+  -V, --version                   Show the version and exit.
+  -v, --verbose                   Turns on debug-level logger.
 ```
+
+</details>
 
 ### Directive Sorting
 
 By default, `snakefmt` sorts rule and module directives (like `input`, `output`, `shell`, etc.) into a consistent order. This makes rules easier to read and allows for quicker cross-referencing between inputs, outputs, and the resources used by the execution command.
 
+<details>
+<summary>Directive ordering details</summary>
+
 Directives are grouped by their functional role in the following order:
 
 1.  **Identity & Early Control**: `name`, `default_target`
 2.  **I/O Contract**: `input`, `output`, `log`, `benchmark`
-3.  **Wildcard & Path Qualification**: `wildcard_constraints`, `pathvars`
-4.  **Scheduling & Control**: `priority`, `retries`, `group`, `localrule`, `cache`, `handover`
+3.  **Wildcard & Path Qualification**: `pathvars`, `wildcard_constraints`
+4.  **Scheduling & Control**: `cache`, `priority`, `retries`, `group`, `localrule`, `handover`
 5.  **Execution Environment**: `shadow`, `conda`, `container`, `singularity`, `containerized`, `envmodules`
 6.  **Execution Resources & Parameters**: `threads`, `resources`, `params`
 7.  **Annotation / Runtime Display**: `message`
-8.  **Action**: `shell`, `run`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
+8.  **Action**: `run`, `shell`, `script`, `notebook`, `wrapper`, `cwl`, `template_engine`
 
 This ordering ensures that the directives most frequently used in execution blocks (like `threads`, `resources`, and `params`) are placed immediately above the action directive.
 
+Modules sort their directives in this order: `name`, `pathvars`, `snakefile`, `config`, `skip_validation`, `prefix`, `replace_prefix`, `meta_wrapper`.
+
+</details>
+
 You can disable this feature using the `--no-sort` flag.
+
+#### Custom directive order
+
+If you prefer a different order, you can set your own. There are two orders, because rules and modules have different directives:
+
+- `-o/--directive-order` (`directive_order` in the config file) is the order of the directives in `rule`, `checkpoint` and `use rule ... with:` blocks.
+- `-m/--module-directive-order` (`module_directive_order` in the config file) is the order of the directives in `module` blocks.
+
+An order has to list **every** directive of its block type exactly once, so the order is never ambiguous.
+The easiest way to write one is to start from the orders in effect, which `-p/--print-directive-order` prints as lines you can paste into your `pyproject.toml`, and as command line options.
+It exits without formatting anything:
+
+```
+$ snakefmt --print-directive-order
+# pyproject.toml, under [tool.snakefmt]:
+directive_order = ["name", "default_target", "input", "output", "log", "benchmark", "pathvars", "wildcard_constraints", "cache", "priority", "retries", "group", "localrule", "handover", "shadow", "conda", "container", "singularity", "containerized", "envmodules", "threads", "resources", "params", "message"]
+module_directive_order = ["name", "pathvars", "snakefile", "config", "skip_validation", "prefix", "replace_prefix", "meta_wrapper"]
+
+# command line:
+--directive-order name,default_target,input,output,log,benchmark,pathvars,wildcard_constraints,cache,priority,retries,group,localrule,handover,shadow,conda,container,singularity,containerized,envmodules,threads,resources,params,message --module-directive-order name,pathvars,snakefile,config,skip_validation,prefix,replace_prefix,meta_wrapper
+```
+
+Paste the lines you want into your `pyproject.toml` and move the directives around.
+For example, to sort `snakefile` and `config` first in modules:
+
+```toml
+[tool.snakefmt]
+module_directive_order = ["snakefile", "config", "name", "pathvars", "skip_validation", "prefix", "replace_prefix", "meta_wrapper"]
+```
+
+or on the command line:
+
+```shell
+snakefmt --module-directive-order snakefile,config,name,pathvars,skip_validation,prefix,replace_prefix,meta_wrapper workflow/
+```
+
+`-p` prints the orders that are in effect after reading your configuration and command line options, so you can check them.
+
+- Action directives (`run`, `shell`, `script`, `notebook`, `wrapper`, `cwl` and `template_engine`) are not part of the rule order. Snakemake allows only one action per rule and no directive may follow it, so actions always come last.
+- `snakefmt` stops before formatting anything if an order has a directive that doesn't exist for its block type (for example `snakefile` in the rule order, or `input` in the module order), a directive listed more than once, an action directive, or if it is incomplete.
+  For an incomplete order, the error lists the missing directives and shows a complete order, with your directives first and the missing ones after them in the default order, in the same two forms as above so you can check it and paste it.
+- Directives inside a `# fmt: off[sort]` region keep their original order.
+- With `--no-sort` (or `sort_directives = false`) nothing is sorted, so custom orders are ignored and `snakefmt` logs a warning. `-p` still prints the orders, with the same kind of warning.
+
+### Shell Block Formatting
+
+By default, `snakefmt` formats the body of `shell:` directives using [`shfmt`](https://github.com/mvdan/sh).
+This keeps shell snippets in your Snakefiles formatted consistently and avoids cosmetic diffs triggering unnecessary Snakemake re-runs.
+
+#### Example
+
+Before:
+
+```python
+rule align:
+    input:
+        "reads.fq",
+    output:
+        "aligned.bam",
+    threads: 4
+    shell:
+        """
+        bwa mem -t {threads} ref.fa {input} | samtools sort -o {output} -
+        if [ -s {output} ]
+        then
+        echo "done"
+        else
+        echo "empty"
+        exit 1
+        fi
+        """
+```
+
+After:
+
+```python
+rule align:
+    input:
+        "reads.fq",
+    output:
+        "aligned.bam",
+    threads: 4
+    shell:
+        """
+        bwa mem -t {threads} ref.fa {input} | samtools sort -o {output} -
+        if [ -s {output} ]; then
+            echo "done"
+        else
+            echo "empty"
+            exit 1
+        fi
+        """
+```
+
+#### Disabling
+
+You can disable shell formatting on the command line with `--no-format-shell` (`-F`), or in `pyproject.toml`:
+
+```toml
+[tool.snakefmt]
+format_shell = false
+```
+
+`shfmt` is invoked with `-i 4 -ci -bn` (four-space indentation, indented switch cases, binary operators may start a line).
+
+<details>
+<summary>Advanced details: placeholders, heredocs, brace groups, invalid shell</summary>
+
+#### Snakemake placeholders
+
+Snakemake `{var}` placeholders are masked before `shfmt` runs so it does not mis-parse them, then restored verbatim afterwards.
+Escaped double-brace placeholders such as those required by `awk` are passed through unchanged:
+
+```python
+rule example:
+    shell:
+        """
+        awk '{{print $1}}' {input} > {output}
+        """
+```
+
+#### Brace groups
+
+Bash brace groups (`{ cmd1; cmd2; }`) appear as `{{ cmd1; cmd2; }}` in Snakemake shell strings
+because Snakemake renders the block through `str.format()`, which requires `{{` / `}}` to produce
+literal `{` / `}`. `snakefmt` preserves these double-brace sequences verbatim — the body inside
+a brace group is **not** internally reformatted by `shfmt`. This is an implementation trade-off:
+safely unescaping, formatting, and re-escaping the contents without disrupting Snakemake's
+variable interpolation introduces significant parser complexity, so opaque masking is used for
+simplicity and safety.
+
+If you need `shfmt` to format the body of a brace group, wrap it in `# fmt: off` / `# fmt: on`
+and format that section manually.
+
+#### Heredoc handling
+
+`snakefmt` masks heredoc bodies before passing shell code to `shfmt`, and restores them afterwards. This means:
+
+- **Heredoc bodies are never reformatted** — `shfmt` does not reformat heredoc content, and neither does `snakefmt`.
+- **Snakemake-style escape prefixes on the terminator are supported.** For example, a heredoc that ends with `\n!EOF!` instead of a bare `!EOF!` at column 0 is detected and handled correctly — no `# fmt: off` required.
+
+```
+shell:
+    """
+    python <<!EOF!
+    \nif True:
+        print("hello")
+    \n!EOF!
+    """
+```
+
+Standard heredoc forms (`<<EOF`, `<<-EOF`, `<<'EOF'`) are also supported and the terminator placement requirement (column 0 for `<<EOF`, leading tabs only for `<<-EOF`) is preserved after formatting.
+
+#### Invalid shell
+
+If `shfmt` cannot parse the shell body, `snakefmt` raises an `InvalidShell` error rather than silently leaving the block unformatted.
+To work around genuinely invalid shell, either:
+
+- Disable shell formatting for the whole run with `-F` / `--no-format-shell`, or
+- Wrap the rule in `# fmt: off` / `# fmt: on` directives (see below) to opt that block out.
+
+</details>
 
 ### Format Directives
 
@@ -333,6 +526,9 @@ rule c:
 ```
 
 > **Note:** inside `run:` blocks and other Python contexts, `# fmt: off` / `# fmt: on` is passed through to [Black][black], which handles it natively.
+
+<details>
+<summary>Additional directives: <code># fmt: off[sort]</code>, <code># fmt: off[next]</code>, <code># fmt: skip</code></summary>
 
 #### `# fmt: off[sort]`
 
@@ -383,6 +579,8 @@ rule also_formatted:
 > **Note:** `# fmt: skip` is not yet supported within Snakemake rule blocks.
 > It currently applies only to plain Python lines outside of rules, checkpoints, and similar Snakemake constructs.
 
+</details>
+
 ### Configuration
 
 `snakefmt` is able to read project-specific default values for its command line options
@@ -405,6 +603,8 @@ configuration file.
 [tool.snakefmt]
 line_length = 90
 include = '\.smk$|^Snakefile|\.py$'
+sort_directives = true   # sort rule directives into a consistent order (default: true)
+format_shell = true      # format shell: blocks with shfmt (default: true)
 
 # snakefmt passes these options on to black
 [tool.black]
@@ -433,7 +633,7 @@ To do so, create the file `.pre-commit-config.yaml` in the root of your project 
 ```yaml
 repos:
   - repo: https://github.com/snakemake/snakefmt
-    rev: v0.10.2 # Replace by any tag/version ≥v0.6.0 : https://github.com/snakemake/snakefmt/releases
+    rev: v1.1.0 # Replace by any tag/version ≥v0.6.0 : https://github.com/snakemake/snakefmt/releases
     hooks:
       - id: snakefmt
 ```
@@ -444,7 +644,11 @@ Then [install pre-commit](https://pre-commit.com/#installation) and initialize t
 
 [GitHub Actions](https://github.com/features/actions) in combination with [super-linter](https://github.com/github/super-linter) allows you to automatically run `snakefmt` on all Snakefiles in your repository e.g. whenever you push a new commit.
 
-To do so, create the file `.github/workflows/linter.yml` in your repository:
+<details>
+<summary>Show GitHub Actions workflow configuration</summary>
+
+Create `.github/workflows/linter.yml` in your repository:
+
 ```yaml
 ---
 name: Lint
@@ -485,12 +689,19 @@ jobs:
 ```
 
 Additional configuration parameters can be specified by creating `.github/linters/.snakefmt.toml`:
+
 ```toml
 [tool.black]
 skip_string_normalization = true
 ```
 
+</details>
+
 For more information check the `super-linter` readme.
+
+Alternatively, [MegaLinter](https://megalinter.io) is another linter aggregator that
+runs `snakefmt` out of the box on any CI system - see its
+[snakefmt page](https://megalinter.io/latest/descriptors/snakemake_snakefmt/) for setup.
 
 ## Plug Us
 
@@ -498,6 +709,9 @@ If you can't get enough of badges, then feel free to show others you're using `s
 in your project.
 
 [![Code style: snakefmt](https://img.shields.io/badge/code%20style-snakefmt-000000.svg)](https://github.com/snakemake/snakefmt)
+
+<details>
+<summary>Copy badge markup</summary>
 
 ### Markdown
 
@@ -512,6 +726,8 @@ in your project.
     :target: https://github.com/snakemake/snakefmt
 ```
 
+</details>
+
 ## Changes
 
 See [`CHANGELOG.md`][changes].
@@ -524,7 +740,10 @@ See [CONTRIBUTING.md][contributing].
 
 [![DOI][doi-shield]][doi]
 
-```Bibtex
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
 @article{snakemake2021,
   doi = {10.12688/f1000research.29032.2},
   url = {https://doi.org/10.12688/f1000research.29032.2},
@@ -538,6 +757,8 @@ See [CONTRIBUTING.md][contributing].
   journal = {F1000Research}
 }
 ```
+
+</details>
 
 
 [snakemake]: https://snakemake.readthedocs.io/

@@ -13,6 +13,7 @@ import pytest
 
 from snakefmt.blocken import setup_formatter
 from snakefmt.exceptions import InvalidPython
+from snakefmt.formatter import align_strings
 from snakefmt.parser.grammar import SingleParam, SnakeGlobal
 from snakefmt.parser.syntax import COMMENT_SPACING
 from snakefmt.types import TAB
@@ -29,11 +30,11 @@ def test_emptyInput_emptyOutput():
 
 class TestSimpleParamFormatting:
     def test_simple_rule_one_input(self):
-        stream = "rule a:\n" f'{TAB * 1}input: "foo.txt"'
+        stream = f'rule a:\n{TAB * 1}input: "foo.txt"'
         formatter = setup_formatter(stream)
 
         actual = formatter.get_formatted()
-        expected = "rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"foo.txt",\n'
+        expected = f'rule a:\n{TAB * 1}input:\n{TAB * 2}"foo.txt",\n'
 
         assert actual == expected
 
@@ -41,7 +42,7 @@ class TestSimpleParamFormatting:
         """
         Keywords that expect a single parameter do not have newline + indent
         """
-        formatter = setup_formatter("configfile: \n" f'{TAB * 1}"foo.yaml"')
+        formatter = setup_formatter(f'configfile: \n{TAB * 1}"foo.yaml"')
 
         actual = formatter.get_formatted()
         expected = 'configfile: "foo.yaml"\n'
@@ -173,7 +174,7 @@ use rule * from other_workflow exclude ruleC, foo as other_*
         assert formatter.get_formatted() == snakecode
 
     def test_use_rule_no_with_two_line_indented(self):
-        snakecode = 'include: "file.txt"\n\n\n' "use rule * from module as module_*\n"
+        snakecode = 'include: "file.txt"\n\n\nuse rule * from module as module_*\n'
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
@@ -187,9 +188,7 @@ use rule * from other_workflow exclude ruleC, foo as other_*
 
     def test_use_rule_newline_spacing(self):
         snakecode = (
-            "use rule * from module as module_*\n\n\n"
-            "rule baz:\n"
-            f"{TAB * 1}threads: 4\n"
+            f"use rule * from module as module_*\n\n\nrule baz:\n{TAB * 1}threads: 4\n"
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -389,7 +388,7 @@ class TestComplexParamFormatting:
 
 class TestSimplePythonFormatting:
     def test_python_code_with_multi_indent_passes(self):
-        python_code = "if p:\n" f"{TAB * 1}for elem in p:\n" f"{TAB * 2}dothing(elem)\n"
+        python_code = f"if p:\n{TAB * 1}for elem in p:\n{TAB * 2}dothing(elem)\n"
 
         # test black formatting output (here, is identical)
         formatter = setup_formatter(python_code)
@@ -417,7 +416,7 @@ class TestSimplePythonFormatting:
         assert formatter.get_formatted() == snake_code
 
     def test_line_wrapped_python_code_outside_rule(self):
-        content = "list_of_lots_of_things = [1, 2, 3, 4, 5, 6]\n" "include: snakefile"
+        content = "list_of_lots_of_things = [1, 2, 3, 4, 5, 6]\ninclude: snakefile"
         line_length = 30
         formatter = setup_formatter(content, line_length=line_length)
 
@@ -433,9 +432,7 @@ class TestSimplePythonFormatting:
 
     def test_line_wrapped_python_code_inside_rule(self):
         content = (
-            f"rule a:\n"
-            f"{TAB}input:\n"
-            f"{TAB*2}list_of_lots_of_things = [1, 2, 3, 4, 5]"
+            f"rule a:\n{TAB}input:\n{TAB * 2}list_of_lots_of_things = [1, 2, 3, 4, 5]"
         )
         line_length = 30
         formatter = setup_formatter(content, line_length=line_length)
@@ -443,10 +440,10 @@ class TestSimplePythonFormatting:
         actual = formatter.get_formatted()
         expected = (
             "rule a:\n"
-            f"{TAB*1}input:\n"
-            f"{TAB*2}list_of_lots_of_things=[\n"
-            f"{TAB*3}1,\n{TAB*3}2,\n{TAB*3}3,\n{TAB*3}4,\n{TAB*3}5,\n"
-            f"{TAB*2}],\n"
+            f"{TAB * 1}input:\n"
+            f"{TAB * 2}list_of_lots_of_things=[\n"
+            f"{TAB * 3}1,\n{TAB * 3}2,\n{TAB * 3}3,\n{TAB * 3}4,\n{TAB * 3}5,\n"
+            f"{TAB * 2}],\n"
         )
 
         assert actual == expected
@@ -479,11 +476,11 @@ class TestSimplePythonFormatting:
         """Issue 262. Make sure no spacing added between !r"""
         snakecode = (
             'if config.get("treefix_root", "").startswith(ROOT_FLAG):\n'
-            f"{TAB*1}print(\n"
-            f"{TAB*2}f\"Removing the flag {{ROOT_FLAT!r}} from config['treefix_root'] ; \"\n"  # noqa: E501
-            f'{TAB*2}f"consider updating the config param in the config file.",\n'
-            f"{TAB*2}file=sys.stderr,\n"
-            f"{TAB*1})\n"
+            f"{TAB * 1}print(\n"
+            f"{TAB * 2}f\"Removing the flag {{ROOT_FLAT!r}} from config['treefix_root'] ; \"\n"  # noqa: E501
+            f'{TAB * 2}f"consider updating the config param in the config file.",\n'
+            f"{TAB * 2}file=sys.stderr,\n"
+            f"{TAB * 1})\n"
         )
         formatter = setup_formatter(snakecode)
 
@@ -534,7 +531,7 @@ class TestComplexPythonFormatting:
         assert formatter.get_formatted() == expected
 
     def test_python_code_after_nested_snakecode_gets_formatted(self):
-        snakecode = "if condition:\n" f'{TAB * 1}include: "a"\n' "b=2\n"
+        snakecode = f'if condition:\n{TAB * 1}include: "a"\nb=2\n'
         with mock.patch("snakefmt.blocken.format_black", spec=True) as mock_m:
             mock_m.return_value = "if condition:\n"
             formatter = setup_formatter(snakecode)
@@ -550,14 +547,14 @@ class TestComplexPythonFormatting:
         assert formatter.get_formatted() == expected
 
     def test_python_code_before_nested_snakecode_gets_formatted(self):
-        snakecode = "b=2\n" "if condition:\n" f'{TAB * 1}include: "a"\n'
+        snakecode = f'b=2\nif condition:\n{TAB * 1}include: "a"\n'
         with mock.patch("snakefmt.blocken.format_black", spec=True) as mock_m:
             mock_m.return_value = "b=2\nif condition:\n"
             setup_formatter(snakecode).get_formatted()
             assert mock_m.call_count == 2
 
         formatter = setup_formatter(snakecode)
-        expected = "b = 2\n" "if condition:\n\n" f'{TAB * 1}include: "a"\n'
+        expected = f'b = 2\nif condition:\n\n{TAB * 1}include: "a"\n'
         assert formatter.get_formatted() == expected
 
     def test_pythoncode_parser_based_formatting_before_snakecode(self):
@@ -777,6 +774,181 @@ class TestComplexPythonFormatting:
         assert formatter.get_formatted() == snakecode
 
 
+# (input, expected output) of a Snakemake keyword nested inside a Python block
+NESTED_SNAKECODE = [
+    pytest.param(
+        f'if x:\n{TAB * 1}include: "a.smk"\n',
+        f'if x:\n\n{TAB * 1}include: "a.smk"\n',
+        id="include-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}include: r\n",
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}include: r\n",
+        id="include-doubly-nested",
+    ),
+    pytest.param(
+        f'if x:\n{TAB * 1}configfile: "a.yaml"\n',
+        f'if x:\n\n{TAB * 1}configfile: "a.yaml"\n',
+        id="configfile-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}configfile: r\n",
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}configfile: r\n",
+        id="configfile-doubly-nested",
+    ),
+    pytest.param(
+        f'if x:\n{TAB * 1}rule a:\n{TAB * 2}input:\n{TAB * 3}"a"\n',
+        f'if x:\n\n{TAB * 1}rule a:\n{TAB * 2}input:\n{TAB * 3}"a",\n',
+        id="named-rule-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a"\n',
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a",\n',
+        id="named-rule-doubly-nested",
+    ),
+    pytest.param(
+        f'if x:\n{TAB * 1}rule:\n{TAB * 2}input:\n{TAB * 3}"a"\n',
+        f'if x:\n\n{TAB * 1}rule:\n{TAB * 2}input:\n{TAB * 3}"a",\n',
+        id="anonymous-rule-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a"\n',
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule:\n{TAB * 3}input:\n"
+        f'{TAB * 4}"a",\n',
+        id="anonymous-rule-doubly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}rule a:\n{TAB * 2}run:\n{TAB * 3}print(1)\n",
+        f"if x:\n\n{TAB * 1}rule a:\n{TAB * 2}run:\n{TAB * 3}print(1)\n",
+        id="rule-with-run-singly-nested",
+    ),
+    pytest.param(
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}run:\n"
+        f"{TAB * 4}print(1)\n",
+        f"if x:\n{TAB * 1}for r in y:\n\n{TAB * 2}rule a:\n{TAB * 3}run:\n"
+        f"{TAB * 4}print(1)\n",
+        id="rule-with-run-doubly-nested",
+    ),
+]
+
+
+class TestTopLevelKeywordsAfterNestedSnakecode:
+    """https://github.com/snakemake/snakefmt/issues/319
+
+    A Snakemake keyword nested inside a Python block must not change how a later
+    top-level rule, or its `run:` directive, is parsed.
+    """
+
+    rule_with_run = f'rule clean:\n{TAB * 1}run:\n{TAB * 2}shell("echo hi")\n'
+
+    @staticmethod
+    def assert_formats_to(snakecode: str, expected: str) -> None:
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+        reformatter = setup_formatter(expected)
+        assert reformatter.get_formatted() == expected
+
+    @pytest.mark.parametrize(
+        ["rule_between", "formatted_rule_between"],
+        [
+            pytest.param("", "", id="directly"),
+            pytest.param(
+                f'rule other:\n{TAB * 1}input:\n{TAB * 2}"a"\n\n\n',
+                f'rule other:\n{TAB * 1}input:\n{TAB * 2}"a",\n\n\n',
+                id="after-plain-rule",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(["nested", "formatted_nested"], NESTED_SNAKECODE)
+    def test_rule_with_run_after_nested_snakecode(
+        self, nested, formatted_nested, rule_between, formatted_rule_between
+    ):
+        snakecode = (
+            f"{nested}\n\n"
+            f"{rule_between}"
+            f"{self.rule_with_run}\n\n"
+            f'rule after:\n{TAB * 1}input:\n{TAB * 2}"b"\n'
+        )
+        expected = (
+            f"{formatted_nested}\n\n"
+            f"{formatted_rule_between}"
+            f"{self.rule_with_run}\n\n"
+            f'rule after:\n{TAB * 1}input:\n{TAB * 2}"b",\n'
+        )
+        self.assert_formats_to(snakecode, expected)
+
+    @pytest.mark.parametrize(
+        ["top_level_keyword", "formatted_top_level_keyword"],
+        [
+            pytest.param(
+                f'rule b:\n{TAB * 1}input: "b"\n',
+                f'rule b:\n{TAB * 1}input:\n{TAB * 2}"b",\n',
+                id="rule",
+            ),
+            pytest.param('include: "b"\n', 'include: "b"\n', id="include"),
+        ],
+    )
+    def test_python_else_after_nested_keyword_then_top_level_keyword(
+        self, top_level_keyword, formatted_top_level_keyword
+    ):
+        snakecode = (
+            "if x:\n"
+            f'{TAB * 1}include: "a"\n'
+            "else:\n"
+            f"{TAB * 1}y = 1\n"
+            f"{top_level_keyword}"
+        )
+        expected = (
+            "if x:\n\n"
+            f'{TAB * 1}include: "a"\n\n'
+            "else:\n"
+            f"{TAB * 1}y = 1\n\n\n"
+            f"{formatted_top_level_keyword}"
+        )
+        self.assert_formats_to(snakecode, expected)
+
+    @pytest.mark.parametrize(["nested", "formatted_nested"], NESTED_SNAKECODE)
+    def test_fmt_off_sort_in_top_level_rule_after_nested_snakecode(
+        self, nested, formatted_nested
+    ):
+        rule = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}# Important input\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+        )
+        formatted_rule = (
+            "rule all:\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB * 2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}# Important input\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+        )
+        expected = f"{formatted_nested}\n\n{formatted_rule}"
+        formatter = setup_formatter(f"{nested}\n\n{rule}", sort_params=True)
+        assert formatter.get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+
 class TestStringFormatting:
     """Naming: tpq = triple quoted string"""
 
@@ -798,9 +970,7 @@ class TestStringFormatting:
         assert formatter.get_formatted() == expected
 
     def test_keyword_with_tpq_inside_expression_left_alone(self):
-        snakecode = (
-            "rule test:\n" f"{TAB * 1}run:\n" f'{TAB * 2}shell(f"""shell stuff""")\n'
-        )
+        snakecode = f'rule test:\n{TAB * 1}run:\n{TAB * 2}shell(f"""shell stuff""")\n'
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
@@ -833,7 +1003,14 @@ rule a:
   \t\tTabbed
     """
 '''
-        formatter = setup_formatter(snakecode)
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        snakefile = Snakefile(StringIO(snakecode))
+        snakefile.format_shell = False
+        formatter = Formatter(snakefile)
 
         # Now the activity is corrected.
         expected = f'''rule a:
@@ -860,7 +1037,14 @@ EOF
 bash tmp.txt
         """
 '''
-        formatter = setup_formatter(snakecode)
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        snakefile = Snakefile(StringIO(snakecode))
+        snakefile.format_shell = False
+        formatter = Formatter(snakefile)
 
         assert formatter.get_formatted() == snakecode
 
@@ -873,7 +1057,14 @@ bash tmp.txt
             f"{TAB * 1}print('Hello, world!')\n"
             f'{TAB * 2}"""'
         )
-        formatter = setup_formatter(snakecode)
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        snakefile = Snakefile(StringIO(snakecode))
+        snakefile.format_shell = False
+        formatter = Formatter(snakefile)
         expected = (
             "rule a:\n"
             f"{TAB * 1}shell:\n"
@@ -932,6 +1123,162 @@ rule a:
 {TAB * 1}message:
 {TAB * 2}"a"
 '''
+        assert formatter.get_formatted() == expected
+
+    def test_multiline_docstring_inside_rule_preserves_indentation(self):
+        """https://github.com/snakemake/snakefmt/issues/303"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_inside_checkpoint_preserves_indentation(self):
+        """https://github.com/snakemake/snakefmt/issues/303"""
+        snakecode = (
+            "checkpoint test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Checkpoint comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_single_line_docstring_inside_rule_remains_intact(self):
+        """https://github.com/snakemake/snakefmt/issues/303"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""Comment"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_with_blank_line_inside_rule(self):
+        """A blank line inside a docstring stays empty (no trailing whitespace)"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}First paragraph.\n"
+            "\n"
+            f"{TAB * 1}Second paragraph.\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        # The expected output equals the input: the blank line stays a bare "\n".
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_preserves_relative_indentation(self):
+        """Indented lines within a docstring keep their relative indentation"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Summary line.\n"
+            f"{TAB * 2}Indented detail.\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
+    def test_multiline_docstring_followed_by_comment_inside_rule(self):
+        """A docstring followed by a comment is still indented under the rule"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}# trailing comment\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        # Black inserts a blank line between the docstring and the comment.
+        expected = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            "\n"
+            f"{TAB * 1}# trailing comment\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_multiline_docstring_with_same_line_comment_inside_rule(self):
+        """Closing quote with same-line comment is formatted correctly"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}""" # comment\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        expected = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""  # comment\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_collapsing_docstring_inside_rule_keeps_black_normalisation(self):
+        """Black still collapses a single-line docstring; indentation is preserved"""
+        snakecode = (
+            "rule a:\n"
+            f'{TAB * 1}"""The rule a\n'
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        expected = (
+            "rule a:\n"
+            f'{TAB * 1}"""The rule a"""\n'
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == expected
+
+    def test_multiline_docstring_inside_nested_rule_preserves_indentation(self):
+        """A docstring in a rule nested under an if-block keeps its deeper indent"""
+        snakecode = (
+            "if True:\n"
+            f"{TAB * 1}rule test:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}Nested comment\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"test.txt",\n'
+        )
+        # snakefmt inserts a blank line after the `if True:` header.
+        expected = (
+            "if True:\n"
+            "\n"
+            f"{TAB * 1}rule test:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}Nested comment\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"test.txt",\n'
+        )
+        formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
     def test_shell_mixed_string_types(self):
@@ -1045,11 +1392,7 @@ rule a:
         mock_format.side_effect = side_effect
 
         snakecode = (
-            "rule a:\n"
-            f"{TAB * 1}shell:\n"
-            f'{TAB * 2}"""\n'
-            f"{TAB * 2}cmd\n"
-            f'{TAB * 2}"""\n'
+            f'rule a:\n{TAB * 1}shell:\n{TAB * 2}"""\n{TAB * 2}cmd\n{TAB * 2}"""\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -1081,11 +1424,9 @@ class TestReformatting_SMK_BREAK:
     def test_key_value_parameter_repositioning(self):
         """Key/val params can occur before positional params"""
         formatter = setup_formatter(
-            f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}a="b",\n' f'{TAB * 2}"c"\n'
+            f'rule a:\n{TAB * 1}input:\n{TAB * 2}a="b",\n{TAB * 2}"c"\n'
         )
-        expected = (
-            f"rule a:\n" f"{TAB * 1}input:\n" f'{TAB * 2}"c",\n' f'{TAB * 2}a="b",\n'
-        )
+        expected = f'rule a:\n{TAB * 1}input:\n{TAB * 2}"c",\n{TAB * 2}a="b",\n'
         assert formatter.get_formatted() == expected
 
 
@@ -1097,8 +1438,8 @@ class TestCommentTreatment:
         assert formatter.get_formatted() == expected
 
     def test_comment_after_keyword_kept(self):
-        snakecode = "rule a:  # A comment \n" f"{TAB * 1}threads: 4\n"
-        formatted = "rule a:  # A comment\n" f"{TAB * 1}threads: 4\n"
+        snakecode = f"rule a:  # A comment \n{TAB * 1}threads: 4\n"
+        formatted = f"rule a:  # A comment\n{TAB * 1}threads: 4\n"
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == formatted
 
@@ -1130,9 +1471,7 @@ class TestCommentTreatment:
         assert formatter.get_formatted() == expected
 
     def test_comment_outside_keyword_context_stays_untouched(self):
-        snakecode = (
-            f"rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}f()\n\n\n" f"# A comment\n"
-        )
+        snakecode = f"rule a:\n{TAB * 1}run:\n{TAB * 2}f()\n\n\n# A comment\n"
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
@@ -1307,10 +1646,7 @@ class TestCommentTreatment:
     def test_two_comments_in_global_context(self):
         """https://github.com/snakemake/snakefmt/issues/169#issuecomment-1365540999"""
         snakecode = (
-            'configfile: "config.yaml"\n\n\n'
-            "# AAA\n"
-            "# BBB\n\n"
-            'BATCH = "20220202"\n'
+            'configfile: "config.yaml"\n\n\n# AAA\n# BBB\n\nBATCH = "20220202"\n'
         )
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -1330,7 +1666,7 @@ class TestCommentTreatment:
 
 class TestNewlineSpacing:
     def test_parameter_keyword_spacing_above(self):
-        formatter = setup_formatter("b = 2\n" 'configfile: "config.yaml"')
+        formatter = setup_formatter('b = 2\nconfigfile: "config.yaml"')
 
         actual = formatter.get_formatted()
         expected = 'b = 2\n\n\nconfigfile: "config.yaml"\n'
@@ -1362,7 +1698,7 @@ class TestNewlineSpacing:
             assert formatter.get_formatted() == replaced
 
     def test_repeated_parameter_keyword_comment_in_between_no_spacing(self):
-        snakecode = 'include: "a"\n# A comment\n' ' # c2\ninclude: "b"\n'
+        snakecode = 'include: "a"\n# A comment\n # c2\ninclude: "b"\n'
         expected = 'include: "a"\n# A comment\n# c2\ninclude: "b"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
@@ -1435,35 +1771,23 @@ below_rule = "2spaces"
         assert formatter.get_formatted() == expected
 
     def test_initial_comment_does_not_trigger_spacing(self):
-        snakecode = (
-            f"# load config\n" f"rule all:\n" f"{TAB * 1}input:\n" f"{TAB * 2}files,\n"
-        )
+        snakecode = f"# load config\nrule all:\n{TAB * 1}input:\n{TAB * 2}files,\n"
 
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
     def test_comment_sticks_to_rule(self):
         snakecode = (
-            "def p():\n"
-            f"{TAB * 1}pass\n"
-            f"#My rule a\n"
-            f"rule a:\n"
-            f"{TAB * 1}threads: 1\n"
+            f"def p():\n{TAB * 1}pass\n#My rule a\nrule a:\n{TAB * 1}threads: 1\n"
         )
         formatter = setup_formatter(snakecode)
         expected = (
-            "def p():\n"
-            f"{TAB * 1}pass\n\n\n"
-            f"# My rule a\n"
-            f"rule a:\n"
-            f"{TAB * 1}threads: 1\n"
+            f"def p():\n{TAB * 1}pass\n\n\n# My rule a\nrule a:\n{TAB * 1}threads: 1\n"
         )
         assert formatter.get_formatted() == expected
 
     def test_keyword_disjoint_comment_stays_keyword_disjoint(self):
-        snakecode = (
-            "def p():\n" f"{TAB * 1}pass\n" f"#A lone comment\n\n" f'include: "a"\n'
-        )
+        snakecode = f'def p():\n{TAB * 1}pass\n#A lone comment\n\ninclude: "a"\n'
         formatter = setup_formatter(snakecode)
         expected = (
             "def p():\n"
@@ -1479,8 +1803,8 @@ below_rule = "2spaces"
         assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_inside_python_code_sticks_to_rule(self):
-        snakecode = f"if p:\n" f"{TAB * 1}# A comment\n" f'{TAB * 1}include: "a"\n'
-        expected = f"if p:\n" f"{TAB * 1}# A comment\n" f'{TAB * 1}include: "a"\n'
+        snakecode = f'if p:\n{TAB * 1}# A comment\n{TAB * 1}include: "a"\n'
+        expected = f'if p:\n{TAB * 1}# A comment\n{TAB * 1}include: "a"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_comment_below_keyword_gets_spaced(self):
@@ -1569,14 +1893,14 @@ class TestLineWrapping:
         """https://github.com/snakemake/snakefmt/issues/124"""
         snakecode = (
             "rule a:\n"
-            f"{TAB*1}output:\n"
-            f'{TAB*2}"foo",\n'
-            f"{TAB*1}params:\n"
-            f"{TAB*2}datasources=(\n"
-            f'{TAB*3}"-s {{}}".format(" ".join(config["annotations"]["dgidb"]["datasources"]))\n'  # noqa: E501
-            f'{TAB*3}if config["annotations"]["dgidb"].get("datasources", "")\n'
-            f'{TAB*3}else ""\n'
-            f"{TAB*2}),\n"
+            f"{TAB * 1}output:\n"
+            f'{TAB * 2}"foo",\n'
+            f"{TAB * 1}params:\n"
+            f"{TAB * 2}datasources=(\n"
+            f'{TAB * 3}"-s {{}}".format(" ".join(config["annotations"]["dgidb"]["datasources"]))\n'  # noqa: E501
+            f'{TAB * 3}if config["annotations"]["dgidb"].get("datasources", "")\n'
+            f'{TAB * 3}else ""\n'
+            f"{TAB * 2}),\n"
         )
         formatter = setup_formatter(snakecode)
 
@@ -1586,15 +1910,15 @@ class TestLineWrapping:
         """https://github.com/snakemake/snakefmt/issues/124#issuecomment-986845398"""
         snakecode = (
             "if True:\n\n"
-            f"{TAB*1}def func1():\n"
-            f'''{TAB*2}"""docstring"""\n'''
-            f"{TAB*2}pass\n\n"
-            f"{TAB*1}rule foo:\n"
-            f"{TAB*2}shell:\n"
-            f'{TAB*3}"echo bar"\n\n'
-            f"{TAB*1}def func2():\n"
-            f'''{TAB*2}"""this function should stay indented"""\n'''
-            f"{TAB*2}pass\n"
+            f"{TAB * 1}def func1():\n"
+            f'''{TAB * 2}"""docstring"""\n'''
+            f"{TAB * 2}pass\n\n"
+            f"{TAB * 1}rule foo:\n"
+            f"{TAB * 2}shell:\n"
+            f'{TAB * 3}"echo bar"\n\n'
+            f"{TAB * 1}def func2():\n"
+            f'''{TAB * 2}"""this function should stay indented"""\n'''
+            f"{TAB * 2}pass\n"
         )
         formatter = setup_formatter(snakecode)
 
@@ -1970,7 +2294,7 @@ def test_invalid_python_error_line_number():
 
 
 def test_invalid_python_error_eof():
-    snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = \n"
+    snakecode = f"rule a:\n{TAB * 1}run:\n{TAB * 2}a = \n"
     with pytest.raises(InvalidPython) as excinfo:
         setup_formatter(snakecode).get_formatted()
     msg = str(excinfo.value)
@@ -2006,7 +2330,8 @@ def test_invalid_python_error_no_dedent(mock_format):
     from snakefmt.parser.syntax import KeywordSyntax
 
     formatter.context = Context(
-        None, KeywordSyntax("Global", keyword_indent=0, accepts_py=True)  # type: ignore
+        None,
+        KeywordSyntax("Global", keyword_indent=0, accepts_py=True),  # type: ignore
     )
     # Manually set last_token to something that isn't DEDENT/ENDMARKER
     formatter.last_token = tokenize.TokenInfo(
@@ -2026,7 +2351,7 @@ def test_invalid_python_error_no_match(mock_format):
         raise black.parsing.InvalidInput("Custom black error without line number")
 
     mock_format.side_effect = side_effect
-    snakecode = "rule a:\n" f"{TAB * 1}run:\n" f"{TAB * 2}a = 1\n"
+    snakecode = f"rule a:\n{TAB * 1}run:\n{TAB * 2}a = 1\n"
     with pytest.raises(InvalidPython) as excinfo:
         setup_formatter(snakecode).get_formatted()
     msg = str(excinfo.value)
@@ -2047,13 +2372,7 @@ def test_multiline_fallback(mock_format):
 
     mock_format.side_effect = side_effect
 
-    snakecode = (
-        "rule a:\n"
-        f"{TAB * 1}shell:\n"
-        f'{TAB * 2}"""\n'
-        f"{TAB * 2}cmd\n"
-        f'{TAB * 2}"""\n'
-    )
+    snakecode = f'rule a:\n{TAB * 1}shell:\n{TAB * 2}"""\n{TAB * 2}cmd\n{TAB * 2}"""\n'
     formatter = setup_formatter(snakecode)
     # The actual result won't be perfect because we hand-mocked Black,
     # but it guarantees the code path is executed.
@@ -2089,6 +2408,85 @@ def test_index_of_first_docstring_match():
     from snakefmt.formatter import index_of_first_docstring
 
     assert index_of_first_docstring('"""docstring"""') == 14
+
+
+class TestDocstringHelpers:
+    """Unit tests for the is_docstring / indent_docstring helpers (issue #303)."""
+
+    @pytest.mark.parametrize(
+        "string",
+        [
+            # Real rule/checkpoint docstring buffers reaching is_docstring():
+            '"""single line"""',  # single-line docstring buffer
+            '"""\nmultiline\n"""',  # the issue #303 multiline buffer
+            'r"""raw docstring"""',  # raw docstring
+            "'''single quotes'''",  # single-quoted docstring
+            '"""docstring"""\n# trailing comment',  # docstring + comment (Hocnonsense)
+            # Defensive: leading/trailing whitespace only guards the .strip().
+            '  \n"""leading/trailing whitespace"""\n  ',
+        ],
+    )
+    def test_is_docstring_true(self, string):
+        from snakefmt.formatter import is_docstring
+
+        assert is_docstring(string) is True
+
+    @pytest.mark.parametrize(
+        "string",
+        [
+            # Real buffers that must NOT be treated as docstrings:
+            "# just a comment",  # comment-only rule buffer
+            'x = """assigned triple-quoted"""',  # assignment, not a docstring
+            # Defensive: these can't occur as a directive-context buffer, but the
+            # helper must still reject them (empty is short-circuited earlier;
+            # arbitrary Python is invalid inside a rule directive context).
+            "",
+            "x = 1",
+            '"""docstring"""\nx = 1',  # docstring followed by code
+            'x = 1\n"""docstring"""',  # code followed by docstring
+        ],
+    )
+    def test_is_docstring_false(self, string):
+        from snakefmt.formatter import is_docstring
+
+        assert is_docstring(string) is False
+
+    def test_indent_docstring_single_line(self):
+        from snakefmt.formatter import indent_docstring
+
+        assert indent_docstring('"""doc"""\n', 1) == f'{TAB * 1}"""doc"""\n'
+
+    def test_indent_docstring_multiline(self):
+        from snakefmt.formatter import indent_docstring
+
+        docstring = '"""\nline\n"""\n'
+        expected = f'{TAB * 2}"""\n{TAB * 2}line\n{TAB * 2}"""\n'
+        assert indent_docstring(docstring, 2) == expected
+
+    def test_indent_docstring_leaves_blank_lines_without_trailing_whitespace(self):
+        from snakefmt.formatter import indent_docstring
+
+        docstring = '"""\na\n\nb\n"""\n'
+        expected = f'{TAB * 1}"""\n{TAB * 1}a\n\n{TAB * 1}b\n{TAB * 1}"""\n'
+        assert indent_docstring(docstring, 1) == expected
+
+
+class TestAlignStrings:
+    """Unit tests for the align_strings helper function."""
+
+    def test_align_strings_single_line(self):
+        assert align_strings("param = 1", 1) == f"{TAB * 1}param = 1"
+        assert align_strings("param = 1", 2) == f"{TAB * 2}param = 1"
+
+    def test_align_strings_multiline_code(self):
+        code = "a = 1\nb = 2"
+        expected = f"{TAB * 1}a = 1\n{TAB * 1}b = 2"
+        assert align_strings(code, 1) == expected
+
+    def test_align_strings_preserves_triple_quoted_strings(self):
+        code = 'x = """\nline1\nline2\n"""'
+        expected = f'{TAB * 1}x = """\nline1\nline2\n"""'
+        assert align_strings(code, 1) == expected
 
 
 class TestFmtOffOn:
@@ -2206,10 +2604,10 @@ class TestFmtOffOn:
             "z = [4,5,6]\n"
         )
         bad_indent = "  "
-        snakecode = "rule:\n" " run:\n" + (
+        snakecode = "rule:\n run:\n" + (
             "".join(f"{bad_indent}{i}\n" for i in code.splitlines())
         )
-        snakexpected = "rule:\n" f"{TAB * 1}run:\n" + (
+        snakexpected = f"rule:\n{TAB * 1}run:\n" + (
             f"{TAB * 2}# ?\n"
             f"{TAB * 2}x = [1, 2, 3]\n"
             f"{TAB * 2}# fmt: off\n"
@@ -2344,7 +2742,7 @@ class TestFmtOffOn:
         assert formatter.get_formatted() == expected
 
     def test_fmt_off_lagging_comments(self):
-        expected = "if 1:\n" f"{TAB * 1}lagging_comments\n" "\n" f"{TAB * 1}# fmtany\n"
+        expected = f"if 1:\n{TAB * 1}lagging_comments\n\n{TAB * 1}# fmtany\n"
         assert setup_formatter(expected).get_formatted() == expected
         expected = (
             "if 1:\n"
@@ -2414,11 +2812,17 @@ class TestFmtOffSort:
             code1 = code + "\n\n# fmt: on\n" + code
             expected = formatted + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+            assert (
+                setup_formatter(expected, sort_params=True).get_formatted() == expected
+            )
 
             # `# fmt: off[sort]` disables sorting for the rest of the rule
             code1 = "# fmt: off[sort]\n" + code
             expected = "# fmt: off[sort]\n" + setup_formatter(code).get_formatted()
             assert setup_formatter(code1, sort_params=True).get_formatted() == expected
+            assert (
+                setup_formatter(expected, sort_params=True).get_formatted() == expected
+            )
 
             # `# fmt: off[sort]` disables sorting for the second rule
             code2 = code1 + "\n\n# nothing\n" + code
@@ -2431,11 +2835,19 @@ class TestFmtOffSort:
             code2 = code1 + "\n\n# fmt: on[sort]\n" + code
             expected2 = expected + "\n\n# fmt: on[sort]\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+            assert (
+                setup_formatter(expected2, sort_params=True).get_formatted()
+                == expected2
+            )
 
             # plain `# fmt: on` also re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on\n" + code
             expected2 = expected + "\n\n# fmt: on\n" + formatted
             assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+            assert (
+                setup_formatter(expected2, sort_params=True).get_formatted()
+                == expected2
+            )
 
     def test_fmt_off_sort_dedent(self):
         """`# fmt: on` at a deeper indentation level than `off[sort]` has no effect
@@ -2462,6 +2874,7 @@ class TestFmtOffSort:
             "\n\n" + formatted2
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
         code = (
             "# fmt: off[sort]\n"
             "if 1:\n"
@@ -2479,6 +2892,7 @@ class TestFmtOffSort:
             "\n\n" + formatted2
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_on_noeffect(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
@@ -2503,13 +2917,15 @@ class TestFmtOffSort:
             + formatted3
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_nothing(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
         code3, formatted3 = TestSortFormatting.sort_inline_comments
-        code = code1.rstrip() + "\n" "\n" "if 1:\n" " pass\n" "\n\n" + code3
-        expected = formatted1 + "\n\n" "if 1:\n" f"{TAB}pass\n" "\n\n" + formatted3
+        code = code1.rstrip() + "\n\nif 1:\n pass\n\n\n" + code3
+        expected = formatted1 + f"\n\nif 1:\n{TAB}pass\n\n\n" + formatted3
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive(self):
         """
@@ -2562,6 +2978,7 @@ class TestFmtOffSort:
             f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive2(self):
         """
@@ -2609,6 +3026,7 @@ class TestFmtOffSort:
             f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_between_directive_empty(self):
         code = (
@@ -2647,6 +3065,121 @@ class TestFmtOffSort:
             f'{TAB * 2}"echo done"\n'
         )
         assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+    def test_fmt_on_sort_directly_followed_by_directive(self):
+        """
+        No blank line is added after `# fmt: on[sort]`,
+        and formatting the output again leaves it unchanged (issue #321).
+        """
+        code = (
+            "rule all:\n"
+            f"{TAB}params: p=1\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log: 'log.txt'\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+            f"{TAB}run:\n"
+            f"{TAB * 2}x = 1\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}threads: 4\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}p=1,\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}log:\n"
+            f'{TAB * 2}"log.txt",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}run:\n"
+            f"{TAB * 2}x = 1\n"
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+    @pytest.mark.parametrize(
+        "region_end, expected_region_end",
+        [
+            # blank lines after `# fmt: on[sort]`, as left behind by issue #321
+            (
+                f"{TAB}# fmt: on[sort]\n\n\n",
+                f"{TAB}# fmt: on[sort]\n",
+            ),
+            # a comment before `# fmt: on[sort]` makes the parser reach it from
+            # Python code rather than from the previous directive
+            (
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n",
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n",
+            ),
+            (
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n\n\n",
+                f"{TAB}# before fmt\n{TAB}# fmt: on[sort]\n",
+            ),
+        ],
+        ids=["blank_lines_after", "comment_before", "comment_before_blank_lines_after"],
+    )
+    def test_fmt_on_sort_no_blank_line_before_next_directive(
+        self, region_end, expected_region_end
+    ):
+        code = (
+            "rule all:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output: 'out.txt'\n" + region_end + f"{TAB}input: 'in.txt'\n"
+            f"{TAB}name: 'myrule'\n"
+        )
+        expected = (
+            "rule all:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n' + expected_region_end + f"{TAB}name:\n"
+            f'{TAB * 2}"myrule"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
+    def test_fmt_on_sort_ends_rule(self):
+        """Blank lines after a rule-ending `# fmt: on[sort]` don't accumulate"""
+        code = (
+            "rule a:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output: 'out.txt'\n"
+            f"{TAB}input: 'in.txt'\n"
+            f"{TAB}# fmt: on[sort]\n"
+            "\n"
+            "\n"
+            "rule b:\n"
+            f"{TAB}output: 'o'\n"
+            f"{TAB}input: 'i'\n"
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}# fmt: off[sort]\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"out.txt",\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"in.txt",\n'
+            f"{TAB}# fmt: on[sort]\n"
+            "\n"
+            "\n"
+            "rule b:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert setup_formatter(code, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
 
 
 class TestFmtOffNext:
@@ -2926,4 +3459,163 @@ class TestFmtOffNext:
             f"rule d:\n"
             f"{TAB}input:\n"
             f'{TAB * 2}"qux",\n'
+        )
+
+
+class TestShellBlockFormatting:
+    """End-to-end tests for shell block formatting via shfmt.
+
+    The unformatted input uses an if/then/fi block that shfmt normalises to
+    `if ...; then` form — a visible, deterministic transformation we can assert on.
+    """
+
+    _UNFORMATTED = (
+        "rule align:\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}if [ -s /tmp/out ]\n"
+        f"{TAB * 2}then\n"
+        f"{TAB * 2}echo done\n"
+        f"{TAB * 2}fi\n"
+        f'{TAB * 2}"""\n'
+    )
+    _FORMATTED = (
+        "rule align:\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}if [ -s /tmp/out ]; then\n"
+        f"{TAB * 3}echo done\n"
+        f"{TAB * 2}fi\n"
+        f'{TAB * 2}"""\n'
+    )
+
+    def test_default_on_formats_shell(self):
+        """Shell formatting is enabled by default and reformats shell content."""
+        assert (
+            setup_formatter(self._UNFORMATTED, format_shell=True).get_formatted()
+            == self._FORMATTED
+        )
+
+    def test_format_shell_false_preserves_shell(self):
+        """Setting format_shell=False leaves the shell body untouched."""
+        from io import StringIO
+
+        from snakefmt.formatter import Formatter
+        from snakefmt.parser.parser import Snakefile
+
+        smk = Snakefile(StringIO(self._UNFORMATTED))
+        assert Formatter(smk, format_shell=False).get_formatted() == self._UNFORMATTED
+
+    def test_fmt_off_opts_out_of_shell_formatting(self):
+        """A # fmt: off / # fmt: on region prevents shell formatting."""
+        code = (
+            "# fmt: off\n"
+            "rule align:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+            "# fmt: on\n"
+        )
+        assert setup_formatter(code, format_shell=True).get_formatted() == code
+
+    def test_snakemake_placeholders_preserved_end_to_end(self):
+        """{var}, {var.attr}, and {{escaped}} placeholders survive the full
+        parse -> mask -> shfmt -> unmask -> render pipeline."""
+        unformatted = (
+            "rule align:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"reads.fq",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"aligned.bam",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}awk '{{{{print $1}}}}' {{input}} > {{output}}\n"
+            f"{TAB * 2}if [ -s {{output}} ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule align:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"reads.fq",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"aligned.bam",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}awk '{{{{print $1}}}}' {{input}} >{{output}}\n"
+            f"{TAB * 2}if [ -s {{output}} ]; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_heredoc_terminator_at_column_zero(self):
+        """<<EOF terminator must stay at column 0 after snakefmt re-indents content."""
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}cat <<EOF >/dev/null\n"
+            f"line1\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}cat <<EOF >/dev/null\n"
+            f"line1\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_heredoc_with_snakemake_variable(self):
+        """Snakemake {output} in a heredoc command line survives the full pipeline.
+
+        shfmt reformats the command line (strips the space before the redirect),
+        but leaves the heredoc body and terminator untouched.
+        """
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}cat <<EOF > {{output}}\n"  # space before {output}
+            f"content\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}cat <<EOF >{{output}}\n"  # space removed by shfmt
+            f"content\n"
+            f"EOF\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
         )

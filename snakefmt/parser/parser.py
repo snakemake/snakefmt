@@ -220,7 +220,7 @@ class Parser(ABC):
                         token_indent = status.cur_indent
                         sort_on = token_indent * TAB + status.token.line.strip() + "\n"
                         self.flush_sort_signal(sort_on)
-                        status = self.get_next_queriable()
+                        status = self._next_status_after_sort_signal()
                         self.buffer = status.buffer
                     continue
             elif self.fmt_off and status.cur_indent <= self.fmt_off[0]:
@@ -232,16 +232,18 @@ class Parser(ABC):
                 self.sort_off_indent = None
 
             if self.vocab.recognises(keyword):
-                new_vocab, new_syntax_cls = self.vocab.get(keyword)
-                is_context_kw = new_vocab is not None and issubclass(
-                    new_syntax_cls, KeywordSyntax
-                )
                 if status.cur_indent > self.keyword_indent:
                     if self.syntax.from_python or status.pythonable:
                         self.from_python = True
-                elif self.from_python and not is_context_kw:
+                elif self.from_python:
                     # We are exiting python context, so force spacing out keywords
                     self.last_recognised_keyword = ""
+                    if self.in_global_context:
+                        # Back at the top level. The buffer can hold the tail of
+                        # the Python block around a nested keyword (e.g. a lone
+                        # 'else:'), so flush it as Python before leaving.
+                        self.flush_buffer(from_python=True, in_global_context=True)
+                        self.syntax.from_python = False
                     self.from_python = self.syntax.from_python
                 self.flush_buffer(
                     from_python=self.from_python,
@@ -453,7 +455,10 @@ class Parser(ABC):
         verbatim = self._reindent(
             lines, string_interior_lines, origin_indent, added_indent
         )
-        next_status = self.get_next_queriable()
+        if lines:
+            next_status = self.get_next_queriable()
+        else:  # _consume_fmt_off_in_python flushed all lines as a sort signal
+            next_status = self._next_status_after_sort_signal()
         if consuming_next and verbatim:
             # Strip extra trailing blank lines; the following block's separator
             # logic (add_newlines) will provide the correct spacing.
@@ -534,6 +539,17 @@ class Parser(ABC):
     @abstractmethod
     def flush_sort_signal(self, verbatim: str) -> None:
         """Commit fmt:on sort signal directly."""
+
+    def _next_status_after_sort_signal(self) -> Status:
+        """Reads on past a flushed `# fmt: on[sort]` signal.
+
+        The signal already ends with the newline of its comment line, so drop that
+        newline from the buffer, along with any blank lines after it. Otherwise
+        they lead the next directive and move with it when it is sorted, adding a
+        blank line on every formatting pass (issue #321).
+        """
+        status = self.get_next_queriable()
+        return status._replace(buffer=status.buffer.lstrip("\n"))
 
     def _consume_fmt_off(self, start_token: Token, min_indent: int):
         verbatim, next_status = self._consume_python(
@@ -619,6 +635,10 @@ class Parser(ABC):
             self.process_keyword_param(param_context, self.in_global_context)
             self.syntax.add_processed_keyword(status.token, status.token.string)
             cur_indent = param_context.cur_indent
+            # A parameter nested in Python can dedent below its own context's
+            # keyword indent (e.g. back to the top level), with no context_exit,
+            # so trim the stale indent levels here too.
+            del self.indents[cur_indent + 1 :]
             if param_context.token.type == tokenize.COMMENT and not param_context.eof:
                 cur_indent = self._determine_comment_indent(param_context.token)
             return Status(
@@ -652,8 +672,7 @@ class Parser(ABC):
         # ParameterSyntax consumes INDENT/DEDENT tokens without updating
         # Parser.indents, leaving stale deeper-level entries. Trim them now
         # so get_next_queriable computes the correct cur_indent for the next block.
-        while len(self.indents) - 1 > status.cur_indent:
-            self.indents.pop()
+        del self.indents[status.cur_indent + 1 :]
 
     def _determine_comment_indent(self, comment_token: Token) -> int:
         """
@@ -756,41 +775,62 @@ class Parser(ABC):
                     token, block_indent, self.cur_indent, buffer, True, pythonable
                 )
             elif token.type == tokenize.COMMENT:
-                fmt_dir = FMT_DIRECTIVE.from_token(token)
-                if (
-                    fmt_dir
-                    and col_nb(token) == 0
-                    and not (fmt_dir.disable and "next" in fmt_dir.modifiers)
-                ):
-                    # col-0 comments report cur_indent=0 to trigger context_exit;
-                    # fmt directives at other columns report actual cur_indent.
-                    return Status(token, block_indent, 0, buffer, False, pythonable)
-                # Comments arrive in the token stream *before* any following
-                # INDENT/DEDENT tokens, so self.cur_indent still reflects the
-                # previous (potentially higher) level.  Delegate to
-                # _determine_comment_indent which peeks ahead and applies the
-                # two snapping rules.
-                effective_indent = self._determine_comment_indent(token)
-                self.syntax.cur_indent = effective_indent
-                if effective_indent < max(self.keyword_indent, self.block_indent):
-                    return Status(
-                        token, block_indent, effective_indent, buffer, False, pythonable
-                    )
-                # `# fmt: off[next]` always needs parser-level handling.
-                # Plain `# fmt: off` is parser-level only in global context; in other
-                # Python contexts it is handled by Black.
-                if (
-                    fmt_dir
-                    and fmt_dir.disable
-                    and (
-                        "next" in fmt_dir.modifiers
-                        or "sort" in fmt_dir.modifiers
-                        or (not fmt_dir.modifiers and self.in_global_context)
-                    )
-                ):
-                    return Status(
-                        token, block_indent, effective_indent, buffer, False, pythonable
-                    )
+                is_inline = (
+                    prev_token is not None
+                    and prev_token.type
+                    not in {
+                        tokenize.NL,
+                        tokenize.NEWLINE,
+                        tokenize.INDENT,
+                        tokenize.DEDENT,
+                    }
+                    and prev_token.end[0] == token.start[0]
+                )
+                if not is_inline:
+                    fmt_dir = FMT_DIRECTIVE.from_token(token)
+                    if (
+                        fmt_dir
+                        and col_nb(token) == 0
+                        and not (fmt_dir.disable and "next" in fmt_dir.modifiers)
+                    ):
+                        # col-0 comments report cur_indent=0 to trigger context_exit;
+                        # fmt directives at other columns report actual cur_indent.
+                        return Status(token, block_indent, 0, buffer, False, pythonable)
+                    # Comments arrive in the token stream *before* any following
+                    # INDENT/DEDENT tokens, so self.cur_indent still reflects the
+                    # previous (potentially higher) level.  Delegate to
+                    # _determine_comment_indent which peeks ahead and applies the
+                    # two snapping rules.
+                    effective_indent = self._determine_comment_indent(token)
+                    self.syntax.cur_indent = effective_indent
+                    if effective_indent < max(self.keyword_indent, self.block_indent):
+                        return Status(
+                            token,
+                            block_indent,
+                            effective_indent,
+                            buffer,
+                            False,
+                            pythonable,
+                        )
+                    # Plain `# fmt: off` is parser-level only in global context;
+                    # in other Python contexts it is handled by Black.
+                    if (
+                        fmt_dir
+                        and fmt_dir.disable
+                        and (
+                            "next" in fmt_dir.modifiers
+                            or "sort" in fmt_dir.modifiers
+                            or (not fmt_dir.modifiers and self.in_global_context)
+                        )
+                    ):
+                        return Status(
+                            token,
+                            block_indent,
+                            effective_indent,
+                            buffer,
+                            False,
+                            pythonable,
+                        )
 
             elif is_newline(token):
                 self.queriable, newline = True, True

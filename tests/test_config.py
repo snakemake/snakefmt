@@ -304,6 +304,54 @@ class TestReadBlackConfig:
         assert formatter.black_mode == expected
 
 
+class TestShellFormattingConfig:
+    """Config-driven control of shell block formatting."""
+
+    _UNFORMATTED_STDIN = (
+        "rule align:\n"
+        f"{TAB}shell:\n"
+        f'{TAB * 2}"""\n'
+        f"{TAB * 2}if [ -s /tmp/out ]\n"
+        f"{TAB * 2}then\n"
+        f"{TAB * 2}echo done\n"
+        f"{TAB * 2}fi\n"
+        f'{TAB * 2}"""\n'
+    )
+
+    def test_format_shell_false_in_config_disables_formatting(
+        self, cli_runner, tmp_path
+    ):
+        """format_shell = false in [tool.snakefmt] leaves shell bodies untouched."""
+        config = tmp_path / "pyproject.toml"
+        config.write_text("[tool.snakefmt]\nformat_shell = false\n")
+        params = ["--config", str(config), "-"]
+
+        actual = cli_runner.invoke(main, params, input=self._UNFORMATTED_STDIN)
+
+        assert actual.exit_code == 0
+        assert actual.stdout == self._UNFORMATTED_STDIN
+
+    def test_format_shell_true_in_config_formats_shell(self, cli_runner, tmp_path):
+        """format_shell = true in [tool.snakefmt] formats shell bodies via shfmt."""
+        config = tmp_path / "pyproject.toml"
+        config.write_text("[tool.snakefmt]\nformat_shell = true\n")
+        params = ["--config", str(config), "-"]
+
+        actual = cli_runner.invoke(main, params, input=self._UNFORMATTED_STDIN)
+
+        expected = (
+            "rule align:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert actual.exit_code == 0
+        assert actual.stdout == expected
+
+
 class TestFindProjectRoot:
     def test_stdin_filename(self, tmp_path):
         from snakefmt.config import find_project_root

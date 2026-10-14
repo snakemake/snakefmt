@@ -3,7 +3,7 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Iterator, List, Optional, Pattern, Set, Union
+from typing import Iterator, List, Optional, Pattern, Set, Tuple, Union
 
 import click
 from black.files import get_gitignore
@@ -12,6 +12,12 @@ from pathspec import PathSpec
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
 from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
+from snakefmt.directive_order import (
+    MODULE_ORDER,
+    RULE_ORDER,
+    DirectiveOrderType,
+    format_effective_orders,
+)
 from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
 from snakefmt.parser.parser import Snakefile
@@ -91,6 +97,50 @@ def get_snakefiles_in_dir(
     "sort_directives",
     default=True,
     help="Sort directives in rules and modules.",
+    show_default=True,
+)
+@click.option(
+    "-o",
+    RULE_ORDER.flag,
+    RULE_ORDER.config_key,
+    type=DirectiveOrderType(RULE_ORDER),
+    default=None,
+    metavar="NAMES",
+    help=(
+        "Comma-separated order of all the directives of rules, checkpoints and "
+        "`use rule` blocks. Action directives (run, shell, script, ...) are not "
+        "listed as they always come last. In the config file this is an array of "
+        "strings. Use --print-directive-order to see the default order."
+    ),
+)
+@click.option(
+    "-m",
+    MODULE_ORDER.flag,
+    MODULE_ORDER.config_key,
+    type=DirectiveOrderType(MODULE_ORDER),
+    default=None,
+    metavar="NAMES",
+    help=(
+        "Comma-separated order of all the directives of modules. In the config file "
+        "this is an array of strings."
+    ),
+)
+@click.option(
+    "-p",
+    "--print-directive-order",
+    "print_directive_order",
+    is_flag=True,
+    help=(
+        "Print the directive orders in effect, as lines for the config file and as "
+        "command line options, then exit."
+    ),
+)
+@click.option(
+    "--format-shell/--no-format-shell",
+    "-f/-F",
+    "format_shell",
+    default=True,
+    help="Format shell directives using shfmt.",
     show_default=True,
 )
 @click.option(
@@ -174,6 +224,10 @@ def main(
     ctx: click.Context,
     line_length: int,
     sort_directives: bool,
+    directive_order: Optional[Tuple[str, ...]],
+    module_directive_order: Optional[Tuple[str, ...]],
+    print_directive_order: bool,
+    format_shell: bool,
     check: bool,
     diff: bool,
     compact_diff: bool,
@@ -194,6 +248,22 @@ def main(
     log_level = logging.DEBUG if verbose else logging.INFO
     LogConfig.init(log_level)
     logger = LogConfig.get_logger()
+
+    if print_directive_order:
+        if not sort_directives:
+            logger.warning(
+                "Sorting is disabled (--no-sort), so the printed directive order "
+                "is not applied."
+            )
+        click.echo(format_effective_orders(directive_order, module_directive_order))
+        ctx.exit(0)
+
+    if (directive_order or module_directive_order) and not sort_directives:
+        logger.warning(
+            "A directive order was given but sorting is disabled (--no-sort), "
+            "so the directive order is ignored."
+        )
+        directive_order = module_directive_order = None
 
     if not src:
         click.echo(
@@ -256,7 +326,10 @@ def main(
                 snakefile,
                 line_length=line_length,
                 sort_directives=sort_directives,
+                directive_order=directive_order or (),
+                module_directive_order=module_directive_order or (),
                 black_config_file=config,
+                format_shell=format_shell,
             )
             formatted_content = formatter.get_formatted()
         except Exception as error:

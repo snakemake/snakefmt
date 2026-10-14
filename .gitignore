@@ -141,4 +141,4 @@ tmp_work
 .python-version
 tags
 .vimspector.json
-poetry.lock
+poetry.lock.worktrees/

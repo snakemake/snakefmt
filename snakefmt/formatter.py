@@ -3,13 +3,14 @@ import textwrap
 import tokenize
 from ast import parse as ast_parse
 from copy import copy
-from typing import Optional
+from typing import Optional, Sequence
 
 import black.parsing
 
 from snakefmt.config import PathLike, read_black_config
 from snakefmt.exceptions import InvalidParameterSyntax, InvalidPython
 from snakefmt.logging import Warnings
+from snakefmt.parser.grammar import SnakeModule, SnakeRule, SnakeUseRule
 from snakefmt.parser.parser import Parser, Snakefile, comment_start
 from snakefmt.parser.syntax import (
     COMMENT_SPACING,
@@ -19,8 +20,10 @@ from snakefmt.parser.syntax import (
     ParamList,
     SingleParam,
     Syntax,
+    Vocabulary,
     split_code_string,
 )
+from snakefmt.shell_formatter import format_python_string_literal
 from snakefmt.types import TAB
 
 TAB_SIZE = len(TAB)
@@ -54,6 +57,59 @@ def index_of_first_docstring(s: str) -> Optional[int]:
     return match.end(1) - 1
 
 
+def is_docstring(string: str) -> bool:
+    """
+    Returns True if `string` is a single docstring, optionally followed only by
+    comments (ignoring surrounding whitespace). These are the rule/checkpoint
+    buffers that Black mis-handles as module-level docstrings (see issue #303).
+    """
+    stripped = string.strip()
+    match = docstring_matcher.match(stripped)
+    if match is None:
+        return False
+    remainder = stripped[match.end(1) :].strip()
+    return remainder == "" or is_all_comments(remainder)
+
+
+def indent_docstring(docstring: str, target_indent: int) -> str:
+    """
+    Re-indents a Black-normalised rule/checkpoint docstring to `target_indent`.
+
+    Black treats a rule/checkpoint docstring as a module-level docstring and so
+    flattens it to column 0. We restore the keyword indentation on every line
+    here, leaving blank lines empty so they don't gain trailing whitespace.
+    """
+    return textwrap.indent(docstring, TAB * target_indent)
+
+
+def align_strings(string: str, target_indent: int) -> str:
+    """
+    Takes an ensemble of strings and indents/reindents it
+    """
+    used_indent = TAB * target_indent
+    split_string = split_code_string(string)
+    if len(split_string) == 1:
+        return textwrap.indent(split_string[0], used_indent)
+
+    # First, masks all multi-line strings
+    mask_string = "`~!@#$%^&*|?"
+    while mask_string in string:
+        mask_string += mask_string
+    mask_string = f'"""{mask_string}"""'
+    fakewrap = textwrap.indent(
+        "".join(mask_string if i % 2 else s for i, s in enumerate(split_string)),
+        used_indent,
+    )
+    split_code = fakewrap.split(mask_string)
+
+    # After indenting, we put those strings back exactly as they were
+    indented = "".join(
+        s.replace("\t", TAB) if i % 2 else split_code[i // 2]
+        for i, s in enumerate(split_string)
+    )
+    return indented
+
+
 class Formatter(Parser):
     def __init__(
         self,
@@ -61,6 +117,9 @@ class Formatter(Parser):
         line_length: Optional[int] = None,
         sort_directives: bool = False,
         black_config_file: Optional[PathLike] = None,
+        format_shell: bool = False,
+        directive_order: Sequence[str] = (),
+        module_directive_order: Sequence[str] = (),
     ):
         self.result: str = ""
         self.lagging_comments: str = ""
@@ -68,8 +127,15 @@ class Formatter(Parser):
         self.previous_result: str = ""
         self.keyword_spec: list[str] = []
         self.keywords: dict[str, str] = {}  # cache to sort
+        # custom directive order of each kind of block; empty means the default order
+        self.directive_orders: dict[type[Vocabulary], tuple[str, ...]] = {
+            SnakeRule: tuple(directive_order),
+            SnakeUseRule: tuple(directive_order),
+            SnakeModule: tuple(module_directive_order),
+        }
 
         self.black_mode = read_black_config(black_config_file)
+        self.format_shell = format_shell
 
         if line_length is not None:
             self.black_mode.line_length = line_length
@@ -101,7 +167,14 @@ class Formatter(Parser):
         if not from_python:
             formatted = self.run_black_format_str(self.buffer, self.block_indent)
             if self.keyword_indent > 0:
-                formatted = self.align_strings(formatted, self.keyword_indent)
+                if not self.syntax.accepts_python_code and is_docstring(self.buffer):
+                    # Black normalises rule/checkpoint docstrings but flattens them
+                    # to column 0 (it treats them as module-level docstrings).
+                    # align_strings cannot re-indent the inner lines of a multiline
+                    # string, so indent the whole docstring directly. See issue #303.
+                    formatted = indent_docstring(formatted, self.keyword_indent)
+                else:
+                    formatted = align_strings(formatted, self.keyword_indent)
         else:
             # Invalid python syntax, eg lone 'else:' between two rules, can occur.
             # Below constructs valid code statements and formats them.
@@ -170,7 +243,9 @@ class Formatter(Parser):
         else:  # not a PythonCode context, collect keywords to sort
             self.previous_result += self.result + formatted
             self.result = ""
-            self.keyword_spec = self.vocab.ordered()
+            self.keyword_spec = self.vocab.ordered(
+                self.directive_orders.get(type(self.vocab), ())
+            )
 
     def process_keyword_param(
         self, param_context: ParameterSyntax, in_global_context: bool
@@ -365,44 +440,21 @@ class Formatter(Parser):
             fmted = textwrap.dedent(s)
         return fmted
 
-    def align_strings(self, string: str, target_indent: int) -> str:
-        """
-        Takes an ensemble of strings and indents/reindents it
-        """
-        used_indent = TAB * target_indent
-        split_string = split_code_string(string)
-        if len(split_string) == 1:
-            return textwrap.indent(split_string[0], used_indent)
-
-        # First, masks all multi-line strings
-        mask_string = "`~!@#$%^&*|?"
-        while mask_string in string:
-            mask_string += mask_string
-        mask_string = f'"""{mask_string}"""'
-        fakewrap = textwrap.indent(
-            "".join(mask_string if i % 2 else s for i, s in enumerate(split_string)),
-            used_indent,
-        )
-        split_code = fakewrap.split(mask_string)
-
-        # After indenting, we put those strings back exactly as they were
-        indented = "".join(
-            s.replace("\t", TAB) if i % 2 else split_code[i // 2]
-            for i, s in enumerate(split_string)
-        )
-        return indented
-
     def format_param(
         self,
         parameter: Parameter,
         target_indent: int,
         inline_formatting: bool,
         param_list: bool = True,
+        keyword_name: str = "",
     ) -> str:
         string_indent = TAB * target_indent
         if inline_formatting:
             target_indent = 0
         val = str(parameter)
+
+        if keyword_name == "shell" and self.format_shell:
+            val = format_python_string_literal(val, target_indent)
 
         try:
             # A snakemake parameter is syntactically like a function parameter
@@ -459,7 +511,7 @@ class Formatter(Parser):
             else:
                 val = content
 
-        val = self.align_strings(val, target_indent)
+        val = align_strings(val, target_indent)
 
         result = ""
         if not inline_formatting:
@@ -490,7 +542,7 @@ class Formatter(Parser):
             # here, check if the value is too large to put in one line
             param = parameters.all_params[0]
             param_result = self.format_param(
-                param, target_indent, inline_fmting, param_list
+                param, target_indent, inline_fmting, param_list, parameters.keyword_name
             )
             inline_fmting = param_result.count("\n") == 1
         if inline_fmting:
@@ -507,8 +559,13 @@ class Formatter(Parser):
             result = f"{result}{parameters.comment}\n"
             for param in parameters.all_params:
                 result += self.format_param(
-                    param, target_indent, inline_fmting, param_list
+                    param,
+                    target_indent,
+                    inline_fmting,
+                    param_list,
+                    parameters.keyword_name,
                 )
+
         num_c = len(param.post_comments)
         if num_c > 1 or (not param._has_inline_comment and num_c == 1):
             Warnings.block_comment_below(parameters.keyword_name, keyword_line_nb)
