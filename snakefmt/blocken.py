@@ -7,6 +7,7 @@ from tokenize import TokenInfo
 from typing import (
     Callable,
     Generator,
+    Iterable,
     Iterator,
     Literal,
     Mapping,
@@ -18,13 +19,34 @@ from typing import (
 import black.parsing
 
 from snakefmt.config import Mode, read_black_config
-from snakefmt.exceptions import InvalidPython, UnsupportedSyntax
+from snakefmt.exceptions import (
+    ColonError,
+    EmptyContextError,
+    InvalidParameter,
+    InvalidParameterSyntax,
+    InvalidPython,
+    NewlineError,
+    NoParametersError,
+    NotAnIdentifierError,
+    SyntaxFormError,
+    TooManyParameters,
+    UnsupportedSyntax,
+)
 from snakefmt.shell_formatter import format_python_string_literal
 
 TAB = "    "  # PEP8, indentation will be coded as 4 spaces
 _FMT_DIRECTIVE_RE = re.compile(
     r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"
 )
+
+
+def _line_nb(token: TokenInfo) -> str:
+    return f"L{token.start[0]}: "
+
+
+def _is_colon(token: TokenInfo | None) -> bool:
+    return token is not None and token.type == tokenize.OP and token.string == ":"
+
 
 if sys.version_info < (3, 12):
 
@@ -208,6 +230,7 @@ class LogicalLine(NamedTuple):
     deindents: list[TokenInfo]
     body: list[TokenInfo]
     end: TokenInfo
+    """NEWLINE or ENDMARKER"""
 
     @property
     def end_op(self):
@@ -583,7 +606,7 @@ class Block(ABC):
         - select subautomata to consume indent blocks
         - denext_by_indent when DEDENT out
 
-        Used in GlobalBlock and SnakemakeKeywordBlock, to consume their body blocks.
+        Used in GlobalBlock and SnakemakeDirectiveBlock, to consume their body blocks.
         """
         deindent_level = self.deindent_level + int(ender_subblock)
         blocks: list[Block] = []
@@ -964,7 +987,7 @@ class NamedBlock(ColonBlock):
         yield this_symbol
 
 
-def deindent_lines(old_indent: str, target_indent_level: int, lines: list[str]):
+def deindent_lines(old_indent: str, target_indent_level: int, lines: Iterable[str]):
     target_indent = TAB * target_indent_level
     return [
         target_indent + line[len(old_indent) :] if line.startswith(old_indent) else line
@@ -975,9 +998,51 @@ def deindent_lines(old_indent: str, target_indent_level: int, lines: list[str]):
 class SnakemakeBlock(ColonBlock):
     subautomata = {}
     deprecated = {}
+    nameable = False
+    """an optional identifier may precede the colon (`storage a:`, `input with:`)"""
 
     def components(self) -> Iterator[DocumentSymbol]:
         yield from []
+
+    def validate_head(self, allow_suffix=False):
+        """A keyword head is `<keyword> [<name>]:`, then a newline."""
+        body = self.colon_line.body
+        keyword = body[0].string
+        for icolon, token in enumerate(body[1:], 1):
+            if _is_colon(token):
+                break
+        else:
+            ColonError(_line_nb(body[-1]), body[-1].string, keyword)
+        if icolon > 1:
+            name = body[1]
+            if self.nameable:
+                if name.type != tokenize.NAME:
+                    NotAnIdentifierError(_line_nb(name), name.string, keyword)
+                if icolon > 2:
+                    name = body[2]
+                else:
+                    name = None
+            if name is not None:
+                if name.string == "with":
+                    # a `with` suffix, accepted only where `nameable` marks it so
+                    raise InvalidParameterSyntax(
+                        f"'{keyword} with:' is not allowed in this context."
+                    )
+                else:
+                    ColonError(_line_nb(name), name.string, keyword)
+        if not allow_suffix:
+            suffix = [t for t in body[icolon + 1 :] if t.type not in _IGNORED_TOKENS]
+            if suffix:
+                NewlineError(_line_nb(suffix[0]), body[0].string)
+
+    def consume(self, tokens):
+        """Consume tokens until the end of the block head line (the line with `:`)"""
+        self.validate_head()
+        super().consume(tokens)
+
+    def head_source_line(self) -> str:
+        """Original source line of the head, for `# fmt: skip` detection."""
+        return self.colon_line.body[0].line
 
     def segment2format(self, mode: Mode, state: FormatState, last_keyword=""):
         """yield:
@@ -1066,10 +1131,9 @@ class SnakemakeBlock(ColonBlock):
         the post_colon tokens will be used to format with the body.
         """
         indent = TAB * self.deindent_level
-        if self.colon_line.body[-1].type == tokenize.COMMENT:
-            line = self.colon_line.body[-1].line
-            if FormatState.found_skip(line):
-                return indent + line.lstrip(), []
+        source_line = self.head_source_line()
+        if FormatState.found_skip(source_line):
+            return indent + source_line.lstrip(), []
         prior_colon, post_colon = self.split_colon_line()
         assert len(prior_colon) == 1, "Snakemake keywords should be in one line"
         (head,) = prior_colon
@@ -1488,7 +1552,8 @@ class ResourceScope(SnakemakeArgumentsBlock): ...
 
 
 @_register()
-class Storage(SnakemakeArgumentsBlock): ...
+class Storage(SnakemakeArgumentsBlock):
+    nameable = True
 
 
 @_register("pathvars")
@@ -1497,7 +1562,7 @@ class Register_Pathvars(SnakemakeArgumentsBlock): ...
 
 class SnakemakeExecutableBlock(SnakemakeBlock):
     """Block of snakemake directives, such as `run:`, `onstart:`, etc.
-    The content is pure python.
+    The content is pure python, and must start from the next line after the colon.
     """
 
     def consume_body(self, tokens):
@@ -1529,10 +1594,12 @@ class OnSuccess(SnakemakeExecutableBlock): ...
 class OnError(SnakemakeExecutableBlock): ...
 
 
-class SnakemakeKeywordBlock(SnakemakeBlock):
+class SnakemakeDirectiveBlock(SnakemakeBlock):
     """Block of snakemake directives, such as `rule:`, `module:`, etc.
     The contents are other snakemake blocks.
     """
+
+    nameable = True
 
     def consume_body(self, tokens):
         blocks = self.consume_subblocks(tokens, ender_subblock=True)
@@ -1652,7 +1719,7 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
 
 
 @_register()
-class Module(NamedBlock, SnakemakeKeywordBlock):
+class Module(NamedBlock, SnakemakeDirectiveBlock):
     subautomata, _register = init_block_register()
 
     @_register()
@@ -1682,7 +1749,7 @@ class Module(NamedBlock, SnakemakeKeywordBlock):
     class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
 
 
-class _Rule(NamedBlock, SnakemakeKeywordBlock):
+class _Rule(NamedBlock, SnakemakeDirectiveBlock):
     subautomata, _register = init_block_register()
 
     @_register()
@@ -1767,6 +1834,106 @@ class _Rule(NamedBlock, SnakemakeKeywordBlock):
 
 @_register("use")
 class UseRule(_Rule):
+
+    _RE = re.compile(
+        r"use rule (?:(?:[a-zA-Z_]\S*)|\*)"
+        r"(?: from [a-zA-Z_]\S*)?"
+        r"(?: exclude [a-zA-Z_]\S*(?:\s*,\s*[a-zA-Z_]\S*)*)?"
+        r"(?: as [a-zA-Z_]\S*)?( with[ ]?:)?$"
+    )
+    _EBNF = (
+        '"use" "rule" (identifier | "*") '
+        '"from" identifier '
+        '["exclude" identifier {"," identifier}] '
+        '["as" identifier] ["with" ":"]'
+    )
+
+    def validate_head(self, allow_suffix=False):
+        body = self.colon_line.body
+        line = body[0].line.split("#", 1)[0].strip()
+
+        def fail():
+            raise SyntaxFormError(_line_nb(body[0]), line, self._EBNF)
+
+        def is_identifier(token: str):
+            return re.fullmatch(r"[a-zA-Z_]\w*", token) is not None
+
+        def is_glob(token: str):
+            return re.fullmatch(r"[a-zA-Z_][\w*]*", token) is not None
+
+        # commas may be surrounded by spaces; make them separate tokens
+        tokens = line.replace(",", " , ").split()
+        if tokens[:2] != ["use", "rule"]:
+            fail()
+
+        # reading a *required* token past the end is a syntax error, so those
+        # reads are left unguarded and `IndexError` -> `fail()`. Optional
+        # trailing parts (e.g. `from ...` alone) are guarded with `i < len`.
+        try:
+            whitelist = [tokens[2]]
+            i = 3
+            # the whitelist must be followed by a keyword, so running past the
+            # end here is a syntax error (IndexError -> fail())
+            while tokens[i] == ",":
+                whitelist.append(tokens[i + 1])
+                i += 2
+            if whitelist != ["*"]:
+                if "*" in whitelist:
+                    raise InvalidParameterSyntax(
+                        "'*' cannot be used with other rule names in the use directive"
+                    )
+                if not all(is_identifier(name) for name in whitelist):
+                    fail()
+            if tokens[i] not in ("from", "as", "with", "with:"):
+                fail()
+
+            # module: the source after `from`
+            if tokens[i] == "from":
+                i += 1
+                module = tokens[i]
+                if not is_identifier(module):
+                    fail()
+                i += 1
+            else:
+                module = None
+        except IndexError:
+            fail()
+
+        # exclude: comma separated rule names after `exclude`
+        token_length = len(tokens)
+        exclude: list[str] = []
+        if i < token_length and tokens[i] == "exclude":
+            exclude.append(tokens[i + 1])
+            i += 2
+            # `exclude` may end the directive, so guard the continuation
+            while i < token_length and tokens[i] == ",":
+                exclude.append(tokens[i + 1])
+                i += 2
+            if not all(is_identifier(name) for name in exclude):
+                fail()
+        # modifier: the alias after `as`
+        if i < token_length and tokens[i] == "as":
+            i += 1
+            rename = tokens[i]
+            if not is_glob(rename):
+                fail()
+            i += 1
+        else:
+            rename = None
+
+        if "".join(tokens[i:]) not in ("", "with:"):
+            fail()
+
+        if module is None and rename is None:
+            raise InvalidParameterSyntax(
+                "use directive must specify a rule from a module or modify the rule"
+            )
+
+        self.whitelist = whitelist
+        self.module = module
+        self.exclude = exclude
+        self.rename = rename
+
     def formatted(self, mode, state):
         """Allow:
         use rule * from other_workflow exclude ruleC as other_*
@@ -1794,15 +1961,18 @@ class UseRule(_Rule):
         formatted = [formatted_prior, formatted_body]
         return "".join(formatted)
 
-
-_SHELL_IGNORED_TOKENS = (
-    tokenize.NL,
-    tokenize.NEWLINE,
-    tokenize.INDENT,
-    tokenize.DEDENT,
-    tokenize.ENDMARKER,
-    tokenize.COMMENT,
-)
+    subautomata = {**_Rule.subautomata} | {
+        keyword: type(keyword, (_Rule.subautomata[keyword],), {"nameable": True})
+        for keyword in (
+            "input",
+            "output",
+            "log",
+            "pathvars",
+            "wildcard_constraints",
+            "resources",
+            "params",
+        )
+    }
 
 
 @_register()
