@@ -54,3 +54,5 @@ jobs:
         with:
           user:     __token__
           password: ${{ secrets.PYPI_TOKEN }}
+          # a manual retry uploads only what's missing; release publishes stay strict
+          skip-existing: ${{ github.event_name == 'workflow_dispatch' }}
