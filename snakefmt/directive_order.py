@@ -1,10 +1,10 @@
 """
 Custom directive orders: parsing, validation and printing.
 
-The default order of directives is the order of the specs in `snakefmt.parser.grammar`,
-which stays the source of truth. There is one order for the directives of rules (also
-checkpoints and `use rule ... with:`) and one for those of modules. When given, an
-order must list every directive of its block type.
+The default order of directives is the order in which the blocken blocks are
+registered (`snakefmt.blocken`), which stays the source of truth. There is one order
+for the directives of rules (also checkpoints and `use rule ... with:`) and one for
+those of modules. When given, an order must list every directive of its block type.
 """
 
 import json
@@ -14,11 +14,11 @@ from typing import Any, Optional, Sequence
 
 import click
 
-from snakefmt.parser.grammar import SnakeModule, SnakeRule, SnakeUseRule
+from snakefmt.blocken import Module, Rule, UseRule
 
 # Directives that run something. Snakemake allows a single action per rule and no
 # directive may follow it, so the actions always come last.
-ACTION_DIRECTIVES = frozenset(SnakeRule.spec).difference(SnakeUseRule.spec)
+ACTION_DIRECTIVES = frozenset(Rule.exec_subautomata)
 
 
 def quote(names: Sequence[str]) -> str:
@@ -103,14 +103,14 @@ RULE_ORDER = DirectiveOrderOption(
     "directive_order",
     "--directive-order",
     "rule",
-    tuple(SnakeUseRule.ordered()),
+    tuple(UseRule.subautomata),
     ACTION_DIRECTIVES,
 )
 MODULE_ORDER = DirectiveOrderOption(
     "module_directive_order",
     "--module-directive-order",
     "module",
-    tuple(SnakeModule.ordered()),
+    tuple(Module.subautomata),
 )
 
 
@@ -156,7 +156,7 @@ class DirectiveOrderType(click.ParamType):
         elif isinstance(value, (list, tuple)) and all(
             isinstance(name, str) for name in value
         ):
-            names = value
+            names = list(value)
         else:
             self.fail(
                 "the directive order must be a comma-separated string or an array of "

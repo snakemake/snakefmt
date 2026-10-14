@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
+from snakefmt.blocken import Module, Rule, UseRule
 from snakefmt.directive_order import ACTION_DIRECTIVES as GRAMMAR_ACTIONS
 from snakefmt.directive_order import MODULE_ORDER, RULE_ORDER
-from snakefmt.parser.grammar import SnakeModule, SnakeRule, SnakeUseRule
 from snakefmt.snakefmt import main
-from snakefmt.types import TAB
+from snakefmt.blocken import TAB
 from tests import setup_formatter
 from tests.directive_order_fixtures import (
     ACTION_DIRECTIVES,
@@ -61,7 +61,7 @@ def format_with_orders(
 ) -> str:
     formatter = setup_formatter(
         snakecode,
-        sort_params=True,
+        sort_directives=True,
         directive_order=rule_order,
         module_directive_order=module_order,
     )
@@ -640,8 +640,8 @@ class TestPrintDirectiveOrderRoundTrip:
         assert reprinted == CUSTOM_RULE_PRINT
 
 
-class TestGrammarOrder:
-    def test_action_directives_are_the_ones_after_the_rule_properties(self):
+class TestBlockOrder:
+    def test_action_directives_are_the_rule_exec_directives(self):
         assert GRAMMAR_ACTIONS == frozenset(ACTION_DIRECTIVES)
 
     def test_default_orders(self):
@@ -649,24 +649,24 @@ class TestGrammarOrder:
         assert MODULE_ORDER.default == DEFAULT_MODULE_ORDER
 
     def test_default_ordering_has_the_actions_last_for_rules(self):
-        assert SnakeRule.ordered() == [*DEFAULT_RULE_ORDER, *ACTION_DIRECTIVES]
-        assert SnakeUseRule.ordered() == list(DEFAULT_RULE_ORDER)
-        assert SnakeModule.ordered() == list(DEFAULT_MODULE_ORDER)
+        assert list(Rule.subautomata) == [*DEFAULT_RULE_ORDER, *ACTION_DIRECTIVES]
+        assert list(UseRule.subautomata) == list(DEFAULT_RULE_ORDER)
+        assert list(Module.subautomata) == list(DEFAULT_MODULE_ORDER)
 
     def test_complete_order_keeps_the_actions_last(self):
-        assert SnakeRule.ordered(CUSTOM_RULE_ORDER) == [
+        assert [*RULE_ORDER.complete(CUSTOM_RULE_ORDER), *ACTION_DIRECTIVES] == [
             *CUSTOM_RULE_ORDER,
             *ACTION_DIRECTIVES,
         ]
-        assert SnakeUseRule.ordered(CUSTOM_RULE_ORDER) == list(CUSTOM_RULE_ORDER)
-        assert SnakeModule.ordered(CUSTOM_MODULE_ORDER) == list(CUSTOM_MODULE_ORDER)
+        assert RULE_ORDER.complete(CUSTOM_RULE_ORDER) == list(CUSTOM_RULE_ORDER)
+        assert MODULE_ORDER.complete(CUSTOM_MODULE_ORDER) == list(CUSTOM_MODULE_ORDER)
 
 
-class TestReadmeMatchesGrammar:
-    """The directive order documented in the README must be the grammar's.
+class TestReadmeMatchesBlocken:
+    """The directive order documented in the README must be blocken's.
 
-    The grammar is authoritative, so it is the expected value here; that the grammar
-    has the order the tests expect is checked in `TestGrammarOrder`."""
+    blocken is authoritative, so it is the expected value here; that blocken has the
+    order the tests expect is checked in `TestBlockOrder`."""
 
     @pytest.fixture(scope="class")
     def readme(self) -> str:
@@ -684,7 +684,7 @@ class TestReadmeMatchesGrammar:
         documented = [
             name for line in numbered_groups for name in re.findall(r"`(\w+)`", line)
         ]
-        assert documented == SnakeRule.ordered()
+        assert documented == list(Rule.subautomata)
 
     def test_module_directive_order(self, details):
         (line,) = [
@@ -692,7 +692,7 @@ class TestReadmeMatchesGrammar:
             for line in details.splitlines()
             if line.startswith("Modules sort their directives")
         ]
-        assert re.findall(r"`(\w+)`", line) == SnakeModule.ordered()
+        assert re.findall(r"`(\w+)`", line) == list(Module.subautomata)
 
     def test_printed_orders_example(self, readme):
         command = "$ snakefmt --print-directive-order\n"

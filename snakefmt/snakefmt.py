@@ -1,7 +1,6 @@
 import logging
 import re
 import sys
-from io import StringIO
 from pathlib import Path
 from typing import Iterator, List, Optional, Pattern, Set, Tuple, Union
 
@@ -10,6 +9,7 @@ from black.files import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
+from snakefmt.blocken import setup_formatter
 from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
 from snakefmt.directive_order import (
@@ -18,9 +18,7 @@ from snakefmt.directive_order import (
     DirectiveOrderType,
     format_effective_orders,
 )
-from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
-from snakefmt.parser.parser import Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
@@ -321,9 +319,8 @@ def main(
             LogConfig.switch(str(path))
 
         try:
-            snakefile = Snakefile(StringIO(original_content))
-            formatter = Formatter(
-                snakefile,
+            formatter = setup_formatter(
+                original_content,
                 line_length=line_length,
                 sort_directives=sort_directives,
                 directive_order=directive_order or (),

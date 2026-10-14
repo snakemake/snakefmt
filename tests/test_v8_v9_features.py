@@ -1,4 +1,4 @@
-from snakefmt.formatter import TAB
+from snakefmt.blocken import TAB
 from tests import setup_formatter
 
 

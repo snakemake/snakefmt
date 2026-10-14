@@ -11,12 +11,15 @@ import black
 import black.parsing
 import pytest
 
-from snakefmt.blocken import setup_formatter
+from snakefmt.blocken import (
+    SnakemakeInlineArgumentBlock,
+    global_snakemake_subautomata,
+    setup_formatter,
+)
 from snakefmt.exceptions import InvalidPython
-from snakefmt.formatter import align_strings
-from snakefmt.parser.grammar import SingleParam, SnakeGlobal
-from snakefmt.parser.syntax import COMMENT_SPACING
-from snakefmt.types import TAB
+from snakefmt.blocken import TAB
+
+COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
 
 
 def test_emptyInput_emptyOutput():
@@ -944,9 +947,11 @@ class TestTopLevelKeywordsAfterNestedSnakecode:
             f'{TAB * 2}"in.txt",\n'
         )
         expected = f"{formatted_nested}\n\n{formatted_rule}"
-        formatter = setup_formatter(f"{nested}\n\n{rule}", sort_params=True)
+        formatter = setup_formatter(f"{nested}\n\n{rule}", sort_directives=True)
         assert formatter.get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
 
 class TestStringFormatting:
@@ -1003,14 +1008,7 @@ rule a:
   \t\tTabbed
     """
 '''
-        from io import StringIO
-
-        from snakefmt.formatter import Formatter
-        from snakefmt.parser.parser import Snakefile
-
-        snakefile = Snakefile(StringIO(snakecode))
-        snakefile.format_shell = False
-        formatter = Formatter(snakefile)
+        formatter = setup_formatter(snakecode)
 
         # Now the activity is corrected.
         expected = f'''rule a:
@@ -1037,14 +1035,7 @@ EOF
 bash tmp.txt
         """
 '''
-        from io import StringIO
-
-        from snakefmt.formatter import Formatter
-        from snakefmt.parser.parser import Snakefile
-
-        snakefile = Snakefile(StringIO(snakecode))
-        snakefile.format_shell = False
-        formatter = Formatter(snakefile)
+        formatter = setup_formatter(snakecode)
 
         assert formatter.get_formatted() == snakecode
 
@@ -1057,14 +1048,7 @@ bash tmp.txt
             f"{TAB * 1}print('Hello, world!')\n"
             f'{TAB * 2}"""'
         )
-        from io import StringIO
-
-        from snakefmt.formatter import Formatter
-        from snakefmt.parser.parser import Snakefile
-
-        snakefile = Snakefile(StringIO(snakecode))
-        snakefile.format_shell = False
-        formatter = Formatter(snakefile)
+        formatter = setup_formatter(snakecode)
         expected = (
             "rule a:\n"
             f"{TAB * 1}shell:\n"
@@ -1193,7 +1177,9 @@ rule a:
         assert formatter.get_formatted() == snakecode
 
     def test_multiline_docstring_followed_by_comment_inside_rule(self):
-        """A docstring followed by a comment is still indented under the rule"""
+        """A docstring followed by a comment is still indented under the rule,
+        and tolerates a blank line between the docstring and rest directives.
+        """
         snakecode = (
             "rule test:\n"
             f'{TAB * 1}"""\n'
@@ -1203,8 +1189,9 @@ rule a:
             f"{TAB * 1}input:\n"
             f'{TAB * 2}"test.txt",\n'
         )
-        # Black inserts a blank line between the docstring and the comment.
-        expected = (
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+        snakecode = (
             "rule test:\n"
             f'{TAB * 1}"""\n'
             f"{TAB * 1}Comment\n"
@@ -1215,7 +1202,18 @@ rule a:
             f'{TAB * 2}"test.txt",\n'
         )
         formatter = setup_formatter(snakecode)
-        assert formatter.get_formatted() == expected
+        assert formatter.get_formatted() == snakecode
+
+    def test_docstring_trailing_comment_not_duplicated(self):
+        """A trailing comment after a rule's leading Python block is emitted once"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}# trailing comment\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_multiline_docstring_with_same_line_comment_inside_rule(self):
         """Closing quote with same-line comment is formatted correctly"""
@@ -1687,9 +1685,9 @@ class TestNewlineSpacing:
         double-space them.
         """
         global_single_param_keywords = [
-            keyval[0]
-            for keyval in SnakeGlobal.spec.items()
-            if keyval[1].syntax is SingleParam
+            keyword
+            for keyword, block in global_snakemake_subautomata.items()
+            if issubclass(block, SnakemakeInlineArgumentBlock)
         ]
         snakecode = '{keyword_param}: "value1"\n{keyword_param}: "value2"\n'
         for keyword in global_single_param_keywords:
@@ -2078,7 +2076,7 @@ class TestSortFormatting:
             "onerror:\n"
             f'{TAB * 1}print("error")\n'
         )
-        formatter = setup_formatter(snakecode, sort_params=True)
+        formatter = setup_formatter(snakecode, sort_directives=True)
         expected = self.sort_simple[1] + (
             f"\n\n"
             "if 2:\n"
@@ -2140,7 +2138,7 @@ class TestSortFormatting:
     )
 
     def test_sorting_comprehensive(self):
-        formatter = setup_formatter(self.sorting_comprehensive[0], sort_params=True)
+        formatter = setup_formatter(self.sorting_comprehensive[0], sort_directives=True)
         assert formatter.get_formatted() == self.sorting_comprehensive[1]
 
     sort_with_comments = (
@@ -2165,7 +2163,7 @@ class TestSortFormatting:
 
     def test_sorting_with_comments_preservation(self):
         """Comments stay with their keywords"""
-        formatter = setup_formatter(self.sort_with_comments[0], sort_params=True)
+        formatter = setup_formatter(self.sort_with_comments[0], sort_directives=True)
         assert formatter.get_formatted() == self.sort_with_comments[1]
 
     sort_inline_comments = (
@@ -2184,7 +2182,7 @@ class TestSortFormatting:
     )
 
     def test_sorting_with_inline_parameter_comments(self):
-        formatter = setup_formatter(self.sort_inline_comments[0], sort_params=True)
+        formatter = setup_formatter(self.sort_inline_comments[0], sort_directives=True)
         assert formatter.get_formatted() == self.sort_inline_comments[1]
 
     sort_module = (
@@ -2199,24 +2197,24 @@ class TestSortFormatting:
         f"{TAB}name: 'n'\n",
         "module other:\n"
         f'{TAB}name: "n"\n'
-        f"{TAB}snakefile:\n"
-        f'{TAB * 2}"s"\n'
-        f"{TAB}meta_wrapper:\n"
-        f'{TAB * 2}"wrapper"\n'
-        f"{TAB}skip_validation:\n"
-        f"{TAB * 2}True\n"
-        f"{TAB}config:\n"
-        f'{TAB * 2}"c"\n'
         f"{TAB}pathvars:\n"
         f'{TAB * 2}["pv"],\n'
+        f"{TAB}snakefile:\n"
+        f'{TAB * 2}"s"\n'
+        f"{TAB}config:\n"
+        f'{TAB * 2}"c"\n'
+        f"{TAB}skip_validation:\n"
+        f"{TAB * 2}True\n"
         f"{TAB}prefix:\n"
         f'{TAB * 2}"p"\n'
         f"{TAB}replace_prefix:\n"
-        f'{TAB * 2}"rp"\n',
+        f'{TAB * 2}"rp"\n'
+        f"{TAB}meta_wrapper:\n"
+        f'{TAB * 2}"wrapper"\n',
     )
 
     def test_sorting_module(self):
-        formatter = setup_formatter(self.sort_module[0], sort_params=True)
+        formatter = setup_formatter(self.sort_module[0], sort_directives=True)
         assert formatter.get_formatted() == self.sort_module[1]
 
     def test_sorting_checkpoint(self):
@@ -2226,7 +2224,7 @@ class TestSortFormatting:
             f"{TAB}input: 'in.txt'\n"
             f"{TAB}output: 'out.txt'\n"
         )
-        formatter = setup_formatter(snakecode, sort_params=True)
+        formatter = setup_formatter(snakecode, sort_directives=True)
         expected = (
             "checkpoint map_reads:\n"
             f"{TAB}input:\n"
@@ -2237,6 +2235,75 @@ class TestSortFormatting:
             f'{TAB * 2}"echo"\n'
         )
         assert formatter.get_formatted() == expected
+
+    def test_blank_line_after_docstring_is_kept(self):
+        """A blank line the user wrote after the docstring is preserved"""
+        snakecode = (
+            "rule a:\n"
+            f'{TAB}"""\n'
+            f"{TAB}doc\n"
+            f'{TAB}"""\n'
+            "\n"
+            f'{TAB}output: "o"\n'
+            f'{TAB}input: "i"\n'
+        )
+        expected = (
+            "rule a:\n"
+            f'{TAB}"""\n'
+            f"{TAB}doc\n"
+            f'{TAB}"""\n'
+            "\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert (
+            setup_formatter(snakecode, sort_directives=True).get_formatted() == expected
+        )
+
+    def test_no_blank_line_after_docstring_is_not_added(self):
+        snakecode = (
+            "rule a:\n" f'{TAB}"""\n' f"{TAB}doc\n" f'{TAB}"""\n' f'{TAB}input: "i"\n'
+        )
+        expected = (
+            "rule a:\n"
+            f'{TAB}"""\n'
+            f"{TAB}doc\n"
+            f'{TAB}"""\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+        )
+        assert (
+            setup_formatter(snakecode, sort_directives=True).get_formatted() == expected
+        )
+
+    def test_comment_after_docstring_moves_with_its_directive(self):
+        """A comment after the docstring belongs to the next directive and moves
+        with it when the directives are sorted."""
+        snakecode = (
+            "rule a:\n"
+            f'{TAB}"""\n'
+            f"{TAB}doc\n"
+            f'{TAB}"""\n'
+            f"{TAB}# output comment\n"
+            f'{TAB}output: "o"\n'
+            f'{TAB}input: "i"\n'
+        )
+        expected = (
+            "rule a:\n"
+            f'{TAB}"""\n'
+            f"{TAB}doc\n"
+            f'{TAB}"""\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}# output comment\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert (
+            setup_formatter(snakecode, sort_directives=True).get_formatted() == expected
+        )
 
 
 class TestUseParameterWith:
@@ -2304,48 +2371,6 @@ def test_invalid_python_error_eof():
 
 
 @mock.patch("black.format_str", spec=True)
-def test_invalid_python_error_no_dedent(mock_format):
-    # This test covers the branch where last_token is not a DEDENT or ENDMARKER
-    def side_effect(*args, **kwargs):
-        raise black.parsing.InvalidInput("Cannot parse: 1:1: error")
-
-    mock_format.side_effect = side_effect
-    import io
-    import tokenize
-
-    from snakefmt.formatter import Formatter
-    from snakefmt.parser.parser import Snakefile
-
-    # Create a dummy formatter without running the parser loop
-    smk = Snakefile(io.StringIO(""))
-    # Consume ENDMARKER
-    list(smk)
-
-    formatter = Formatter.__new__(Formatter)
-    formatter.snakefile = smk
-    formatter.black_mode = black.Mode()
-    formatter.from_python = False
-    formatter.fmt_off = None
-    from snakefmt.parser.parser import Context
-    from snakefmt.parser.syntax import KeywordSyntax
-
-    formatter.context = Context(
-        None,
-        KeywordSyntax("Global", keyword_indent=0, accepts_py=True),  # type: ignore
-    )
-    # Manually set last_token to something that isn't DEDENT/ENDMARKER
-    formatter.last_token = tokenize.TokenInfo(
-        tokenize.NAME, "a", (1, 0), (1, 1), "a = 1\n"
-    )
-
-    with pytest.raises(InvalidPython) as excinfo:
-        formatter.run_black_format_str("a = 1", 0)
-    msg = str(excinfo.value)
-    # context_line_num = 1 - 1 + 1 = 1. total = 1 + 1 - 1 = 1.
-    assert ": 1:" in msg
-
-
-@mock.patch("black.format_str", spec=True)
 def test_invalid_python_error_no_match(mock_format):
     def side_effect(*args, **kwargs):
         raise black.parsing.InvalidInput("Custom black error without line number")
@@ -2396,97 +2421,6 @@ def test_mask_string_collision():
     assert "`~!@#$%^&*|?" in result
     assert '"""' in result
     assert "multiline" in result
-
-
-def test_index_of_first_docstring_none():
-    from snakefmt.formatter import index_of_first_docstring
-
-    assert index_of_first_docstring("no docstring here") is None
-
-
-def test_index_of_first_docstring_match():
-    from snakefmt.formatter import index_of_first_docstring
-
-    assert index_of_first_docstring('"""docstring"""') == 14
-
-
-class TestDocstringHelpers:
-    """Unit tests for the is_docstring / indent_docstring helpers (issue #303)."""
-
-    @pytest.mark.parametrize(
-        "string",
-        [
-            # Real rule/checkpoint docstring buffers reaching is_docstring():
-            '"""single line"""',  # single-line docstring buffer
-            '"""\nmultiline\n"""',  # the issue #303 multiline buffer
-            'r"""raw docstring"""',  # raw docstring
-            "'''single quotes'''",  # single-quoted docstring
-            '"""docstring"""\n# trailing comment',  # docstring + comment (Hocnonsense)
-            # Defensive: leading/trailing whitespace only guards the .strip().
-            '  \n"""leading/trailing whitespace"""\n  ',
-        ],
-    )
-    def test_is_docstring_true(self, string):
-        from snakefmt.formatter import is_docstring
-
-        assert is_docstring(string) is True
-
-    @pytest.mark.parametrize(
-        "string",
-        [
-            # Real buffers that must NOT be treated as docstrings:
-            "# just a comment",  # comment-only rule buffer
-            'x = """assigned triple-quoted"""',  # assignment, not a docstring
-            # Defensive: these can't occur as a directive-context buffer, but the
-            # helper must still reject them (empty is short-circuited earlier;
-            # arbitrary Python is invalid inside a rule directive context).
-            "",
-            "x = 1",
-            '"""docstring"""\nx = 1',  # docstring followed by code
-            'x = 1\n"""docstring"""',  # code followed by docstring
-        ],
-    )
-    def test_is_docstring_false(self, string):
-        from snakefmt.formatter import is_docstring
-
-        assert is_docstring(string) is False
-
-    def test_indent_docstring_single_line(self):
-        from snakefmt.formatter import indent_docstring
-
-        assert indent_docstring('"""doc"""\n', 1) == f'{TAB * 1}"""doc"""\n'
-
-    def test_indent_docstring_multiline(self):
-        from snakefmt.formatter import indent_docstring
-
-        docstring = '"""\nline\n"""\n'
-        expected = f'{TAB * 2}"""\n{TAB * 2}line\n{TAB * 2}"""\n'
-        assert indent_docstring(docstring, 2) == expected
-
-    def test_indent_docstring_leaves_blank_lines_without_trailing_whitespace(self):
-        from snakefmt.formatter import indent_docstring
-
-        docstring = '"""\na\n\nb\n"""\n'
-        expected = f'{TAB * 1}"""\n{TAB * 1}a\n\n{TAB * 1}b\n{TAB * 1}"""\n'
-        assert indent_docstring(docstring, 1) == expected
-
-
-class TestAlignStrings:
-    """Unit tests for the align_strings helper function."""
-
-    def test_align_strings_single_line(self):
-        assert align_strings("param = 1", 1) == f"{TAB * 1}param = 1"
-        assert align_strings("param = 1", 2) == f"{TAB * 2}param = 1"
-
-    def test_align_strings_multiline_code(self):
-        code = "a = 1\nb = 2"
-        expected = f"{TAB * 1}a = 1\n{TAB * 1}b = 2"
-        assert align_strings(code, 1) == expected
-
-    def test_align_strings_preserves_triple_quoted_strings(self):
-        code = 'x = """\nline1\nline2\n"""'
-        expected = f'{TAB * 1}x = """\nline1\nline2\n"""'
-        assert align_strings(code, 1) == expected
 
 
 class TestFmtOffOn:
@@ -2811,17 +2745,23 @@ class TestFmtOffSort:
             # and act as a normal comment
             code1 = code + "\n\n# fmt: on\n" + code
             expected = formatted + "\n\n# fmt: on\n" + formatted
-            assert setup_formatter(code1, sort_params=True).get_formatted() == expected
             assert (
-                setup_formatter(expected, sort_params=True).get_formatted() == expected
+                setup_formatter(code1, sort_directives=True).get_formatted() == expected
+            )
+            assert (
+                setup_formatter(expected, sort_directives=True).get_formatted()
+                == expected
             )
 
             # `# fmt: off[sort]` disables sorting for the rest of the rule
             code1 = "# fmt: off[sort]\n" + code
             expected = "# fmt: off[sort]\n" + setup_formatter(code).get_formatted()
-            assert setup_formatter(code1, sort_params=True).get_formatted() == expected
             assert (
-                setup_formatter(expected, sort_params=True).get_formatted() == expected
+                setup_formatter(code1, sort_directives=True).get_formatted() == expected
+            )
+            assert (
+                setup_formatter(expected, sort_directives=True).get_formatted()
+                == expected
             )
 
             # `# fmt: off[sort]` disables sorting for the second rule
@@ -2829,23 +2769,32 @@ class TestFmtOffSort:
             expected2 = (
                 expected + "\n\n# nothing\n" + setup_formatter(code).get_formatted()
             )
-            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
+            assert (
+                setup_formatter(code2, sort_directives=True).get_formatted()
+                == expected2
+            )
 
             # `# fmt: on[sort]` re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on[sort]\n" + code
             expected2 = expected + "\n\n# fmt: on[sort]\n" + formatted
-            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
             assert (
-                setup_formatter(expected2, sort_params=True).get_formatted()
+                setup_formatter(code2, sort_directives=True).get_formatted()
+                == expected2
+            )
+            assert (
+                setup_formatter(expected2, sort_directives=True).get_formatted()
                 == expected2
             )
 
             # plain `# fmt: on` also re-enables sorting after `# fmt: off[sort]`
             code2 = code1 + "\n\n# fmt: on\n" + code
             expected2 = expected + "\n\n# fmt: on\n" + formatted
-            assert setup_formatter(code2, sort_params=True).get_formatted() == expected2
             assert (
-                setup_formatter(expected2, sort_params=True).get_formatted()
+                setup_formatter(code2, sort_directives=True).get_formatted()
+                == expected2
+            )
+            assert (
+                setup_formatter(expected2, sort_directives=True).get_formatted()
                 == expected2
             )
 
@@ -2873,8 +2822,10 @@ class TestFmtOffSort:
             + "\n"
             "\n\n" + formatted2
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
         code = (
             "# fmt: off[sort]\n"
             "if 1:\n"
@@ -2891,8 +2842,10 @@ class TestFmtOffSort:
             + "\n"
             "\n\n" + formatted2
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_off_sort_on_noeffect(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
@@ -2916,16 +2869,20 @@ class TestFmtOffSort:
             + "\n\n"
             + formatted3
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_off_sort_nothing(self):
         code1, formatted1 = TestSortFormatting.sorting_comprehensive
         code3, formatted3 = TestSortFormatting.sort_inline_comments
         code = code1.rstrip() + "\n\nif 1:\n pass\n\n\n" + code3
         expected = formatted1 + f"\n\nif 1:\n{TAB}pass\n\n\n" + formatted3
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_off_sort_between_directive(self):
         """
@@ -2977,8 +2934,10 @@ class TestFmtOffSort:
             f"{TAB}shell:\n"
             f'{TAB * 2}"echo done"\n'
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_off_sort_between_directive2(self):
         """
@@ -3025,8 +2984,10 @@ class TestFmtOffSort:
             f"{TAB}shell:\n"
             f'{TAB * 2}"echo done"\n'
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_off_sort_between_directive_empty(self):
         code = (
@@ -3064,8 +3025,10 @@ class TestFmtOffSort:
             f"{TAB}shell:\n"
             f'{TAB * 2}"echo done"\n'
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_on_sort_directly_followed_by_directive(self):
         """
@@ -3103,8 +3066,10 @@ class TestFmtOffSort:
             f"{TAB}run:\n"
             f"{TAB * 2}x = 1\n"
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     @pytest.mark.parametrize(
         "region_end, expected_region_end",
@@ -3145,8 +3110,10 @@ class TestFmtOffSort:
             f"{TAB}input:\n"
             f'{TAB * 2}"in.txt",\n'
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
     def test_fmt_on_sort_ends_rule(self):
         """Blank lines after a rule-ending `# fmt: on[sort]` don't accumulate"""
@@ -3178,8 +3145,10 @@ class TestFmtOffSort:
             f"{TAB}output:\n"
             f'{TAB * 2}"o",\n'
         )
-        assert setup_formatter(code, sort_params=True).get_formatted() == expected
-        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+        assert setup_formatter(code, sort_directives=True).get_formatted() == expected
+        assert (
+            setup_formatter(expected, sort_directives=True).get_formatted() == expected
+        )
 
 
 class TestFmtOffNext:
@@ -3498,13 +3467,10 @@ class TestShellBlockFormatting:
 
     def test_format_shell_false_preserves_shell(self):
         """Setting format_shell=False leaves the shell body untouched."""
-        from io import StringIO
-
-        from snakefmt.formatter import Formatter
-        from snakefmt.parser.parser import Snakefile
-
-        smk = Snakefile(StringIO(self._UNFORMATTED))
-        assert Formatter(smk, format_shell=False).get_formatted() == self._UNFORMATTED
+        assert (
+            setup_formatter(self._UNFORMATTED, format_shell=False).get_formatted()
+            == self._UNFORMATTED
+        )
 
     def test_fmt_off_opts_out_of_shell_formatting(self):
         """A # fmt: off / # fmt: on region prevents shell formatting."""
@@ -3583,6 +3549,132 @@ class TestShellBlockFormatting:
             f"{TAB * 2}fi\n"
             f'{TAB * 2}"""\n'
         )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_inline_string_is_indented(self):
+        """A single-line inline shell string stays untouched but is moved onto
+        its own indented line, as the Python formatter would do."""
+        unformatted = f'rule a:\n{TAB}shell: "echo done"\n'
+        expected = f'rule a:\n{TAB}shell:\n{TAB * 2}"echo done"\n'
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_inline_triple_quoted_string_is_formatted(self):
+        """An inline triple-quoted shell string is reformatted by shfmt."""
+        unformatted = f'rule a:\n{TAB}shell: """\nif true\nthen\necho done\nfi\n"""\n'
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if true; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_comments_around_literal_are_preserved(self):
+        """Comment lines before and after the shell literal are kept while the
+        literal itself is still formatted."""
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f"{TAB * 2}# prepare output\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}# all done\n"
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f"{TAB * 2}# prepare output\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}# all done\n"
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_blank_lines_around_literal_are_dropped(self):
+        """Blank lines surrounding the shell literal do not prevent formatting;
+        they are dropped like Black drops them inside a block."""
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            "\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_expression_is_not_shell_formatted(self):
+        """A concatenation expression is formatted as Python, not handed to
+        shfmt."""
+        unformatted = f'rule a:\n{TAB}shell:\n{TAB * 2}"echo " + "done"\n'
+        expected = f'rule a:\n{TAB}shell:\n{TAB * 2}"echo " + "done"\n'
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_trailing_comma_is_dropped(self):
+        """A lone literal with one trailing comma is still shell-formatted; the
+        comma is dropped, as the Python formatter would."""
+        unformatted = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]\n"
+            f"{TAB * 2}then\n"
+            f"{TAB * 2}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}""",\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"""\n'
+            f"{TAB * 2}if [ -s /tmp/out ]; then\n"
+            f"{TAB * 3}echo done\n"
+            f"{TAB * 2}fi\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert (
+            setup_formatter(unformatted, format_shell=True).get_formatted() == expected
+        )
+
+    def test_inline_trailing_comma_is_dropped(self):
+        """An inline literal with a trailing comma is moved to its own line,
+        formatted, and the comma is dropped."""
+        unformatted = f'rule a:\n{TAB}shell: "echo done",\n'
+        expected = f'rule a:\n{TAB}shell:\n{TAB * 2}"echo done"\n'
         assert (
             setup_formatter(unformatted, format_shell=True).get_formatted() == expected
         )

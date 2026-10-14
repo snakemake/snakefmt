@@ -20,8 +20,8 @@ import black.parsing
 from snakefmt.config import Mode, read_black_config
 from snakefmt.exceptions import InvalidPython, UnsupportedSyntax
 from snakefmt.shell_formatter import format_python_string_literal
-from snakefmt.types import TAB
 
+TAB = "    "  # PEP8, indentation will be coded as 4 spaces
 _FMT_DIRECTIVE_RE = re.compile(
     r"^# fmt: (off|on)(?:\[(\w+(?:,\s*\w+)*)\])?(?=$|\s{2}|\s#)"
 )
@@ -330,6 +330,11 @@ class FormatState(NamedTuple):
     sort_directives: bool | None = None
     skip_next: bool = False  # one-time directive for the next snakemake block
     format_shell: bool = False
+    # custom directive order overriding the default `subautomata` order;
+    # empty means "use the default order". Directives missing from the custom
+    # list keep their default (subautomata) position, which puts actions last.
+    rule_order: tuple[str, ...] = ()
+    module_order: tuple[str, ...] = ()
 
     @property
     def not_format(self):
@@ -1049,7 +1054,7 @@ class SnakemakeBlock(ColonBlock):
         if self.tail_noncoding:
             yield "".join(tokens2linestrs(iter(self.tail_noncoding))), None
 
-    def formatted(self, mode, state):
+    def formatted(self, mode: Mode, state: FormatState):
         formatted_prior, post_colon = self.format_head(mode)
         formatted_body = self.format_body(mode, state, post_colon)
         formatted = [formatted_prior, formatted_body]
@@ -1547,6 +1552,7 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
         directives: dict[str, str] = {}
         tail_noncoding: list[str] = []
         indent = TAB * (self.deindent_level + 1)
+        order = state.module_order if isinstance(self, Module) else state.rule_order
         for i, block in enumerate(self.body_blocks):
             assert not tail_noncoding, "no tail_noncoding before body_blocks"
             if i == 0 and isinstance(block, PythonBlock):
@@ -1626,17 +1632,20 @@ class SnakemakeKeywordBlock(SnakemakeBlock):
                 tail_noncoding = tokens2linestrs(iter(block.tail_noncoding))
             # no `\n` between
         if directives:
-            formatted.extend(self.sort_directives(directives))
+            formatted.extend(self.sort_directives(directives, order))
         if tail_noncoding:
             tail_noncoding = [i.lstrip().rstrip("\n") for i in tail_noncoding]
             formatted.extend(f"{indent}{i}\n" for i in tail_noncoding if i)
         return "".join(formatted)
 
     @classmethod
-    def sort_directives(cls, directives: dict[str, str]):
-        """Sort directives in the order of subautomata. Clear input"""
-        for keyword in cls.subautomata:
-            if keyword in directives:
+    def sort_directives(cls, directives: dict[str, str], order: tuple[str, ...] = ()):
+        """Yield the directives sorted by `order`, then by the subautomata order
+        for any directive not listed. Clears `directives`."""
+        seen: set[str] = set()
+        for keyword in (*order, *cls.subautomata):
+            if keyword not in seen and keyword in directives:
+                seen.add(keyword)
                 yield directives.pop(keyword)
         assert not directives, f"Unknown directives: {', '.join(directives)}"
 
@@ -1857,7 +1866,7 @@ class Rule(_Rule):
             if token.type != tokenize.STRING:
                 return None
             after: list[str] = []
-            for rest in tokens:
+            for rest in stream:
                 if rest.type in _SHELL_IGNORED_TOKENS:
                     after.append(rest.string)
                 elif rest.type == tokenize.OP and rest.string == ",":
@@ -1906,10 +1915,18 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    __slots__ = ("mode", "sort_directives", "format_shell")
+    __slots__ = (
+        "mode",
+        "sort_directives",
+        "format_shell",
+        "directive_order",
+        "module_directive_order",
+    )
     mode: Mode
     sort_directives: bool
     format_shell: bool
+    directive_order: tuple[str, ...]
+    module_directive_order: tuple[str, ...]
 
     subautomata = {**python_subautomata, **global_snakemake_subautomata}
 
@@ -1934,7 +1951,10 @@ class GlobalBlock(Block):
         if format_shell is None:
             format_shell = bool(getattr(self, "format_shell", False))
         state = FormatState(
-            sort_directives=sort_directives or None, format_shell=format_shell
+            sort_directives=sort_directives or None,
+            format_shell=format_shell,
+            rule_order=tuple(getattr(self, "directive_order", ()) or ()),
+            module_order=tuple(getattr(self, "module_directive_order", ()) or ()),
         )
         # if set to None, it will not be enabled by `# fmt: on`
         python_codes: list[str] = []
@@ -1986,9 +2006,11 @@ def parse(source: str | Callable[[], str], name: str = "<string>"):
 def setup_formatter(
     snake: str,
     line_length: int | None = None,
-    sort_params: bool = False,
+    sort_directives: bool = False,
     black_config_file=None,
     format_shell=False,
+    directive_order: tuple[str, ...] = (),
+    module_directive_order: tuple[str, ...] = (),
 ):
     formatter = parse(snake)
     mode = read_black_config(black_config_file) or Mode()
@@ -1996,6 +2018,8 @@ def setup_formatter(
         mode.line_length = line_length
 
     formatter.mode = mode
-    formatter.sort_directives = sort_params
+    formatter.sort_directives = sort_directives
     formatter.format_shell = format_shell
+    formatter.directive_order = tuple(directive_order)
+    formatter.module_directive_order = tuple(module_directive_order)
     return formatter
