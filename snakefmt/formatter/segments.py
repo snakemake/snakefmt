@@ -1,5 +1,5 @@
 import tokenize
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from snakefmt.config import Mode
 from snakefmt.formatter import black
@@ -9,6 +9,9 @@ from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import Block, ColonBlock
 from snakefmt.parser.snakemake_blocks import SnakemakeBlock
 from snakefmt.parser.tokens import tokens2linestrs
+
+if TYPE_CHECKING:
+    from snakefmt.parser.snakefile import Snakefile
 
 
 def format_segments(
@@ -155,3 +158,39 @@ def format_snakemake_segments(
         yield format_block(block, mode, state), block.indent_str
     if block.tail_noncoding:
         yield "".join(tokens2linestrs(iter(block.tail_noncoding))), None
+
+
+def format_snakefile(snakefile: "Snakefile", mode: Mode, state: FormatState) -> str:
+    """Format a parsed `Snakefile` under `state`."""
+    # if set to None, it will not be enabled by `# fmt: on`
+    python_codes: list[str] = []
+    snakemake_codes: list[tuple[str, str]] = []
+    last_str = ""
+    for segment, indent_proxy in format_segments(snakefile, mode, state):
+        if indent_proxy is not None:
+            python_codes.append(last_str)
+            last_str = ""
+            snakemake_codes.append((segment, indent_proxy))
+        else:
+            last_str += segment
+    placeholder = "o" * 50
+    raw_str = "".join(python_codes)
+    while placeholder in raw_str:
+        placeholder *= 2
+    raw_str = "#\n"
+    for python_code, (snakemake_code, indent) in zip(python_codes, snakemake_codes):
+        if snakemake_code.count("\n") == 1:  # must at the end of line
+            snakemake_proxy = f"{indent}def l{placeholder}1ng(): ...\n"
+        else:
+            snakemake_proxy = f"{indent}def l{placeholder}ng():\n{indent} return\n"
+        raw_str += python_code + snakemake_proxy
+    raw_str += last_str
+    formatted, *formatted_split = black.format_python(raw_str, mode).split(placeholder)
+    final_str = formatted
+    for formatted, (snakemake_code, _) in zip(formatted_split, snakemake_codes):
+        final_str = final_str.rsplit("\n", 1)[0] + "\n" + snakemake_code
+        if formatted.startswith("1"):
+            final_str += formatted.split("\n", 1)[-1]
+        else:
+            final_str += formatted.split("\n", 2)[-1]
+    return final_str[1:].lstrip("\n")

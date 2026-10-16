@@ -1,4 +1,5 @@
 from snakefmt.config import Mode, read_black_config
+from snakefmt.formatter.segments import format_snakefile
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.snakefile import Snakefile
 
@@ -13,7 +14,7 @@ class Formatter:
         self.mode = mode
 
     def get_formatted(self) -> str:
-        return self.state.format(self.snakefile, self.mode)
+        return format_snakefile(self.snakefile, self.mode, self.state)
 
     @classmethod
     def setup(

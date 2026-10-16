@@ -1,25 +1,17 @@
-import re
-import tokenize
 from collections import OrderedDict
 from typing import Optional, TypeVar
 
-from snakefmt.exceptions import (
-    ColonError,
-    EmptyContextError,
-    InvalidParameterSyntax,
-    SyntaxFormError,
-    UnsupportedSyntax,
-)
-from snakefmt.parser.blocks import NamedBlock, PythonBlock
+from snakefmt.parser.blocks import NamedBlock
 from snakefmt.parser.snakemake_blocks import (
     SnakemakeArgumentsBlock,
     SnakemakeBlock,
+    SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
     SnakemakeInlineArgumentBlock,
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
+    Use,
 )
-from snakefmt.parser.tokens import effective, is_op, line_nb
 
 
 def _init_block_register():
@@ -128,59 +120,6 @@ class OnSuccess(SnakemakeExecutableBlock): ...
 
 @_register()
 class OnError(SnakemakeExecutableBlock): ...
-
-
-class SnakemakeDirectiveBlock(SnakemakeBlock):
-    """Block of snakemake directives, such as `rule:`, `module:`, etc.
-    The contents are other snakemake blocks.
-    """
-
-    nameable = True
-
-    def consume_body(self, tokens):
-        blocks = self.consume_subblocks(tokens, ender_subblock=True)
-        keyword = self.colon_line.body[0].string
-        no_content = True
-        for block in blocks:
-            if isinstance(block, SnakemakeBlock):
-                no_content = False
-                continue
-            if not isinstance(block, PythonBlock):
-                rep = block.start_token or self.start_token
-                raise UnsupportedSyntax(
-                    f"{line_nb(rep)}Unexpected content in "
-                    f"{keyword} block: {rep.line}"
-                )
-            code = [
-                token
-                for line in block.head_lines
-                for token in line.iter
-                if effective(token)
-            ]
-            if len(code) == 1 and code[0].type == tokenize.STRING:
-                no_content = False
-                continue
-            if not code:
-                continue
-            rep = block.start_token
-            if rep is not None:
-                if rep.type == tokenize.NAME:
-                    raise SyntaxError(
-                        f"{line_nb(rep)}Unrecognised keyword "
-                        f"{rep.string!r} in {keyword} definition"
-                    )
-            else:
-                rep = self.start_token
-            raise SyntaxError(
-                f"{line_nb(rep)}Invalid python code in "
-                f"{keyword} definition: {rep.line}"
-            )
-        if no_content:
-            raise EmptyContextError(
-                f"{line_nb(self.colon_line.body[0])}{keyword} has no "
-                f"keywords attached to it."
-            )
-        self.body_blocks = blocks
 
 
 @_register()
@@ -298,110 +237,7 @@ class _Rule(NamedBlock, SnakemakeDirectiveBlock):
 
 
 @_register("use")
-class UseRule(_Rule):
-
-    _EBNF = (
-        '"use" "rule" (identifier | "*") '
-        '"from" identifier '
-        '["exclude" identifier {"," identifier}] '
-        '["as" identifier] ["with" ":"]'
-    )
-
-    def validate_head(self, allow_suffix=False):
-        body = self.colon_line.body
-        line = body[0].line.split("#", 1)[0].strip()
-
-        def fail():
-            raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)
-
-        def is_identifier(token: str):
-            return re.fullmatch(r"[a-zA-Z_]\w*", token) is not None
-
-        def is_glob(token: str):
-            return re.fullmatch(r"[a-zA-Z_][\w*]*", token) is not None
-
-        # commas may be surrounded by spaces; make them separate tokens
-        tokens = line.replace(",", " , ").split()
-        if tokens[:2] != ["use", "rule"]:
-            fail()
-
-        # reading a *required* token past the end is a syntax error, so those
-        # reads are left unguarded and `IndexError` -> `fail()`. Optional
-        # trailing parts (e.g. `from ...` alone) are guarded with `i < len`.
-        try:
-            whitelist = [tokens[2]]
-            i = 3
-            # the whitelist must be followed by a keyword, so running past the
-            # end here is a syntax error (IndexError -> fail())
-            while tokens[i] == ",":
-                whitelist.append(tokens[i + 1])
-                i += 2
-            if whitelist != ["*"]:
-                if "*" in whitelist:
-                    raise InvalidParameterSyntax(
-                        "'*' cannot be used with other rule names in the use directive"
-                    )
-                if not all(is_identifier(name) for name in whitelist):
-                    fail()
-            if tokens[i] not in ("from", "as", "with", "with:"):
-                fail()
-
-            # module: the source after `from`
-            if tokens[i] == "from":
-                i += 1
-                module = tokens[i]
-                if not is_identifier(module):
-                    fail()
-                i += 1
-            else:
-                module = None
-        except IndexError:
-            fail()
-
-        # exclude: comma separated rule names after `exclude`
-        token_length = len(tokens)
-        exclude: list[str] = []
-        rename = None
-        try:
-            # exclude: comma separated rule names after `exclude`
-            if i < token_length and tokens[i] == "exclude":
-                exclude.append(tokens[i + 1])
-                i += 2
-                while i < token_length and tokens[i] == ",":
-                    exclude.append(tokens[i + 1])
-                    i += 2
-                if not all(is_identifier(name) for name in exclude):
-                    fail()
-            # modifier: the alias after `as`
-            if i < token_length and tokens[i] == "as":
-                rename = tokens[i + 1]
-                if not is_glob(rename):
-                    fail()
-                i += 2
-        except IndexError:
-            fail()
-
-        if "".join(tokens[i:]) not in ("", "with:"):
-            fail()
-
-        if module is None and rename is None:
-            raise InvalidParameterSyntax(
-                "use directive must specify a rule from a module or modify the rule"
-            )
-
-        self.whitelist = whitelist
-        self.module = module
-        self.exclude = exclude
-        self.rename = rename
-
-    def consume_body(self, tokens):
-        super().consume_body(tokens)
-        for block in self.body_blocks:
-            if isinstance(block, SnakemakeArgumentsBlock):
-                body = block.colon_line.body
-                # nameable children here take `with`, nothing else
-                if not is_op(":", body[1]) and body[1].string != "with":
-                    ColonError(line_nb(body[1]), body[1].string, body[0].string)
+class UseRule(Use):
 
     subautomata = {**_Rule.subautomata} | {
         keyword: type(keyword, (_Rule.subautomata[keyword],), {"nameable": True})

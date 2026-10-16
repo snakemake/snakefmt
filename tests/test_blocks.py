@@ -9,6 +9,7 @@ from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.formatter.black import format_python
 from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.indent import TAB
+from snakefmt.formatter.segments import format_snakefile
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import CallableBlock, IfForTryWithBlock, PythonBlock
 from snakefmt.parser.snakefile import Snakefile
@@ -459,7 +460,7 @@ class TestBlockFormat:
             "# comment\n"
             "c = [i for j in k] if m else (lambda: None)\n"
         )
-        assert FormatState().format(block, mode) == black.format_str(
+        assert format_snakefile(block, mode, FormatState()) == black.format_str(
             self.example1, mode=mode
         )
 
@@ -534,6 +535,6 @@ class TestBlockFormat:
     def test_format_snakefile(self):
         code, formatted = self.example2
         block = Snakefile.parse(code)
-        assert FormatState().format(block, mode).replace("\n", "<\n") == (
+        assert format_snakefile(block, mode, FormatState()).replace("\n", "<\n") == (
             formatted
         ).replace("\n", "<\n")
