@@ -6,8 +6,9 @@ import pytest
 
 from snakefmt.config import read_black_config
 from snakefmt.exceptions import UnsupportedSyntax
+from snakefmt.formatter.state import FormatState
+from snakefmt.formatter.black import format as format_black
 from snakefmt.parser.blocks import IfForTryWithBlock, NoSnakemakeBlock, PythonBlock
-from snakefmt.parser.formatting import FormatState, format_black
 from snakefmt.parser.global_block import GlobalBlock, parse
 from snakefmt.parser.tokens import TAB, TokenIterator, is_fstring_start
 

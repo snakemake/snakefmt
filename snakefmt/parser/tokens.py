@@ -87,7 +87,8 @@ class TokenIterator:
                 elif token.string in (")", "]", "}"):
                     if not expect_brackets or expect_brackets[-1] != token.string:
                         raise UnsupportedSyntax(
-                            f"{line_nb(token)}Unexpected closing bracket {token.string!r}"
+                            f"{line_nb(token)}Unexpected closing bracket "
+                            f"{token.string!r}"
                         )
                     expect_brackets.pop()
                 elif expect_brackets and token.string == ":" == expect_brackets[-1]:

@@ -1,7 +1,7 @@
 import tokenize
 from abc import ABC, abstractmethod
 from tokenize import TokenInfo
-from typing import Generator, Iterable, Iterator, Mapping, NamedTuple
+from typing import Iterable, Iterator, Mapping, NamedTuple
 
 from snakefmt.config import Mode
 from snakefmt.exceptions import (
@@ -14,12 +14,12 @@ from snakefmt.exceptions import (
     TooManyParameters,
     UnsupportedSyntax,
 )
-from snakefmt.parser.formatting import FormatState
+from snakefmt.formatter import black
+from snakefmt.formatter.state import FormatState
 from snakefmt.parser.tokens import (
     TAB,
     LogicalLine,
     TokenIterator,
-    deindent_lines,
     effective,
     extract_line_indent,
     is_op,
@@ -27,8 +27,6 @@ from snakefmt.parser.tokens import (
     tokens2linestrs,
     validate_parameters,
 )
-
-from . import formatting
 
 
 class Block(ABC):
@@ -261,78 +259,6 @@ class Block(ABC):
         for block in self.body_blocks:
             yield from block.components()
 
-    def segment2format(
-        self, mode: Mode, state: FormatState
-    ) -> Generator[tuple[str, str | None], None, None]:
-        """yield:
-        - [unformated_python_code, None]
-        - [formated_snakemake_code, indent_str]
-
-        `SnakemakeInlineArgumentBlock` should be taken very careful of,
-        since they are formatedd as `def` blocks, and may not sperate from
-        blocks with different keywords. So here are the special principles
-        specially for one-line snakemake blocks:
-
-        - the previous block should be in the same indent of current block;
-        - if previous line (with no newline nor comments) is:
-                1, `def` block; or
-                2. another one-line block with differnt keyword:
-            then add a newline
-        - if previous line is the same keyword with:
-                only comment lines but NO blank line between:
-            merge the two lines into one block, with comments in between
-        - (doesn't matter if this block is actually one-line or not)
-        """
-        # comment fmt directives in head_linestrs
-        #  will effect on post blocks of the same indent,
-        # so should be updated during the parent body_blocks iteration.
-        for line in self.head_linestrs:
-            yield line, None
-        last_keyword = ""
-        line = ""
-        state = state.reset_sort()
-        for block in self.body_blocks:
-            restart_state = state = state.consume_skip_next()
-            # update state from head_noncoding
-            for head_line in block.head_lines:
-                for noncoding_token in head_line.head_noncoding:
-                    if noncoding_token.type == tokenize.COMMENT:
-                        state = state.update(noncoding_token.string)
-                    elif state.skip_next and not noncoding_token.line.strip():
-                        state = state.consume_skip_next()
-            if isinstance(block, ColonBlock):
-                if block.keyword == "def":
-                    if last_keyword and last_keyword != "def":
-                        # Oh, differnt keyword detected, so (last)line must exists
-                        # Then check if that line is start
-                        if (
-                            line.rstrip()
-                            .rsplit("\n", 1)[-1]
-                            .startswith(block.indent_str + last_keyword)
-                        ):
-                            # If NO any line before the first line of this block,
-                            # black cannot split them: Add one to force splitting
-                            if not block.head_lines[0].head_noncoding:
-                                yield "\n", None
-                    last_keyword = "def"
-                    for line, indent in block.segment2format(mode, state):
-                        # record `line` for next useage
-                        yield line, indent
-                elif isinstance(block, SnakemakeBlock):
-                    for line, indent in block.segment2format(
-                        mode, restart_state, last_keyword
-                    ):
-                        yield line, indent
-                    last_keyword = block.keyword
-                else:
-                    last_keyword = ""
-                    yield from block.segment2format(mode, state)
-            else:
-                last_keyword = ""
-                yield from block.segment2format(mode, state)
-        if self.tail_noncoding:
-            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), None
-
     @abstractmethod
     def compilation(self):
         """return pure python code compiled from the block,
@@ -358,7 +284,7 @@ class PythonBlock(Block):
         raw = "".join(self.full_linestrs)
         if not raw.strip():
             return ""
-        formatted = formatting.format_black(
+        formatted = black.format(
             raw, mode, self.deindent_level, start_token=self.head_lines[0].body[0]
         )
         return formatted
@@ -589,76 +515,6 @@ class SnakemakeBlock(ColonBlock):
         for block in self.body_blocks:
             yield from block.full_linestrs
 
-    def segment2format(self, mode: Mode, state: FormatState, last_keyword=""):
-        """yield:
-        - [unformated_python_code, None]
-        - [formated_snakemake_code, indent]
-
-        If state.skip_next is True, or state.fmt_on is False,
-        return unformatted content with proper True/False markers.
-        """
-
-        # Get noncoding_lines early to check fmt directives
-        indent_str = TAB * self.deindent_level
-        assert len(self.head_lines) == 1, "Snakemake keywords should only in one line"
-        noncoding_lines: list[str] = []
-        last_fmt_on = state.fmt_on
-        # Check if there's fmt: on/off in noncoding_lines to update state
-        for noncoding_line in tokens2linestrs(iter(self.colon_line.head_noncoding)):
-            if not noncoding_line.strip():
-                last_keyword = ""
-            else:
-                state = state.update(noncoding_line.lstrip())
-            if state.not_format:
-                noncoding_lines.append(noncoding_line)
-            else:
-                noncoding_lines.append(
-                    indent_str + formatting.format_black(noncoding_line, mode, 0)
-                )
-        if last_fmt_on and state.fmt_on:
-            if last_keyword == self.keyword:
-                # pre-format these lines and yield together
-                pre_formatted = formatting.format_black(
-                    "".join(noncoding_lines), mode, 0
-                ).splitlines(keepends=True)
-                for line in pre_formatted:
-                    if state.found_skip(line):
-                        yield line, None
-                    else:
-                        yield indent_str + line.lstrip(), self.indent_str
-            else:
-                if not noncoding_lines:
-                    yield "\n", None
-                yield "".join(noncoding_lines), None
-        else:
-            yield "".join(noncoding_lines), None
-
-        # Check if this block should be skipped from formatting
-        if state.not_format:
-            raw = "".join(
-                deindent_lines(
-                    self.indent_str,
-                    self.deindent_level,
-                    self.raw_source_linestrs(),
-                )
-            )
-            # Trailing blank lines from body_blocks belong to the next block's
-            # separator, not this block's content. Strip extra trailing blank
-            # lines so the compilation loop doesn't double-count them with
-            # black's blank-line insertion.
-            if raw.endswith("\n\n") and state.skip_next:
-                n_trailing_space = len(raw) - len(raw.rstrip("\n")) - 1
-                raw = raw.rstrip("\n") + "\n"
-            else:
-                n_trailing_space = 0
-            yield raw, self.indent_str
-            if n_trailing_space > 0:
-                yield "\n" * n_trailing_space, None
-        else:
-            yield self.formatted(mode, state), self.indent_str
-        if self.tail_noncoding:
-            yield "".join(tokens2linestrs(iter(self.tail_noncoding))), None
-
     def formatted(self, mode: Mode, state: FormatState):
         formatted_prior, post_colon = self.format_head(mode)
         formatted_body = self.format_body(mode, state, post_colon)
@@ -687,7 +543,7 @@ class SnakemakeBlock(ColonBlock):
             if post:
                 post[0] = post[0][colon_token.end[1] :]
                 fake_str = "if 1:" + "".join(post) + "   ..."
-                fake_fmt = formatting.format_black(fake_str, mode).strip()
+                fake_fmt = black.format(fake_str, mode).strip()
                 formatted_head += fake_fmt.split(":", 1)[1].rsplit("\n", 1)[0]
         return formatted_head + "\n", []
 
@@ -898,7 +754,7 @@ class PythonArgumentsBlock(PythonBlock):
         parts.append(source(start, token.end))
         tail_noncoding = "".join(tokens2linestrs(iter(self.tail_noncoding)))
         formatable = "".join(parts) + tail_noncoding
-        return formatting.format_black(
+        return black.format(
             formatable,
             mode,
             deindent_level,

@@ -13,6 +13,9 @@ from snakefmt.exceptions import (
     SyntaxFormError,
     UnsupportedSyntax,
 )
+from snakefmt.formatter import black
+from snakefmt.formatter.state import FormatState
+from snakefmt.formatter.shell import format_python_string_literal
 from snakefmt.parser.blocks import (
     NamedBlock,
     PythonBlock,
@@ -23,7 +26,6 @@ from snakefmt.parser.blocks import (
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
 )
-from snakefmt.parser.formatting import FormatState
 from snakefmt.parser.tokens import (
     TAB,
     deindent_lines,
@@ -32,9 +34,6 @@ from snakefmt.parser.tokens import (
     line_nb,
     tokens2linestrs,
 )
-from snakefmt.shell_formatter import format_python_string_literal
-
-from . import formatting
 
 
 def init_block_register():
@@ -241,9 +240,7 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
                     if state.found_skip(linelstrip):
                         directive += line
                     else:
-                        directive += indent + formatting.format_black(
-                            linelstrip, mode, 0
-                        )
+                        directive += indent + black.format(linelstrip, mode, 0)
                     state = state.update(linelstrip)
                 if state.not_format:
                     if directives:
@@ -547,7 +544,7 @@ class UseRule(_Rule):
             components = head_bulk_line.strip().split()
             formatted_head = indent + " ".join(components)
             if "#" in head_line[0]:
-                formatted_head += "  " + formatting.format_black(
+                formatted_head += "  " + black.format(
                     "#" + head_line[0].split("#", 1)[1], mode=mode
                 ).rstrip("\n")
             return formatted_head + "\n"
