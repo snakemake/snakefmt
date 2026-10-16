@@ -107,13 +107,15 @@ def format_snakemake_segments(
         if state.not_format:
             noncoding_lines.append(noncoding_line)
         else:
-            noncoding_lines.append(indent_str + black.format(noncoding_line, mode, 0))
+            noncoding_lines.append(
+                indent_str + black.format_python(noncoding_line, mode, 0)
+            )
     if last_fmt_on and state.fmt_on:
         if last_keyword == block.keyword:
             # pre-format these lines and yield together
-            pre_formatted = black.format("".join(noncoding_lines), mode, 0).splitlines(
-                keepends=True
-            )
+            pre_formatted = black.format_python(
+                "".join(noncoding_lines), mode, 0
+            ).splitlines(keepends=True)
             for line in pre_formatted:
                 if state.found_skip(line):
                     yield line, None
@@ -177,7 +179,7 @@ def format_snakefile(block, mode: Mode, state: FormatState) -> str:
             snakemake_proxy = f"{indent}def l{placeholder}ng():\n{indent} return\n"
         raw_str += python_code + snakemake_proxy
     raw_str += last_str
-    formatted, *formatted_split = black.format(raw_str, mode).split(placeholder)
+    formatted, *formatted_split = black.format_python(raw_str, mode).split(placeholder)
     final_str = formatted
     for formatted, (snakemake_code, _) in zip(formatted_split, snakemake_codes):
         final_str = final_str.rsplit("\n", 1)[0] + "\n" + snakemake_code

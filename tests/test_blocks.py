@@ -6,7 +6,7 @@ import pytest
 
 from snakefmt.config import read_black_config
 from snakefmt.exceptions import UnsupportedSyntax
-from snakefmt.formatter.black import format as format_black
+from snakefmt.formatter.black import format_python
 from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import IfForTryWithBlock, NoSnakemakeBlock, PythonBlock
@@ -382,29 +382,29 @@ state = FormatState()
 class TestFormat:
     def test_format_colon(self):
         raw = "if 1:   #comment\n"
-        fmted = format_black(raw, mode=mode, partial=":")
+        fmted = format_python(raw, mode=mode, partial=":")
         assert fmted == "if 1:  # comment\n"
 
     def test_format_def(self):
         raw = f"{TAB}def s(a):\n" f"{TAB*2}if a:\n" f'{TAB * 3}return "Hello World"\n'
-        fmted = format_black(raw, mode=mode, indent=1)
+        fmted = format_python(raw, mode=mode, indent=1)
         assert fmted == raw
 
     def test_format_paren(self):
         raw = "   'b', a=1\n,"
-        fmted = format_black(raw, mode=mode, indent=2, partial="(")
+        fmted = format_python(raw, mode=mode, indent=2, partial="(")
         assert fmted == (
             f'{TAB * 3}"b",\n'  #
             f"{TAB * 3}a=1,\n"
         )
         raw = "        'b =    2'\n\n,"
-        fmted = format_black(raw, mode=mode, indent=1, partial="(")
+        fmted = format_python(raw, mode=mode, indent=1, partial="(")
         assert fmted == (f'{TAB * 2}"b =    2",\n')
 
     def test_format_reposity_def(self):
         key = "o" * 100
         raw = f"def {key}(): ...\n"
-        assert format_black(raw, mode=mode) == raw
+        assert format_python(raw, mode=mode) == raw
 
 
 class TestBlockFormat:

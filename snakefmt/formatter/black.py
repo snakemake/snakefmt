@@ -9,7 +9,7 @@ from snakefmt.exceptions import InvalidPython
 from snakefmt.parser.tokens import TAB, extract_line_indent
 
 
-def format(
+def format_python(
     raw: str,
     mode: Mode,
     indent=0,
@@ -77,6 +77,7 @@ def format(
                 fix = TAB * (indent + 1) + fix[3:-1] + "\n"
             else:
                 fix = (
-                    format(raw + "\n#", mode, indent, partial).rsplit("\n", 2)[0] + "\n"
+                    format_python(raw + "\n#", mode, indent, partial).rsplit("\n", 2)[0]
+                    + "\n"
                 )
     return fix

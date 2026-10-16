@@ -32,7 +32,7 @@ def _(block: PythonBlock, mode: Mode, state: FormatState) -> str:
     raw = "".join(block.full_linestrs)
     if not raw.strip():
         return ""
-    return black.format(
+    return black.format_python(
         raw, mode, block.deindent_level, start_token=block.head_lines[0].body[0]
     )
 
@@ -66,7 +66,7 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, list[TokenInfo]
         if post:
             post[0] = post[0][colon_token.end[1] :]
             fake_str = "if 1:" + "".join(post) + "   ..."
-            fake_fmt = black.format(fake_str, mode).strip()
+            fake_fmt = black.format_python(fake_str, mode).strip()
             formatted_head += fake_fmt.split(":", 1)[1].rsplit("\n", 1)[0]
     return formatted_head + "\n", []
 
@@ -176,7 +176,7 @@ def _(
                 if state.found_skip(linelstrip):
                     directive += line
                 else:
-                    directive += indent + black.format(linelstrip, mode, 0)
+                    directive += indent + black.format_python(linelstrip, mode, 0)
                 state = state.update(linelstrip)
             if state.not_format:
                 if directives:
@@ -263,7 +263,7 @@ def _(block: UseRule, mode: Mode, state: FormatState) -> str:
         components = head_bulk_line.strip().split()
         formatted_head = indent + " ".join(components)
         if "#" in head_line[0]:
-            formatted_head += "  " + black.format(
+            formatted_head += "  " + black.format_python(
                 "#" + head_line[0].split("#", 1)[1], mode=mode
             ).rstrip("\n")
         return formatted_head + "\n"
@@ -374,7 +374,7 @@ def format_post_colon(
     parts.append(source(start, token.end))
     tail_noncoding = "".join(tokens2linestrs(iter(block.tail_noncoding)))
     formatable = "".join(parts) + tail_noncoding
-    return black.format(
+    return black.format_python(
         formatable,
         mode,
         deindent_level,

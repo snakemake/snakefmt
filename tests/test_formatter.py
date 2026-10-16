@@ -533,7 +533,7 @@ class TestComplexPythonFormatting:
 
     def test_python_code_after_nested_snakecode_gets_formatted(self):
         snakecode = f'if condition:\n{TAB * 1}include: "a"\nb=2\n'
-        with mock.patch("snakefmt.formatter.black.format", spec=True) as mock_m:
+        with mock.patch("snakefmt.formatter.black.format_python", spec=True) as mock_m:
             mock_m.return_value = "if condition:\n"
             formatter = setup_formatter(snakecode)
             formatter.get_formatted()
@@ -548,7 +548,7 @@ class TestComplexPythonFormatting:
 
     def test_python_code_before_nested_snakecode_gets_formatted(self):
         snakecode = f'b=2\nif condition:\n{TAB * 1}include: "a"\n'
-        with mock.patch("snakefmt.formatter.black.format", spec=True) as mock_m:
+        with mock.patch("snakefmt.formatter.black.format_python", spec=True) as mock_m:
             mock_m.return_value = "b=2\nif condition:\n"
             setup_formatter(snakecode).get_formatted()
 
@@ -2367,7 +2367,7 @@ def test_invalid_python_error_no_match(mock_format):
     assert "Custom black error without line number" in msg
 
 
-@mock.patch("snakefmt.formatter.black.format", spec=True)
+@mock.patch("snakefmt.formatter.black.format_python", spec=True)
 def test_multiline_fallback(mock_format):
     from snakefmt.exceptions import InvalidPython
 
