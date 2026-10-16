@@ -1,8 +1,8 @@
 """
 Custom directive orders: parsing, validation and printing.
 
-The default order of directives is the order in which the blocken blocks are
-registered (`snakefmt.blocken`), which stays the source of truth. There is one order
+The default order of directives is the order in which the parser blocks are
+registered (`snakefmt.parser`), which stays the source of truth. There is one order
 for the directives of rules (also checkpoints and `use rule ... with:`) and one for
 those of modules. When given, an order must list every directive of its block type.
 """
@@ -14,7 +14,7 @@ from typing import Any, Optional, Sequence
 
 import click
 
-from snakefmt.blocken import Module, Rule, UseRule
+from snakefmt.parser.directives import Module, Rule, UseRule
 
 # Directives that run something. Snakemake allows a single action per rule and no
 # directive may follow it, so the actions always come last.

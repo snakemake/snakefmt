@@ -1,12 +1,17 @@
 """
-Completeness tests: checks that blocken's recognised keywords are a bijection of the
+Completeness tests: checks that the parser's recognised keywords are a bijection of the
 snakemake grammar.
     To use the latest snakemake grammar, run `uv update snakemake` from this repo
 """
 
 from snakemake import parser
 
-from snakefmt.blocken import Module, Rule, UseRule, global_snakemake_subautomata
+from snakefmt.parser.directives import (
+    Module,
+    Rule,
+    UseRule,
+    global_snakemake_subautomata,
+)
 
 
 class TestCompleteness:

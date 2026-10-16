@@ -1,26 +1,18 @@
 import sys
+import tokenize
 
+import black
 import pytest
 
-from snakefmt.blocken import (
-    TAB,
-    FormatState,
-    GlobalBlock,
-    IfForTryWithBlock,
-    NoSnakemakeBlock,
-    PythonBlock,
-    TokenIterator,
-    UnsupportedSyntax,
-    black,
-    format_black,
-    is_fstring_start,
-    parse,
-    tokenize,
-)
 from snakefmt.config import read_black_config
+from snakefmt.exceptions import UnsupportedSyntax
+from snakefmt.parser.blocks import IfForTryWithBlock, NoSnakemakeBlock, PythonBlock
+from snakefmt.parser.formatting import FormatState, format_black
+from snakefmt.parser.global_block import GlobalBlock, parse
+from snakefmt.parser.tokens import TAB, TokenIterator, is_fstring_start
 
 if sys.version_info >= (3, 12):
-    from snakefmt.blocken import consume_fstring
+    from snakefmt.parser.tokens import consume_fstring
 py12_guard = pytest.mark.skipif(
     sys.version_info < (3, 12), reason="Requires Python 3.12 or higher"
 )

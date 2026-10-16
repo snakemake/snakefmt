@@ -11,13 +11,11 @@ import black
 import black.parsing
 import pytest
 
-from snakefmt.blocken import (
-    TAB,
-    SnakemakeInlineArgumentBlock,
-    global_snakemake_subautomata,
-    setup_formatter,
-)
 from snakefmt.exceptions import InvalidPython
+from snakefmt.parser.blocks import SnakemakeInlineArgumentBlock
+from snakefmt.parser.directives import global_snakemake_subautomata
+from snakefmt.parser.global_block import setup_formatter
+from snakefmt.parser.tokens import TAB
 
 COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
 
@@ -535,7 +533,7 @@ class TestComplexPythonFormatting:
 
     def test_python_code_after_nested_snakecode_gets_formatted(self):
         snakecode = f'if condition:\n{TAB * 1}include: "a"\nb=2\n'
-        with mock.patch("snakefmt.blocken.format_black", spec=True) as mock_m:
+        with mock.patch("snakefmt.parser.formatting.format_black", spec=True) as mock_m:
             mock_m.return_value = "if condition:\n"
             formatter = setup_formatter(snakecode)
             formatter.get_formatted()
@@ -550,7 +548,7 @@ class TestComplexPythonFormatting:
 
     def test_python_code_before_nested_snakecode_gets_formatted(self):
         snakecode = f'b=2\nif condition:\n{TAB * 1}include: "a"\n'
-        with mock.patch("snakefmt.blocken.format_black", spec=True) as mock_m:
+        with mock.patch("snakefmt.parser.formatting.format_black", spec=True) as mock_m:
             mock_m.return_value = "b=2\nif condition:\n"
             setup_formatter(snakecode).get_formatted()
 
@@ -2369,7 +2367,7 @@ def test_invalid_python_error_no_match(mock_format):
     assert "Custom black error without line number" in msg
 
 
-@mock.patch("snakefmt.blocken.format_black", spec=True)
+@mock.patch("snakefmt.parser.formatting.format_black", spec=True)
 def test_multiline_fallback(mock_format):
     from snakefmt.exceptions import InvalidPython
 

@@ -9,7 +9,6 @@ from black.files import get_gitignore
 from pathspec import PathSpec
 
 from snakefmt import DEFAULT_LINE_LENGTH, __version__
-from snakefmt.blocken import setup_formatter
 from snakefmt.config import inject_snakefmt_config
 from snakefmt.diff import Diff, ExitCode
 from snakefmt.directive_order import (
@@ -19,6 +18,7 @@ from snakefmt.directive_order import (
     format_effective_orders,
 )
 from snakefmt.logging import LogConfig
+from snakefmt.parser.global_block import setup_formatter
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 

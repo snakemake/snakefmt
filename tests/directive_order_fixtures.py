@@ -2,7 +2,7 @@
 the text expected from formatting them and from printing/rejecting them.
 """
 
-from snakefmt.blocken import TAB
+from snakefmt.parser.tokens import TAB
 
 ACTION_DIRECTIVES = (
     "run",

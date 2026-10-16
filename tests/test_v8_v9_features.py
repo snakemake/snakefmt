@@ -1,4 +1,4 @@
-from snakefmt.blocken import TAB
+from snakefmt.parser.tokens import TAB
 from tests import setup_formatter
 
 

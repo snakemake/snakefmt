@@ -11,9 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from snakefmt.blocken import TAB, Module, Rule, UseRule
 from snakefmt.directive_order import ACTION_DIRECTIVES as GRAMMAR_ACTIONS
 from snakefmt.directive_order import MODULE_ORDER, RULE_ORDER
+from snakefmt.parser.directives import Module, Rule, UseRule
+from snakefmt.parser.tokens import TAB
 from snakefmt.snakefmt import main
 from tests import setup_formatter
 from tests.directive_order_fixtures import (
@@ -661,11 +662,11 @@ class TestBlockOrder:
         assert MODULE_ORDER.complete(CUSTOM_MODULE_ORDER) == list(CUSTOM_MODULE_ORDER)
 
 
-class TestReadmeMatchesBlocken:
-    """The directive order documented in the README must be blocken's.
+class TestReadmeMatchesParser:
+    """The directive order documented in the README must be the parser's.
 
-    blocken is authoritative, so it is the expected value here; that blocken has the
-    order the tests expect is checked in `TestBlockOrder`."""
+    the parser is authoritative, so it is the expected value here; that the parser has
+    the order the tests expect is checked in `TestBlockOrder`."""
 
     @pytest.fixture(scope="class")
     def readme(self) -> str:

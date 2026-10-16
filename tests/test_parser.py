@@ -7,7 +7,6 @@ import tokenize
 
 import pytest
 
-from snakefmt.blocken import TAB, TokenIterator
 from snakefmt.exceptions import (
     EmptyContextError,
     InvalidParameter,
@@ -16,6 +15,7 @@ from snakefmt.exceptions import (
     NoParametersError,
     TooManyParameters,
 )
+from snakefmt.parser.tokens import TAB, TokenIterator
 from tests import setup_formatter
 
 

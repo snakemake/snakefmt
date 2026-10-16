@@ -7,7 +7,7 @@ from tests import setup_formatter
 
 class TestLogging:
     @pytest.mark.xfail(
-        reason="blocken does not port the old parser's comment-below-keyword warning",
+        reason="the parser does not port the comment-below-keyword warning",
         strict=True,
     )
     def test_warning_line_number_reported_on_formatted_file(self, caplog):
