@@ -1,4 +1,4 @@
-from snakefmt.parser.tokens import TAB
+from snakefmt.formatter.indent import TAB
 from tests import setup_formatter
 
 

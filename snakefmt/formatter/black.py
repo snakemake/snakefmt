@@ -6,7 +6,8 @@ import black.parsing
 
 from snakefmt.config import Mode
 from snakefmt.exceptions import InvalidPython
-from snakefmt.parser.tokens import TAB, extract_line_indent
+from snakefmt.formatter.indent import TAB
+from snakefmt.parser.tokens import extract_line_indent
 
 
 def format_python(

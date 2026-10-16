@@ -8,10 +8,11 @@ from snakefmt.config import read_black_config
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.formatter.black import format_python
 from snakefmt.formatter.blocks import format_block
+from snakefmt.formatter.indent import TAB
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import CallableBlock, IfForTryWithBlock, PythonBlock
 from snakefmt.parser.snakefile import Snakefile
-from snakefmt.parser.tokens import TAB, TokenIterator, is_fstring_start
+from snakefmt.parser.tokens import TokenIterator, is_fstring_start
 
 if sys.version_info >= (3, 12):
     from snakefmt.parser.tokens import consume_fstring

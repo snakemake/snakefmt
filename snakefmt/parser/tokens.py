@@ -2,10 +2,9 @@ import ast
 import sys
 import tokenize
 from tokenize import TokenInfo
-from typing import Iterable, Iterator, NamedTuple, Optional
+from typing import Iterator, NamedTuple, Optional
 
 from snakefmt.exceptions import UnsupportedSyntax
-from snakefmt.types import TAB
 
 
 def line_nb(token: TokenInfo) -> str:
@@ -313,14 +312,6 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
         else:
             newlines.append(line)
     return newlines
-
-
-def deindent_lines(old_indent: str, target_indent_level: int, lines: Iterable[str]):
-    target_indent = TAB * target_indent_level
-    return [
-        target_indent + line[len(old_indent) :] if line.startswith(old_indent) else line
-        for line in lines
-    ]
 
 
 def validate_parameters(tokens: list[TokenInfo]):

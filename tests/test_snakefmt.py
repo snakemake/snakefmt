@@ -9,7 +9,7 @@ import pytest
 from black.files import get_gitignore
 
 from snakefmt.diff import ExitCode
-from snakefmt.parser.tokens import TAB
+from snakefmt.formatter.indent import TAB
 from snakefmt.snakefmt import construct_regex, get_snakefiles_in_dir, main
 
 

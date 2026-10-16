@@ -15,7 +15,8 @@ from snakefmt.exceptions import (
     NoParametersError,
     TooManyParameters,
 )
-from snakefmt.parser.tokens import TAB, TokenIterator
+from snakefmt.formatter.indent import TAB
+from snakefmt.parser.tokens import TokenIterator
 from tests import setup_formatter
 
 

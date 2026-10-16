@@ -4,10 +4,11 @@ from typing import Iterable
 from snakefmt.config import Mode
 from snakefmt.formatter import black
 from snakefmt.formatter.blocks import format_block
+from snakefmt.formatter.indent import TAB, deindent_lines
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import Block, ColonBlock
 from snakefmt.parser.snakemake_blocks import SnakemakeBlock
-from snakefmt.parser.tokens import TAB, deindent_lines, tokens2linestrs
+from snakefmt.parser.tokens import tokens2linestrs
 
 
 def format_segments(

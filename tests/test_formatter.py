@@ -12,9 +12,9 @@ import black.parsing
 import pytest
 
 from snakefmt.exceptions import InvalidPython
+from snakefmt.formatter.indent import TAB
 from snakefmt.parser.grammar import global_snakemake_subautomata
 from snakefmt.parser.snakemake_blocks import SnakemakeInlineArgumentBlock
-from snakefmt.parser.tokens import TAB
 from tests import setup_formatter
 
 COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments

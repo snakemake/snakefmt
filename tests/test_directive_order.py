@@ -13,8 +13,8 @@ import pytest
 
 from snakefmt.directive_order import ACTION_DIRECTIVES as GRAMMAR_ACTIONS
 from snakefmt.directive_order import MODULE_ORDER, RULE_ORDER
+from snakefmt.formatter.indent import TAB
 from snakefmt.parser.grammar import Module, Rule, UseRule
-from snakefmt.parser.tokens import TAB
 from snakefmt.snakefmt import main
 from tests import setup_formatter
 from tests.directive_order_fixtures import (

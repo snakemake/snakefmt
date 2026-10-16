@@ -3,8 +3,7 @@ import subprocess
 import uuid
 
 from snakefmt.exceptions import InvalidShell
-
-TAB = "    "
+from snakefmt.formatter.indent import TAB
 
 # Matches `{{...}}` escaped brace pairs — these encode literal shell `{...}` after
 # Snakemake's str.format() render. Masked FIRST so the single-brace pattern doesn't
