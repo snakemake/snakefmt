@@ -10,11 +10,12 @@ from snakefmt.formatter.indent import TAB, deindent_lines
 from snakefmt.formatter.shell import format_python_string_literal
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import Block, PythonBlock
-from snakefmt.parser.grammar import Module, Rule, SnakemakeDirectiveBlock, UseRule
+from snakefmt.parser.grammar import Module, Rule, UseRule
 from snakefmt.parser.snakemake_blocks import (
     PythonArgumentsBlock,
     SnakemakeArgumentsBlock,
     SnakemakeBlock,
+    SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
     SnakemakeInlineArgumentBlock,
 )
