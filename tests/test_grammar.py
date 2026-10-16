@@ -6,12 +6,7 @@ snakemake grammar.
 
 from snakemake import parser
 
-from snakefmt.parser.directives import (
-    Module,
-    Rule,
-    UseRule,
-    global_snakemake_subautomata,
-)
+from snakefmt.parser.grammar import Module, Rule, UseRule, global_snakemake_subautomata
 
 
 class TestCompleteness:

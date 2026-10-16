@@ -8,16 +8,15 @@ from snakefmt.config import Mode
 from snakefmt.formatter import black
 from snakefmt.formatter.shell import format_python_string_literal
 from snakefmt.formatter.state import FormatState
-from snakefmt.parser.blocks import (
-    Block,
+from snakefmt.parser.blocks import Block, PythonBlock
+from snakefmt.parser.grammar import Module, Rule, SnakemakeDirectiveBlock, UseRule
+from snakefmt.parser.snakemake_blocks import (
     PythonArgumentsBlock,
-    PythonBlock,
     SnakemakeArgumentsBlock,
     SnakemakeBlock,
     SnakemakeExecutableBlock,
     SnakemakeInlineArgumentBlock,
 )
-from snakefmt.parser.directives import Module, Rule, SnakemakeDirectiveBlock, UseRule
 from snakefmt.parser.tokens import TAB, deindent_lines, tokens2linestrs
 
 

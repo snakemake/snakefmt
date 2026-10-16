@@ -14,7 +14,7 @@ from typing import Any, Optional, Sequence
 
 import click
 
-from snakefmt.parser.directives import Module, Rule, UseRule
+from snakefmt.parser.grammar import Module, Rule, UseRule
 
 # Directives that run something. Snakemake allows a single action per rule and no
 # directive may follow it, so the actions always come last.

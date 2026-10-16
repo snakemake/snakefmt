@@ -2,7 +2,7 @@ import tokenize
 from typing import Callable
 
 from snakefmt.parser.blocks import Block, python_subautomata
-from snakefmt.parser.directives import global_snakemake_subautomata
+from snakefmt.parser.grammar import global_snakemake_subautomata
 from snakefmt.parser.tokens import TokenIterator
 
 
@@ -26,12 +26,12 @@ class Snakefile(Block):
     def compilation(self):
         raise NotImplementedError
 
-
-def parse(source: str | Callable[[], str], name: str = "<string>"):
-    if isinstance(source, str):
-        tokens = tokenize.generate_tokens(
-            iter(source.splitlines(keepends=True)).__next__
-        )
-    else:
-        tokens = tokenize.generate_tokens(source)
-    return Snakefile(0, TokenIterator(name, tokens), [])
+    @classmethod
+    def parse(cls, source: str | Callable[[], str], name: str = "<string>"):
+        if isinstance(source, str):
+            tokens = tokenize.generate_tokens(
+                iter(source.splitlines(keepends=True)).__next__
+            )
+        else:
+            tokens = tokenize.generate_tokens(source)
+        return cls(0, TokenIterator(name, tokens), [])

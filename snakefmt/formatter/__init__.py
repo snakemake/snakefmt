@@ -1,6 +1,6 @@
 from snakefmt.config import Mode, read_black_config
 from snakefmt.formatter.state import FormatState
-from snakefmt.parser.snakefile import Snakefile, parse
+from snakefmt.parser.snakefile import Snakefile
 
 
 class Formatter:
@@ -26,7 +26,7 @@ class Formatter:
         directive_order: tuple[str, ...] = (),
         module_directive_order: tuple[str, ...] = (),
     ):
-        snakefile = parse(snake)
+        snakefile = Snakefile.parse(snake)
         mode = read_black_config(black_config_file) or Mode()
         if line_length is not None:
             mode.line_length = line_length

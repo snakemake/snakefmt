@@ -5,7 +5,8 @@ from snakefmt.config import Mode
 from snakefmt.formatter import black
 from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.state import FormatState
-from snakefmt.parser.blocks import Block, ColonBlock, SnakemakeBlock
+from snakefmt.parser.blocks import Block, ColonBlock
+from snakefmt.parser.snakemake_blocks import SnakemakeBlock
 from snakefmt.parser.tokens import TAB, deindent_lines, tokens2linestrs
 
 

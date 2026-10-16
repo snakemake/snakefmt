@@ -10,9 +10,8 @@ from snakefmt.exceptions import (
     SyntaxFormError,
     UnsupportedSyntax,
 )
-from snakefmt.parser.blocks import (
-    NamedBlock,
-    PythonBlock,
+from snakefmt.parser.blocks import NamedBlock, PythonBlock
+from snakefmt.parser.snakemake_blocks import (
     SnakemakeArgumentsBlock,
     SnakemakeBlock,
     SnakemakeExecutableBlock,

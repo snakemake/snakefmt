@@ -9,8 +9,8 @@ from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.formatter.black import format_python
 from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.state import FormatState
-from snakefmt.parser.blocks import IfForTryWithBlock, NoSnakemakeBlock, PythonBlock
-from snakefmt.parser.snakefile import Snakefile, parse
+from snakefmt.parser.blocks import CallableBlock, IfForTryWithBlock, PythonBlock
+from snakefmt.parser.snakefile import Snakefile
 from snakefmt.parser.tokens import TAB, TokenIterator, is_fstring_start
 
 if sys.version_info >= (3, 12):
@@ -265,7 +265,7 @@ class TestBlock:
     )
 
     def test_parse_python_block(self):
-        block = parse(self.example1)
+        block = Snakefile.parse(self.example1)
         assert "".join(block.full_linestrs) == self.example1
         assert isinstance(block, Snakefile)
         assert not block.head_lines
@@ -282,7 +282,7 @@ class TestBlock:
             "",
         ]
         fun1 = block.body_blocks[0]
-        assert isinstance(fun1, NoSnakemakeBlock)
+        assert isinstance(fun1, CallableBlock)
         assert [i.string for i in fun1.colon_line.body] == ["def", "f", "(", ")", ":"]
         assert not fun1.tail_noncoding
         assert ["".join(i.full_linestrs) for i in fun1.body_blocks] == [
@@ -347,7 +347,7 @@ class TestBlock:
     )
 
     def test_parse_snakefile(self):
-        block = parse(self.example2)
+        block = Snakefile.parse(self.example2)
         assert "".join(block.full_linestrs) == self.example2
         assert isinstance(block, Snakefile)
         assert ["".join(i.full_linestrs) for i in block.body_blocks] == [
@@ -427,7 +427,7 @@ class TestBlockFormat:
     )
 
     def test_format_python_block(self):
-        block = parse(self.example1)
+        block = Snakefile.parse(self.example1)
         # fun11.formatted(mode, state)
         assert "".join(block.full_linestrs) == self.example1
         assert [list(i.full_linestrs) for i in block.body_blocks] == [
@@ -532,7 +532,7 @@ class TestBlockFormat:
 
     def test_format_snakefile(self):
         code, formatted = self.example2
-        block = parse(code)
+        block = Snakefile.parse(code)
         assert FormatState().format(block, mode).replace("\n", "<\n") == (
             formatted
         ).replace("\n", "<\n")

@@ -1,27 +1,15 @@
 import tokenize
 from abc import ABC, abstractmethod
 from tokenize import TokenInfo
-from typing import Iterable, Iterator, Mapping, NamedTuple
+from typing import Iterator, Mapping, NamedTuple
 
-from snakefmt.exceptions import (
-    ColonError,
-    InvalidParameter,
-    InvalidParameterSyntax,
-    NewlineError,
-    NoParametersError,
-    NotAnIdentifierError,
-    TooManyParameters,
-    UnsupportedSyntax,
-)
+from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.tokens import (
     LogicalLine,
     TokenIterator,
-    effective,
     extract_line_indent,
     is_op,
-    line_nb,
     tokens2linestrs,
-    validate_parameters,
 )
 
 
@@ -344,7 +332,7 @@ class ColonBlock(Block):
         return token.type == tokenize.NAME and token.string == self.keyword
 
 
-class NoSnakemakeBlock(ColonBlock):
+class CallableBlock(ColonBlock):
     """A block starting with `def` or `class`, and only has a single body PythonBlock
     Also contain heading decorators (`@` lines)
 
@@ -365,8 +353,8 @@ class NoSnakemakeBlock(ColonBlock):
         raise NotImplementedError
 
 
-function_class_blocks: dict[str, type[NoSnakemakeBlock]] = {
-    i.lower(): type(i.capitalize(), (NoSnakemakeBlock,), {}) for i in ("def", "class")
+function_class_blocks: dict[str, type[CallableBlock]] = {
+    i.lower(): type(i.capitalize(), (CallableBlock,), {}) for i in ("def", "class")
 }
 
 
@@ -413,7 +401,7 @@ class MatchBlock(ColonBlock):
         raise NotImplementedError
 
 
-class AsyncBlock(NoSnakemakeBlock): ...
+class AsyncBlock(CallableBlock): ...
 
 
 python_subautomata: dict[str, type[ColonBlock]] = {
@@ -438,303 +426,3 @@ class NamedBlock(ColonBlock):
             block=self,
         )
         yield this_symbol
-
-
-class SnakemakeBlock(ColonBlock):
-    subautomata = {}
-    deprecated = {}
-    nameable = False
-    """an optional identifier may precede the colon (`storage a:`, `input with:`)"""
-
-    @property
-    def start_token(self):
-        token = super().start_token
-        assert token is not None, "SnakemakeBlock should have a start_token"
-        return token
-
-    def components(self) -> Iterator[DocumentSymbol]:
-        yield from []
-
-    def validate_head(self, allow_suffix=False):
-        """A keyword head is `<keyword> [<name>]:`, then a newline."""
-        body = self.colon_line.body
-        keyword = body[0].string
-        for icolon, token in enumerate(body[1:], 1):
-            if is_op(":", token):
-                break
-        else:
-            ColonError(line_nb(body[-1]), body[-1].string, keyword)
-        if icolon > 1:
-            name = body[1]
-            if self.nameable:
-                if name.type != tokenize.NAME:
-                    NotAnIdentifierError(line_nb(name), name.string, keyword)
-                if icolon > 2:
-                    name = body[2]
-                else:
-                    name = None
-            if name is not None:
-                if name.string == "with":
-                    # a `with` suffix, accepted only where `nameable` marks it so
-                    raise InvalidParameterSyntax(
-                        f"'{keyword} with:' is not allowed in this context."
-                    )
-                else:
-                    ColonError(line_nb(name), name.string, keyword)
-        if not allow_suffix:
-            for i in range(icolon + 1, len(body)):
-                token = body[i]
-                if effective(token):
-                    NewlineError(line_nb(token), body[0].string)
-
-    def consume(self, tokens):
-        """Consume tokens until the end of the block head line (the line with `:`)"""
-        self.validate_head()
-        super().consume(tokens)
-
-    def head_source_line(self) -> str:
-        """Original source line of the head, for `# fmt: skip` detection."""
-        return self.colon_line.body[0].line
-
-    def raw_source_linestrs(self):
-        """Source lines of the block, excluding leading (head_noncoding) comments."""
-        yield self.head_source_line()
-        for block in self.body_blocks:
-            yield from block.full_linestrs
-
-    def compilation(self):
-        raise NotImplementedError
-
-
-class Argument:
-    """A single parameter.
-
-    `tokens` are the parameter's expression tokens, ending with a top-level
-    comma when the source had one. `tail` holds the comment(s) and newline that
-    trail it (e.g. `"a",  # comment`), so `tokens` stays a clean expression.
-    """
-
-    def __init__(self, tokens: list[TokenInfo], tail: list[TokenInfo] | None = None):
-        self.tokens = tokens
-        self.tail = tail if tail is not None else []
-        self.is_keyword = self._is_keyword()
-
-    def _is_keyword(self) -> bool:
-        body = self.tokens
-        if not body:
-            return False
-        first = body[0]
-        for token in body[1:]:
-            if token.string.strip() and not token.string.startswith("#"):
-                if is_op("=", token):
-                    if first.type != tokenize.NAME:
-                        raise InvalidParameterSyntax(
-                            tokenize.untokenize(self.tokens).strip()
-                        )
-                    return True
-                break
-        if is_op("**", first):
-            return True
-        if is_op("=", first):
-            raise InvalidParameterSyntax(tokenize.untokenize(self.tokens).strip())
-        return False
-
-    @property
-    def has_comma(self) -> bool:
-        return bool(self.tokens) and is_op(",", self.tokens[-1])
-
-    @classmethod
-    def from_token(cls, tokens: Iterable[TokenInfo]):
-        """Split parameter tokens into `Argument`s.
-
-        Parameters are delimited by top-level commas. Each region is handed to
-        `_munch` (whole first, then maximal munch by lines). Comment-only lines
-        belong to the previous argument, or to `head_noncoding` if none.
-        """
-        tokeniter = TokenIterator("", iter(tokens))
-        process = True
-        while process:
-            metaarg: list[list[TokenInfo]] = []
-            try:
-                while True:
-                    component = tokeniter.next_component()
-                    metaarg.append(component)
-                    if len(component) == 1 and is_op(",", component[0]):
-                        break
-            except UnsupportedSyntax:
-                process = False
-            if metaarg:
-                yield from cls._munch(metaarg)
-
-    @classmethod
-    def _munch(cls, region: list[list[TokenInfo]]):
-        """Split one comma-delimited region into `Argument`s.
-
-        The whole region is tried first, so implicit string concatenation and
-        operator continuations stay a single parameter. Only if the whole region
-        is not one valid argument is it split by lines, taking the longest valid
-        prefix each time (maximal munch).
-        """
-        current: list[TokenInfo] = []
-        lines = [current]
-        for component in region:
-            if len(component) == 1:
-                (token,) = component
-                if not effective(token):
-                    if token.type in (tokenize.NL, tokenize.NEWLINE):
-                        if current:
-                            current += component
-                            current = []
-                            lines.append(current)
-                    # skip
-                    continue
-            current += component
-        while lines:
-            n = len(lines)
-            while n:
-                cand = [t for i in range(n) for t in lines[i]]
-                if validate_parameters(cand):
-                    if cand:
-                        yield cls(cand)
-                    lines = lines[n:]
-                    break
-                n -= 1
-            else:
-                raise InvalidParameterSyntax(
-                    tokenize.untokenize([t for line in lines for t in line]).strip()
-                )
-
-
-class PythonArgumentsBlock(PythonBlock):
-    """Manage a directive's indent block and the parent's post-colon content,
-    turning both into individual `Argument` parameters.
-    """
-
-    def __init__(
-        self,
-        deindent_level,
-        tokens,
-        lines=None,
-        post_colon: list[TokenInfo] | None = None,
-    ):
-        super().__init__(deindent_level, tokens, lines)
-        self.post_colon = list(post_colon or [])
-        self.params = list(Argument.from_token(self.iter))
-
-    @property
-    def iter(self):
-        """All parameter tokens: post-colon content and the indent body."""
-        yield from self.post_colon
-        for line in self.head_lines:
-            yield from line.iter
-
-
-class SnakemakeArgumentsBlock(SnakemakeBlock):
-    """Block of snakemake directives, such as `input:`, `output:`, etc.
-    The content is one PythonArgument or multiple PythonArgument seperated by comma,
-    """
-
-    Argument = PythonArgumentsBlock
-
-    @property
-    def argument(self):
-        assert len(self.body_blocks) == 1
-        (block,) = self.body_blocks
-        assert isinstance(block, self.Argument)
-        return block
-
-    def consume(self, tokens):
-        """Split the parameter content into one `Argument` per parameter.
-
-        The tokens after the colon (both inline and indented) are taken out of
-        the head line and split into parameters, so each token appears exactly
-        once. The original head line is kept as text for `fmt: off` verbatim
-        output.
-        """
-        self.validate_head(allow_suffix=True)
-        self.consume_body(tokens)
-
-    def consume_body(self, tokens):
-        colon = next(
-            i for i, token in enumerate(self.colon_line.body) if is_op(":", token)
-        )
-        post_colon = self.colon_line.body[colon + 1 :]
-        # comments right after the colon belong to the head line, not a parameter
-        while post_colon and post_colon[0].type == tokenize.COMMENT:
-            post_colon.pop(0)
-        peeked: list[TokenInfo] = []
-        for token in tokens:
-            peeked.append(token)
-            if token.type != tokenize.NL and token.type != tokenize.COMMENT:
-                break
-        tokens.denext(*reversed(peeked))
-        if peeked[-1].type != tokenize.INDENT:
-            lines, tail = [], []
-        else:
-            lines, tail = tokens.next_block()
-        block = self.Argument(self.deindent_level + 1, tokens, lines, post_colon)
-        block.extend_tail_noncoding(tail)
-        self.body_blocks = [block]
-
-    trailing_comma = True
-    """whether the formatted list ends with a comma"""
-
-    def compilation(self):
-        raise NotImplementedError
-
-
-class SnakemakeUnnamedArgumentsBlock(SnakemakeArgumentsBlock):
-
-    def consume_body(self, tokens):
-        super().consume_body(tokens)
-        self.check_parameters()
-
-    def check_parameters(self):
-        if any(param.is_keyword for param in self.argument.params):
-            token = self.start_token
-            raise InvalidParameterSyntax(
-                f"{line_nb(token)}{token.string} definition "
-                f"does not accept key/value parameters"
-            )
-
-
-class SnakemakeUnnamedArgumentBlock(SnakemakeUnnamedArgumentsBlock):
-    """Only one unnamed parameter; nothing splits it, so a string may be
-    continued over several lines (`shell: "a"\n"b"`). No trailing comma.
-    """
-
-    trailing_comma = False
-
-    def check_parameters(self):
-        if not self.argument.params:
-            token = self.start_token
-            raise NoParametersError(f"{line_nb(token)}In {token.string} definition.")
-        if len(self.argument.params) > 1:
-            token = self.start_token
-            raise TooManyParameters(
-                f"{line_nb(token)}{token.string} definition expects a single parameter"
-            )
-        if self.argument.params[0].is_keyword:
-            token = self.start_token
-            raise InvalidParameter(
-                f"{line_nb(token)}{token.string} definition requires a "
-                f"positional (not key/value) parameter"
-            )
-
-
-class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
-    """Inform formatter to try to merge the inline argument into the head line.
-    If the line is too long after merging, then keep them separate.
-    """
-
-
-class SnakemakeExecutableBlock(SnakemakeBlock):
-    """Block of snakemake directives, such as `run:`, `onstart:`, etc.
-    The content is pure python, and must start from the next line after the colon.
-    """
-
-    def consume_body(self, tokens):
-        lines, tail_noncoding = tokens.next_block()
-        executable = PythonBlock(self.deindent_level + 1, tokens, lines)
-        executable.extend_tail_noncoding(tail_noncoding)
-        self.body_blocks.append(executable)
