@@ -46,8 +46,8 @@ def _line_nb(token: TokenInfo) -> str:
     return f"L{token.start[0]}: "
 
 
-def _is_colon(token: TokenInfo | None) -> bool:
-    return token is not None and token.type == tokenize.OP and token.string == ":"
+def _is_op(op: str, token: TokenInfo):
+    return token.type == tokenize.OP and token.string == op
 
 
 def _validate_parameters(tokens: list[TokenInfo]):
@@ -590,7 +590,6 @@ class Block(ABC):
 
     def extend_tail_noncoding(self, tokens: list[TokenInfo]):
         self.tail_noncoding.extend(tokens)
-        return []
 
     @abstractmethod
     def consume(self, tokens: TokenIterator) -> None:
@@ -696,22 +695,21 @@ class Block(ABC):
 
     @property
     def head_linestrs(self):
-        return [i for line in self.head_lines for i in line.linestrs]
+        for line in self.head_lines:
+            yield from line.linestrs
 
     @property
-    def full_linestrs(self) -> list[str]:
+    def full_linestrs(self):
         """return the code splited by lines, but should keep multiline-string
           or multiline-f-string complete,
         to make trimming and reformatting easier.
 
         Should and Only should be rewrite for pure python blocks.
         """
-        lines = (
-            self.head_linestrs
-            + [line for block in self.body_blocks for line in block.full_linestrs]
-            + tokens2linestrs(iter(self.tail_noncoding))
-        )
-        return lines
+        yield from self.head_linestrs
+        for block in self.body_blocks:
+            yield from block.full_linestrs
+        yield from tokens2linestrs(iter(self.tail_noncoding))
 
     def components(self) -> "Iterator[DocumentSymbol]":
         """
@@ -762,8 +760,8 @@ class Block(ABC):
         # comment fmt directives in head_linestrs
         #  will effect on post blocks of the same indent,
         # so should be updated during the parent body_blocks iteration.
-        if self.head_linestrs:
-            yield "".join(self.head_linestrs), None
+        for line in self.head_linestrs:
+            yield line, None
         last_keyword = ""
         line = ""
         state = state.reset_sort()
@@ -877,7 +875,7 @@ class ColonBlock(Block):
         last_line_tokens = []
         while True:
             component = token_iter.next_component()
-            if [(i.type, i.string) for i in component] == [(tokenize.OP, ":")]:
+            if len(component) == 1 and _is_op(":", *component):
                 break
             last_line_tokens.extend(component)
         (colon_token,) = component
@@ -1009,6 +1007,10 @@ def deindent_lines(old_indent: str, target_indent_level: int, lines: Iterable[st
     ]
 
 
+def _effective(token: TokenInfo):
+    return token.type != tokenize.COMMENT and token.string.strip()
+
+
 class SnakemakeBlock(ColonBlock):
     subautomata = {}
     deprecated = {}
@@ -1029,7 +1031,7 @@ class SnakemakeBlock(ColonBlock):
         body = self.colon_line.body
         keyword = body[0].string
         for icolon, token in enumerate(body[1:], 1):
-            if _is_colon(token):
+            if _is_op(":", token):
                 break
         else:
             ColonError(_line_nb(body[-1]), body[-1].string, keyword)
@@ -1053,7 +1055,7 @@ class SnakemakeBlock(ColonBlock):
         if not allow_suffix:
             for i in range(icolon + 1, len(body)):
                 token = body[i]
-                if token.type != tokenize.COMMENT and token.string.strip():
+                if _effective(token):
                     NewlineError(_line_nb(token), body[0].string)
 
     def consume(self, tokens):
@@ -1188,14 +1190,6 @@ class SnakemakeBlock(ColonBlock):
         raise NotImplementedError
 
 
-def _is_comma(token: TokenInfo) -> bool:
-    return token.type == tokenize.OP and token.string == ","
-
-
-def _is_assign(token: TokenInfo) -> bool:
-    return token.type == tokenize.OP and token.string == "="
-
-
 class Argument:
     """A single parameter.
 
@@ -1216,28 +1210,22 @@ class Argument:
         first = body[0]
         for token in body[1:]:
             if token.string.strip() and not token.string.startswith("#"):
-                if _is_assign(token):
+                if _is_op("=", token):
                     if first.type != tokenize.NAME:
                         raise InvalidParameterSyntax(
                             tokenize.untokenize(self.tokens).strip()
                         )
                     return True
                 break
-        if first.type == tokenize.OP and first.string == "**":
+        if _is_op("**", first):
             return True
-        if _is_assign(first):
+        if _is_op("=", first):
             raise InvalidParameterSyntax(tokenize.untokenize(self.tokens).strip())
         return False
 
     @property
     def has_comma(self) -> bool:
-
-        return bool(self.tokens) and _is_comma(self.tokens[-1])
-
-    @property
-    def code(self) -> list[TokenInfo]:
-        """The expression tokens, i.e. `tokens` without a trailing comma."""
-        return self.tokens[:-1] if self.has_comma else self.tokens
+        return bool(self.tokens) and _is_op(",", self.tokens[-1])
 
     @classmethod
     def from_token(cls, tokens: Iterable[TokenInfo]):
@@ -1255,7 +1243,7 @@ class Argument:
                 while True:
                     component = tokeniter.next_component()
                     metaarg.append(component)
-                    if len(component) == 1 and _is_comma(component[0]):
+                    if len(component) == 1 and _is_op(",", component[0]):
                         break
             except UnsupportedSyntax:
                 process = False
@@ -1276,7 +1264,7 @@ class Argument:
         for component in region:
             if len(component) == 1:
                 (token,) = component
-                if token.type == tokenize.COMMENT or not token.string.strip():
+                if not _effective(token):
                     if token.type in (tokenize.NL, tokenize.NEWLINE):
                         if current:
                             current += component
@@ -1347,6 +1335,7 @@ class PythonArgumentsBlock(PythonBlock):
             body_blocks: indent body blocks,
                     e.g. the block of `balabal2` in the above example
         """
+        first = next(self.iter)
         lines: dict[int, str] = {}
         for token in self.iter:
             lines.update(
@@ -1370,7 +1359,7 @@ class PythonArgumentsBlock(PythonBlock):
 
         # Collect, in source order, everything between the previous parameter's
         # end and this one's end (so nothing in between is lost).
-        start = next(self.iter).start
+        start = first.start
         slices: list[tuple[Argument, str]] = []
         for param in self.params:
             if not param.tokens:
@@ -1398,7 +1387,7 @@ class PythonArgumentsBlock(PythonBlock):
             mode,
             deindent_level,
             partial="(",
-            start_token=next(self.iter),
+            start_token=first,
         )
 
 
@@ -1429,7 +1418,7 @@ class SnakemakeArgumentsBlock(SnakemakeBlock):
 
     def consume_body(self, tokens):
         colon = next(
-            i for i, token in enumerate(self.colon_line.body) if _is_colon(token)
+            i for i, token in enumerate(self.colon_line.body) if _is_op(":", token)
         )
         post_colon = self.colon_line.body[colon + 1 :]
         # comments right after the colon belong to the head line, not a parameter
@@ -1676,7 +1665,7 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
                 token
                 for line in block.head_lines
                 for token in line.iter
-                if token.type != tokenize.COMMENT and token.string.strip()
+                if _effective(token)
             ]
             if len(code) == 1 and code[0].type == tokenize.STRING:
                 no_content = False
@@ -1713,7 +1702,7 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
         tail_noncoding: list[str] = []
         indent = TAB * (self.deindent_level + 1)
         order = state.module_order if isinstance(self, Module) else state.rule_order
-        for i, block in enumerate(self.body_blocks):
+        for block in self.body_blocks:
             assert not tail_noncoding, "no tail_noncoding before body_blocks"
             if isinstance(block, PythonBlock):
                 formatted.append(block.formatted(mode))
@@ -1780,7 +1769,7 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
             else:
                 directive += block.formatted(mode, state)
                 if state.sort_directives:
-                    directives[block.keyword] = directive
+                    directives[block.start_token.string] = directive
                 else:
                     assert not directives, "Already flushed once fmt: off[sort]"
                     formatted.append(directive)
@@ -1984,24 +1973,25 @@ class UseRule(_Rule):
         # exclude: comma separated rule names after `exclude`
         token_length = len(tokens)
         exclude: list[str] = []
-        if i < token_length and tokens[i] == "exclude":
-            exclude.append(tokens[i + 1])
-            i += 2
-            # `exclude` may end the directive, so guard the continuation
-            while i < token_length and tokens[i] == ",":
+        rename = None
+        try:
+            # exclude: comma separated rule names after `exclude`
+            if i < token_length and tokens[i] == "exclude":
                 exclude.append(tokens[i + 1])
                 i += 2
-            if not all(is_identifier(name) for name in exclude):
-                fail()
-        # modifier: the alias after `as`
-        if i < token_length and tokens[i] == "as":
-            i += 1
-            rename = tokens[i]
-            if not is_glob(rename):
-                fail()
-            i += 1
-        else:
-            rename = None
+                while i < token_length and tokens[i] == ",":
+                    exclude.append(tokens[i + 1])
+                    i += 2
+                if not all(is_identifier(name) for name in exclude):
+                    fail()
+            # modifier: the alias after `as`
+            if i < token_length and tokens[i] == "as":
+                rename = tokens[i + 1]
+                if not is_glob(rename):
+                    fail()
+                i += 2
+        except IndexError:
+            fail()
 
         if "".join(tokens[i:]) not in ("", "with:"):
             fail()
@@ -2022,7 +2012,7 @@ class UseRule(_Rule):
             if isinstance(block, SnakemakeArgumentsBlock):
                 body = block.colon_line.body
                 # nameable children here take `with`, nothing else
-                if not _is_colon(body[1]) and body[1].string != "with":
+                if not _is_op(":", body[1]) and body[1].string != "with":
                     ColonError(_line_nb(body[1]), body[1].string, body[0].string)
 
     def formatted(self, mode, state):

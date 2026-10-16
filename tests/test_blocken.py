@@ -436,7 +436,7 @@ class TestBlockFormat:
         block = parse(self.example1)
         # fun11.formatted(mode, state)
         assert "".join(block.full_linestrs) == self.example1
-        assert [i.full_linestrs for i in block.body_blocks] == [
+        assert [list(i.full_linestrs) for i in block.body_blocks] == [
             [
                 "\n",
                 "@decorator\n",
