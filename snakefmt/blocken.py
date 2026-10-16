@@ -1692,6 +1692,9 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
             )
         self.body_blocks = blocks
 
+    @abstractmethod
+    def get_order(self, state: FormatState) -> tuple[str, ...]: ...
+
     def format_body(self, mode, state, post_colon):
         """Sort directives in the order of subautomata,
         and format them together with the head line.
@@ -1701,7 +1704,7 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
         directives: dict[str, str] = {}
         tail_noncoding: list[str] = []
         indent = TAB * (self.deindent_level + 1)
-        order = state.module_order if isinstance(self, Module) else state.rule_order
+        order = self.get_order(state)
         for block in self.body_blocks:
             assert not tail_noncoding, "no tail_noncoding before body_blocks"
             if isinstance(block, PythonBlock):
@@ -1787,11 +1790,13 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
     def sort_directives(cls, directives: dict[str, str], order: tuple[str, ...] = ()):
         """Yield the directives sorted by `order`, then by the subautomata order
         for any directive not listed. Clears `directives`."""
-        seen: set[str] = set()
-        for keyword in (*order, *cls.subautomata):
-            if keyword not in seen and keyword in directives:
-                seen.add(keyword)
+        for keyword in order:
+            if keyword in directives:
                 yield directives.pop(keyword)
+        if directives:
+            for keyword in cls.subautomata:
+                if keyword in directives:
+                    yield directives.pop(keyword)
         assert not directives, f"Unknown directives: {', '.join(directives)}"
 
 
@@ -1824,6 +1829,9 @@ class Module(NamedBlock, SnakemakeDirectiveBlock):
 
     @_register()
     class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
+
+    def get_order(self, state):
+        return state.module_order
 
 
 class _Rule(NamedBlock, SnakemakeDirectiveBlock):
@@ -1907,6 +1915,9 @@ class _Rule(NamedBlock, SnakemakeDirectiveBlock):
     class Message(SnakemakeUnnamedArgumentBlock): ...
 
     deprecated = {"version": "Use conda or container directive instead (see docs)."}
+
+    def get_order(self, state):
+        return state.rule_order
 
 
 @_register("use")
@@ -2133,18 +2144,9 @@ class GlobalBlock(Block):
     so tail_noncoding always updated to the last body_block
     """
 
-    __slots__ = (
-        "mode",
-        "sort_directives",
-        "format_shell",
-        "directive_order",
-        "module_directive_order",
-    )
+    __slots__ = ("mode", "state")
     mode: Mode
-    sort_directives: bool
-    format_shell: bool
-    directive_order: tuple[str, ...]
-    module_directive_order: tuple[str, ...]
+    state: FormatState
 
     subautomata = {**python_subautomata, **global_snakemake_subautomata}
 
@@ -2154,31 +2156,19 @@ class GlobalBlock(Block):
     def consume(self, tokens):
         self.body_blocks = self.consume_subblocks(tokens)
 
-    def get_formatted(
-        self,
-        mode: Mode | None = None,
-        sort_directives: bool | None = None,
-        format_shell: bool | None = None,
-    ):
+    def get_formatted(self, mode: Mode | None = None):
         if mode is None:
             mode = getattr(self, "mode", None)
             if mode is None:
                 raise ValueError("Mode should be provided for formatting")
-        if sort_directives is None:
-            sort_directives = getattr(self, "sort_directives", None)
-        if format_shell is None:
-            format_shell = bool(getattr(self, "format_shell", False))
-        state = FormatState(
-            sort_directives=sort_directives or None,
-            format_shell=format_shell,
-            rule_order=tuple(getattr(self, "directive_order", ()) or ()),
-            module_order=tuple(getattr(self, "module_directive_order", ()) or ()),
-        )
+        state = getattr(self, "state", None)
+        if state is None:
+            state = FormatState()
         # if set to None, it will not be enabled by `# fmt: on`
         python_codes: list[str] = []
         snakemake_codes: list[tuple[str, str]] = []
         last_str = ""
-        for segment, indent_proxy in self.segment2format(mode or self.mode, state):
+        for segment, indent_proxy in self.segment2format(mode, state):
             if indent_proxy is not None:
                 python_codes.append(last_str)
                 last_str = ""
@@ -2236,8 +2226,10 @@ def setup_formatter(
         mode.line_length = line_length
 
     formatter.mode = mode
-    formatter.sort_directives = sort_directives
-    formatter.format_shell = format_shell
-    formatter.directive_order = tuple(directive_order)
-    formatter.module_directive_order = tuple(module_directive_order)
+    formatter.state = FormatState(
+        sort_directives=sort_directives,
+        format_shell=format_shell,
+        rule_order=tuple(directive_order),
+        module_order=tuple(module_directive_order),
+    )
     return formatter
