@@ -186,8 +186,6 @@ def format_snakefile(snakefile: "Snakefile", mode: Mode, state: FormatState) -> 
         raw_str += python_code + snakemake_proxy
     raw_str += last_str
     formatted, *formatted_split = black.format_python(raw_str, mode).split(placeholder)
-    if len(formatted_split) != len(snakemake_codes):
-        raise ValueError("placeholder mismatch")
     final_str = formatted
     for formatted, (snakemake_code, _) in zip(formatted_split, snakemake_codes):
         final_str = final_str.rsplit("\n", 1)[0] + "\n" + snakemake_code
