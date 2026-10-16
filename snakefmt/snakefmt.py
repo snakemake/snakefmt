@@ -17,8 +17,8 @@ from snakefmt.directive_order import (
     DirectiveOrderType,
     format_effective_orders,
 )
+from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
-from snakefmt.parser.global_block import setup_formatter
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
@@ -319,7 +319,7 @@ def main(
             LogConfig.switch(str(path))
 
         try:
-            formatter = setup_formatter(
+            formatter = Formatter.setup(
                 original_content,
                 line_length=line_length,
                 sort_directives=sort_directives,

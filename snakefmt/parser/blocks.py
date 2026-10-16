@@ -136,7 +136,7 @@ class Block(ABC):
         - select subautomata to consume indent blocks
         - denext_by_indent when DEDENT out
 
-        Used in GlobalBlock and SnakemakeDirectiveBlock, to consume their body blocks.
+        Used in Snakefile and SnakemakeDirectiveBlock, to consume their body blocks.
         """
         deindent_level = self.deindent_level + int(ender_subblock)
         blocks: list[Block] = []
@@ -372,9 +372,9 @@ function_class_blocks: dict[str, type[NoSnakemakeBlock]] = {
 
 class IfForTryWithBlock(ColonBlock):
     def consume_body(self, tokens):
-        from snakefmt.parser.global_block import GlobalBlock
+        from snakefmt.parser.snakefile import Snakefile
 
-        blocks = GlobalBlock(self.deindent_level + 1, tokens, []).body_blocks
+        blocks = Snakefile(self.deindent_level + 1, tokens, []).body_blocks
         self.body_blocks.extend(blocks)
 
     def compilation(self):

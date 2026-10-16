@@ -1,7 +1,7 @@
 import logging
 
+from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
-from snakefmt.parser.global_block import setup_formatter as _setup_formatter
 
 
 def setup_formatter(
@@ -16,7 +16,7 @@ def setup_formatter(
 
     LogConfig.init(logging.DEBUG)
 
-    return _setup_formatter(
+    return Formatter.setup(
         snake,
         line_length=line_length,
         sort_directives=sort_directives,

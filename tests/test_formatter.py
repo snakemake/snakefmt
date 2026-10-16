@@ -14,8 +14,8 @@ import pytest
 from snakefmt.exceptions import InvalidPython
 from snakefmt.parser.blocks import SnakemakeInlineArgumentBlock
 from snakefmt.parser.directives import global_snakemake_subautomata
-from snakefmt.parser.global_block import setup_formatter
 from snakefmt.parser.tokens import TAB
+from tests import setup_formatter
 
 COMMENT_SPACING = "  "  # PEP8, minimum of two spaces for inline comments
 

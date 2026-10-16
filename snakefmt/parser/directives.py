@@ -23,7 +23,7 @@ from snakefmt.parser.blocks import (
 from snakefmt.parser.tokens import effective, is_op, line_nb
 
 
-def init_block_register():
+def _init_block_register():
     T = TypeVar("T", bound=SnakemakeBlock)
 
     def register_block(name: Optional[str] = None):
@@ -38,7 +38,7 @@ def init_block_register():
     return namespace, register_block
 
 
-global_snakemake_subautomata, _register = init_block_register()
+global_snakemake_subautomata, _register = _init_block_register()
 
 
 @_register()
@@ -186,7 +186,7 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
 
 @_register()
 class Module(NamedBlock, SnakemakeDirectiveBlock):
-    subautomata, _register = init_block_register()
+    subautomata, _register = _init_block_register()
 
     @_register()
     class Name(SnakemakeInlineArgumentBlock): ...
@@ -216,7 +216,7 @@ class Module(NamedBlock, SnakemakeDirectiveBlock):
 
 
 class _Rule(NamedBlock, SnakemakeDirectiveBlock):
-    subautomata, _register = init_block_register()
+    subautomata, _register = _init_block_register()
 
     @_register()
     class Name(SnakemakeUnnamedArgumentBlock): ...
@@ -421,7 +421,7 @@ class UseRule(_Rule):
 @_register()
 class Rule(_Rule):
     # Action
-    exec_subautomata, _register = init_block_register()
+    exec_subautomata, _register = _init_block_register()
 
     @_register()
     class Run(SnakemakeExecutableBlock): ...

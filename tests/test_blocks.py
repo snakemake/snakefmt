@@ -10,7 +10,7 @@ from snakefmt.formatter.black import format_python
 from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import IfForTryWithBlock, NoSnakemakeBlock, PythonBlock
-from snakefmt.parser.global_block import GlobalBlock, parse
+from snakefmt.parser.snakefile import Snakefile, parse
 from snakefmt.parser.tokens import TAB, TokenIterator, is_fstring_start
 
 if sys.version_info >= (3, 12):
@@ -267,7 +267,7 @@ class TestBlock:
     def test_parse_python_block(self):
         block = parse(self.example1)
         assert "".join(block.full_linestrs) == self.example1
-        assert isinstance(block, GlobalBlock)
+        assert isinstance(block, Snakefile)
         assert not block.head_lines
         assert not block.tail_noncoding
         assert (
@@ -349,7 +349,7 @@ class TestBlock:
     def test_parse_snakefile(self):
         block = parse(self.example2)
         assert "".join(block.full_linestrs) == self.example2
-        assert isinstance(block, GlobalBlock)
+        assert isinstance(block, Snakefile)
         assert ["".join(i.full_linestrs) for i in block.body_blocks] == [
             "rule A:\n"
             "    input:\n"
@@ -458,7 +458,9 @@ class TestBlockFormat:
             "# comment\n"
             "c = [i for j in k] if m else (lambda: None)\n"
         )
-        assert block.get_formatted(mode) == black.format_str(self.example1, mode=mode)
+        assert FormatState().format(block, mode) == black.format_str(
+            self.example1, mode=mode
+        )
 
     example2 = (
         "rule A:\n"  # L1
@@ -531,6 +533,6 @@ class TestBlockFormat:
     def test_format_snakefile(self):
         code, formatted = self.example2
         block = parse(code)
-        assert block.get_formatted(mode).replace("\n", "<\n") == (formatted).replace(
-            "\n", "<\n"
-        )
+        assert FormatState().format(block, mode).replace("\n", "<\n") == (
+            formatted
+        ).replace("\n", "<\n")
