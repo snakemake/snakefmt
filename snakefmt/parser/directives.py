@@ -1,11 +1,8 @@
-import io
 import re
 import tokenize
 from collections import OrderedDict
-from tokenize import TokenInfo
 from typing import Optional, TypeVar
 
-from snakefmt.config import Mode
 from snakefmt.exceptions import (
     ColonError,
     EmptyContextError,
@@ -13,9 +10,6 @@ from snakefmt.exceptions import (
     SyntaxFormError,
     UnsupportedSyntax,
 )
-from snakefmt.formatter import black
-from snakefmt.formatter.state import FormatState
-from snakefmt.formatter.shell import format_python_string_literal
 from snakefmt.parser.blocks import (
     NamedBlock,
     PythonBlock,
@@ -26,14 +20,7 @@ from snakefmt.parser.blocks import (
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
 )
-from snakefmt.parser.tokens import (
-    TAB,
-    deindent_lines,
-    effective,
-    is_op,
-    line_nb,
-    tokens2linestrs,
-)
+from snakefmt.parser.tokens import effective, is_op, line_nb
 
 
 def init_block_register():
@@ -196,112 +183,6 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
             )
         self.body_blocks = blocks
 
-    def directive_order(self, state: FormatState) -> tuple[str, ...]:
-        """Directive order used when sorting this block's directives."""
-        return state.rule_order
-
-    def format_body(self, mode, state, post_colon):
-        """Sort directives in the order of subautomata,
-        and format them together with the head line.
-        """
-        assert not post_colon, "Invalid inline contents"
-        formatted: list[str] = []
-        directives: dict[str, str] = {}
-        tail_noncoding: list[str] = []
-        indent = TAB * (self.deindent_level + 1)
-        order = self.directive_order(state)
-        for block in self.body_blocks:
-            assert not tail_noncoding, "no tail_noncoding before body_blocks"
-            if isinstance(block, PythonBlock):
-                formatted.append(block.formatted(mode))
-                for line in block.head_linestrs:
-                    state = state.update(line.lstrip())
-                # A blank line the user wrote between the docstring
-                # and the first directive is kept
-                if len(self.body_blocks) > 1:
-                    block = self.body_blocks[1]
-                    assert isinstance(
-                        block, SnakemakeBlock
-                    ), "Unexpected block type in snakemake keyword block"
-                    following = block.colon_line.head_noncoding
-                    if following and following[0].type == tokenize.NL:
-                        formatted.append("\n")
-                continue
-            assert isinstance(
-                block, SnakemakeBlock
-            ), "Unexpected block type in snakemake keyword block"
-            noncoding = tokens2linestrs(iter(block.colon_line.head_noncoding))
-            directive = ""
-            for line in noncoding:  # here noncoding is already formated
-                linelstrip = line.lstrip()
-                last_sort_off = state.sort_directives
-                if linelstrip:
-                    # only non-empty lines are formattable
-                    if state.found_skip(linelstrip):
-                        directive += line
-                    else:
-                        directive += indent + black.format(linelstrip, mode, 0)
-                    state = state.update(linelstrip)
-                if state.not_format:
-                    if directives:
-                        formatted.extend(self.sort_directives(directives, order))
-                    if directive:
-                        formatted.append(directive)
-                        directive = ""
-                    if not linelstrip:
-                        formatted.extend(
-                            deindent_lines(
-                                block.indent_str, self.deindent_level + 1, [line]
-                            )
-                        )
-                elif not state.sort_directives:
-                    if directives:
-                        formatted.extend(self.sort_directives(directives, order))
-                    if directive:
-                        formatted.append(directive)
-                        directive = ""
-                elif not last_sort_off:
-                    # state.sort_directives switched on, this comment is
-                    #  actually `# fmt: on[sort]` directive,
-                    # so split from next directive
-                    formatted.append(directive)
-                    directive = ""
-            if state.not_format:
-                formatted.extend(
-                    deindent_lines(
-                        block.indent_str,
-                        self.deindent_level + 1,
-                        block.raw_source_linestrs(),
-                    )
-                )
-            else:
-                directive += block.formatted(mode, state)
-                if state.sort_directives:
-                    directives[block.start_token.string] = directive
-                else:
-                    assert not directives, "Already flushed once fmt: off[sort]"
-                    formatted.append(directive)
-            if block.tail_noncoding:
-                tail_noncoding = tokens2linestrs(iter(block.tail_noncoding))
-            # no `\n` between
-        if directives:
-            formatted.extend(self.sort_directives(directives, order))
-        if tail_noncoding:
-            tail_noncoding = [i.lstrip().rstrip("\n") for i in tail_noncoding]
-            formatted.extend(f"{indent}{i}\n" for i in tail_noncoding if i)
-        return "".join(formatted)
-
-    @classmethod
-    def sort_directives(cls, directives: dict[str, str], order: tuple[str, ...] = ()):
-        """Yield the directives sorted by `order`, then by the subautomata order
-        for any directive not listed. Clears `directives`."""
-        seen: set[str] = set()
-        for keyword in (*order, *cls.subautomata):
-            if keyword not in seen and keyword in directives:
-                seen.add(keyword)
-                yield directives.pop(keyword)
-        assert not directives, f"Unknown directives: {', '.join(directives)}"
-
 
 @_register()
 class Module(NamedBlock, SnakemakeDirectiveBlock):
@@ -332,9 +213,6 @@ class Module(NamedBlock, SnakemakeDirectiveBlock):
 
     @_register()
     class Meta_Wrapper(SnakemakeUnnamedArgumentBlock): ...
-
-    def directive_order(self, state: FormatState) -> tuple[str, ...]:
-        return state.module_order
 
 
 class _Rule(NamedBlock, SnakemakeDirectiveBlock):
@@ -526,33 +404,6 @@ class UseRule(_Rule):
                 if not is_op(":", body[1]) and body[1].string != "with":
                     ColonError(line_nb(body[1]), body[1].string, body[0].string)
 
-    def formatted(self, mode, state):
-        """Allow:
-        use rule * from other_workflow exclude ruleC as other_*
-        use rule * from other_workflow exclude ruleC
-        use rule * from other_workflow as other_*
-        use rule * from other_workflow
-        use rule a,b from other_workflow
-        """
-        assert len(self.head_lines) == 1, "use directive should only have one head line"
-        head_line = tokens2linestrs(iter(self.head_lines[0].body))
-        assert len(head_line) == 1, "use directive should be single line"
-        head_bulk_line = head_line[0].split("#", 1)[0]
-        if ":" not in head_bulk_line:
-            # return quickly (also no body block here)
-            indent = TAB * self.deindent_level
-            components = head_bulk_line.strip().split()
-            formatted_head = indent + " ".join(components)
-            if "#" in head_line[0]:
-                formatted_head += "  " + black.format(
-                    "#" + head_line[0].split("#", 1)[1], mode=mode
-                ).rstrip("\n")
-            return formatted_head + "\n"
-        formatted_prior, post_colon = self.format_head(mode)
-        formatted_body = self.format_body(mode, state, post_colon)
-        formatted = [formatted_prior, formatted_body]
-        return "".join(formatted)
-
     subautomata = {**_Rule.subautomata} | {
         keyword: type(keyword, (_Rule.subautomata[keyword],), {"nameable": True})
         for keyword in (
@@ -578,41 +429,7 @@ class Rule(_Rule):
     class AbstractCmd(SnakemakeUnnamedArgumentBlock, Run): ...
 
     @_register()
-    class Shell(AbstractCmd):
-        def format_body(
-            self, mode: Mode, state: FormatState, post_colon: list[TokenInfo]
-        ) -> str:
-            """Format the body, then (if enabled) reformat its lone string
-            literal as shell code with `shfmt`.
-
-            Going through the normal body formatting first keeps surrounding
-            comments/blank lines and the trailing-comma handling; only the
-            literal itself is then swapped for its `shfmt`'ed form.
-            """
-            formatted = super().format_body(mode, state, post_colon)
-            if not state.format_shell:
-                return formatted
-            strings = [
-                token
-                for token in tokenize.generate_tokens(io.StringIO(formatted).readline)
-                if token.type == tokenize.STRING
-            ]
-            if len(strings) != 1:
-                return formatted
-            (string,) = strings
-            lines = formatted.splitlines(keepends=True)
-            start = (
-                sum(len(line) for line in lines[: string.start[0] - 1])
-                + string.start[1]
-            )
-            end = sum(len(line) for line in lines[: string.end[0] - 1]) + string.end[1]
-            return (
-                formatted[:start]
-                + format_python_string_literal(
-                    formatted[start:end], self.deindent_level + 1
-                )
-                + formatted[end:]
-            )
+    class Shell(AbstractCmd): ...
 
     @_register()
     class Script(AbstractCmd): ...

@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from tokenize import TokenInfo
 from typing import Iterable, Iterator, Mapping, NamedTuple
 
-from snakefmt.config import Mode
 from snakefmt.exceptions import (
     ColonError,
     InvalidParameter,
@@ -14,10 +13,7 @@ from snakefmt.exceptions import (
     TooManyParameters,
     UnsupportedSyntax,
 )
-from snakefmt.formatter import black
-from snakefmt.formatter.state import FormatState
 from snakefmt.parser.tokens import (
-    TAB,
     LogicalLine,
     TokenIterator,
     effective,
@@ -280,15 +276,6 @@ class PythonBlock(Block):
     def consume(self, tokens):
         "Do nothing, win"
 
-    def formatted(self, mode: Mode):
-        raw = "".join(self.full_linestrs)
-        if not raw.strip():
-            return ""
-        formatted = black.format(
-            raw, mode, self.deindent_level, start_token=self.head_lines[0].body[0]
-        )
-        return formatted
-
     def compilation(self):
         raise NotImplementedError
 
@@ -515,49 +502,6 @@ class SnakemakeBlock(ColonBlock):
         for block in self.body_blocks:
             yield from block.full_linestrs
 
-    def formatted(self, mode: Mode, state: FormatState):
-        formatted_prior, post_colon = self.format_head(mode)
-        formatted_body = self.format_body(mode, state, post_colon)
-        formatted = [formatted_prior, formatted_body]
-        return "".join(formatted)
-
-    def format_head(self, mode: Mode) -> tuple[str, list[TokenInfo]]:
-        """Format the head line, up to and including the colon.
-
-        Parameters (inline included) live in `body_blocks`, so no post-colon
-        tokens are returned; a trailing comment on the colon line is kept here.
-        """
-        indent = TAB * self.deindent_level
-        source_line = self.head_source_line()
-        if FormatState.found_skip(source_line):
-            return indent + source_line.lstrip(), []
-        prior_colon, post_colon = self.split_colon_line()
-        assert len(prior_colon) == 1, "Snakemake keywords should be in one line"
-        (head,) = prior_colon
-        components = head.strip().split()
-        formatted_head = indent + " ".join(components) + ":"
-        if self.colon_line.end_op == ":":
-            # only a single line comment or empty is possible here, add directly
-            colon_token = next(post_colon)
-            post = tokens2linestrs(post_colon.rest)
-            if post:
-                post[0] = post[0][colon_token.end[1] :]
-                fake_str = "if 1:" + "".join(post) + "   ..."
-                fake_fmt = black.format(fake_str, mode).strip()
-                formatted_head += fake_fmt.split(":", 1)[1].rsplit("\n", 1)[0]
-        return formatted_head + "\n", []
-
-    @abstractmethod
-    def format_body(
-        self, mode: Mode, state: FormatState, post_colon: list[TokenInfo]
-    ) -> str:
-        """Return the formatted body of the block,
-        mode: black mode
-        state: format state,
-        post_colon: tokens after the colon in the head line.
-            If any, must start with the colon
-        """
-
     def compilation(self):
         raise NotImplementedError
 
@@ -684,84 +628,6 @@ class PythonArgumentsBlock(PythonBlock):
         for line in self.head_lines:
             yield from line.iter
 
-    def format_post_colon(
-        self, mode: Mode, deindent_level: int, trailing_comma=True
-    ) -> str:
-        """If there is indent after the colon line,
-        even if expressions exist in that line,
-        indent body should be formatted as part of the cotent:
-            input: balabal,  # <- expression after the colon
-                balabal2     # <- indent body, should format as part of the content
-        to:
-            input:
-                balabal,
-                balabal2,
-
-        Morover, the original snakefmt allow sort positional arguments
-          before keyword arguments. Here need check, too
-
-        Input:
-            post_colon: tokens after the colon in the head line,
-                    e.g. `balabal,` in the above example
-                post_colon[0] := TokenInfo(type=NAME, string='balabal', ...)
-            body_blocks: indent body blocks,
-                    e.g. the block of `balabal2` in the above example
-        """
-        first = next(self.iter)
-        lines: dict[int, str] = {}
-        for token in self.iter:
-            lines.update(
-                zip(
-                    range(token.start[0], token.end[0] + 1),
-                    token.line.splitlines(keepends=True),
-                )
-            )
-        if not lines:
-            return ""
-
-        def source(start: tuple[int, int], end: tuple[int, int]) -> str:
-            """The block source text between two (line, col) positions, half-open."""
-            if start[0] == end[0]:
-                return lines[start[0]][start[1] : end[1]]
-            text = lines[start[0]][start[1] :]
-            for row in range(start[0] + 1, end[0]):
-                text += lines[row]
-            text += lines[end[0]][: end[1]]
-            return text
-
-        # Collect, in source order, everything between the previous parameter's
-        # end and this one's end (so nothing in between is lost).
-        start = first.start
-        slices: list[tuple[Argument, str]] = []
-        for param in self.params:
-            if not param.tokens:
-                continue
-            end = param.tokens[-1].end
-            slices.append((param, source(start, end)))
-            start = end
-
-        # positional (unnamed) before keyword
-        slices.sort(key=lambda param_text: param_text[0].is_keyword)
-
-        parts = []
-        for param, text in slices:
-            if trailing_comma != param.has_comma:
-                if trailing_comma:
-                    text += "\n,"
-                else:
-                    text = text.rstrip(",")
-            parts.append(text)
-        parts.append(source(start, token.end))
-        tail_noncoding = "".join(tokens2linestrs(iter(self.tail_noncoding)))
-        formatable = "".join(parts) + tail_noncoding
-        return black.format(
-            formatable,
-            mode,
-            deindent_level,
-            partial="(",
-            start_token=first,
-        )
-
 
 class SnakemakeArgumentsBlock(SnakemakeBlock):
     """Block of snakemake directives, such as `input:`, `output:`, etc.
@@ -813,14 +679,6 @@ class SnakemakeArgumentsBlock(SnakemakeBlock):
     trailing_comma = True
     """whether the formatted list ends with a comma"""
 
-    def format_body(self, mode, state, post_colon) -> str:
-        """Format the parameters, positional before keyword, one per line."""
-        if state.found_skip(self.head_source_line()):
-            return ""
-        return self.argument.format_post_colon(
-            mode, self.deindent_level, self.trailing_comma
-        )
-
     def compilation(self):
         raise NotImplementedError
 
@@ -865,25 +723,9 @@ class SnakemakeUnnamedArgumentBlock(SnakemakeUnnamedArgumentsBlock):
 
 
 class SnakemakeInlineArgumentBlock(SnakemakeUnnamedArgumentBlock):
-
-    def formatted(self, mode, state):
-        """Try to merge the inline argument into the head line.
-        If the line is too long after merging, then keep them separate.
-        """
-        formatted_prior, post_colon = self.format_head(mode)
-        formatted_body = self.format_body(mode, state, post_colon)
-        formatted = [formatted_prior, formatted_body]
-        if formatted_body.count("\n") == 1 and formatted_body.endswith("\n"):
-            if formatted_prior.count("\n") > 1:
-                prev, last_head_line = formatted_prior[:-1].rsplit("\n", 1)
-                prev += "\n"
-            else:
-                prev, last_head_line = "", formatted_prior[:-1]
-            if formatted_prior.endswith(":\n") and "#" not in last_head_line:
-                formatted_merge = last_head_line + " " + formatted_body.lstrip()
-                if len(formatted_merge) <= mode.line_length:
-                    formatted = [prev + formatted_merge]
-        return "".join(formatted)
+    """Inform formatter to try to merge the inline argument into the head line.
+    If the line is too long after merging, then keep them separate.
+    """
 
 
 class SnakemakeExecutableBlock(SnakemakeBlock):
@@ -896,9 +738,3 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
         executable = PythonBlock(self.deindent_level + 1, tokens, lines)
         executable.extend_tail_noncoding(tail_noncoding)
         self.body_blocks.append(executable)
-
-    def format_body(self, mode, state, post_colon):
-        assert not post_colon, "python must start on a new line"
-        (param_space,) = self.body_blocks
-        assert isinstance(param_space, PythonBlock), "Unexpected body block type"
-        return param_space.formatted(mode)

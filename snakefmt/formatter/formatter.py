@@ -3,6 +3,7 @@ from typing import Iterable
 
 from snakefmt.config import Mode
 from snakefmt.formatter import black
+from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import Block, ColonBlock, SnakemakeBlock
 from snakefmt.parser.tokens import TAB, deindent_lines, tokens2linestrs
@@ -147,7 +148,7 @@ def format_snakemake_segments(
         if n_trailing_space > 0:
             yield "\n" * n_trailing_space, None
     else:
-        yield block.formatted(mode, state), block.indent_str
+        yield format_block(block, mode, state), block.indent_str
     if block.tail_noncoding:
         yield "".join(tokens2linestrs(iter(block.tail_noncoding))), None
 

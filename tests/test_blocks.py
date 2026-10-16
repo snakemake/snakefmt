@@ -6,8 +6,9 @@ import pytest
 
 from snakefmt.config import read_black_config
 from snakefmt.exceptions import UnsupportedSyntax
-from snakefmt.formatter.state import FormatState
 from snakefmt.formatter.black import format as format_black
+from snakefmt.formatter.blocks import format_block
+from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import IfForTryWithBlock, NoSnakemakeBlock, PythonBlock
 from snakefmt.parser.global_block import GlobalBlock, parse
 from snakefmt.parser.tokens import TAB, TokenIterator, is_fstring_start
@@ -452,7 +453,7 @@ class TestBlockFormat:
         assert len(py2.head_lines) == 3
         assert isinstance(py2, PythonBlock)
         assert (
-            py2.formatted(mode) == 'b = f"""\n'
+            format_block(py2, mode, FormatState()) == 'b = f"""\n'
             '{b =} f"""\n'
             "# comment\n"
             "c = [i for j in k] if m else (lambda: None)\n"
