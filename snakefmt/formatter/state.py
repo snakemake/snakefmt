@@ -103,7 +103,7 @@ class FormatState(NamedTuple):
             else:
                 last_str += segment
         placeholder = "o" * 50
-        raw_str = "".join(python_codes)
+        raw_str = "".join(python_codes) + last_str
         while placeholder in raw_str:
             placeholder *= 2
         raw_str = "#\n"

@@ -86,7 +86,7 @@ def _format_arguments_body(
 ) -> str:
     """Format the parameters, positional before keyword, one per line."""
     if state.found_skip(block.head_source_line()):
-        return ""
+        return "".join(block.argument.full_linestrs)
     return format_post_colon(
         block.argument, mode, block.deindent_level, block.trailing_comma
     )
@@ -326,7 +326,9 @@ def format_post_colon(
         body_blocks: indent body blocks,
                 e.g. the block of `balabal2` in the above example
     """
-    first = next(block.iter)
+    first = next(block.iter, None)
+    if first is None:
+        return ""
     lines: dict[int, str] = {}
     for token in block.iter:
         lines.update(

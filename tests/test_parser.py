@@ -26,15 +26,11 @@ def generate_tokens(text: str):
 class TestTokenIterator:
     text = f"rule a:\n{TAB * 1}threads: 8"
 
-    def test_snakefile_sequential_parsing(self):
-        expected_sequence = self.text.split()
+    def test_snakefile_sequential_parsing(self) -> None:
+        expected_sequence = ["rule", "a", ":", "\n", "", "threads", ":", "8"]
         token_iter = TokenIterator("", generate_tokens(self.text))
         for expected_word in expected_sequence:
-            try:
-                parsed_word = next(token_iter).string
-                assert expected_word == parsed_word
-            except Exception:
-                break
+            assert next(token_iter).string.strip(" \t") == expected_word
 
     def test_snakefile_staggered_parsing(self):
         token_iter = TokenIterator("", generate_tokens(self.text))
