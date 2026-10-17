@@ -1,3 +1,16 @@
+"""Token-level utilities: iterating tokens, grouping them into logical lines.
+
+:class:`TokenIterator` consumes Python's ``tokenize`` stream,
+adds the ability to look at one whole logical line at a time,
+push tokens back when a lookahead turns out not to belong to the current construct.
+
+:class:`LogicalLine` splits a line into four parts:
+- comment/blank prefix,
+- indentation deltas,
+- body tokens
+- terminating ``NEWLINE``/``ENDMARKER``.
+"""
+
 import ast
 import sys
 import tokenize
@@ -8,6 +21,7 @@ from snakefmt.exceptions import UnsupportedSyntax
 
 
 def line_nb(token: TokenInfo) -> str:
+    """for error messages."""
     return f"L{token.start[0]}: "
 
 
@@ -16,24 +30,32 @@ def is_op(op: str, token: TokenInfo):
 
 
 def not_deindent(token: TokenInfo):
-    return token.type != tokenize.INDENT and token.type != tokenize.DEDENT
+    return token.type not in (tokenize.INDENT, tokenize.DEDENT)
 
 
 def effective(token: TokenInfo):
+    """Whether ``token`` carries content"""
     return token.type != tokenize.COMMENT and token.string.strip()
 
 
 if sys.version_info < (3, 12):
 
     def is_fstring_start(token: TokenInfo):
+        """Before Python 3.12 f-strings are a single STRING token."""
         return False
 
 else:
 
     def is_fstring_start(token: TokenInfo):
+        """Whether ``token`` opens an f-string (Python 3.12+ tokenization)."""
         return token.type == tokenize.FSTRING_START
 
     def consume_fstring(tokens: Iterator[TokenInfo]):
+        """Consume tokens up to and including the end of the current f-string.
+
+        Nested f-strings are tracked,
+        so the returned list contains the whole f-string token group.
+        """
         finished: list[TokenInfo] = []
         isin_fstring = 1
         for token in tokens:
@@ -48,11 +70,16 @@ else:
 
 
 def extract_line_indent(line: str) -> str:
+    """Return the leading whitespace"""
     return line[: len(line) - len(line.lstrip())]
 
 
 class TokenIterator:
+    """A ``tokenize.TokenInfo`` iterator that can buffer and push back tokens."""
+
     def __init__(self, name, tokens: Iterator[TokenInfo]):
+        """``name`` is used in error messages to describe what is being parsed."""
+
         self.name = name
         self._live_tokens = tokens
         self._buffered_tokens: list[TokenInfo] = list()
@@ -61,18 +88,16 @@ class TokenIterator:
         self._overwrite_cmd: Optional[str] = None
         self._last_token: Optional[TokenInfo] = None
 
-    def __iter__(self):
-        return self
-
     def next_new_line(self):
         return LogicalLine.from_token(self)
 
     def next_component(self):
         """Returns the next component, should not break string/bracket pairs.
 
-        A `lambda ... :` parameter list is also one component, so its top-level
-        commas / `=` are never mistaken for parameter separators.
+        A `lambda ... :` parameter list is also one component,
+        so its top-level commas / `=` are never mistaken for parameter separators.
         """
+
         contents: list[TokenInfo] = []
         # expected closers on one stack: `)`/`]`/`}` for brackets, `:` for a lambda
         expect_brackets: list[str] = []
@@ -99,7 +124,10 @@ class TokenIterator:
         return contents
 
     def next_block(self) -> "tuple[list[LogicalLine], list[TokenInfo]]":
-        """Returns a entire block, just consume until the end of the block.
+        """
+        Returns a list of logical lines and a list of tail_noncoding
+        of the same (or inner) deindent level as the first line of the block.
+
         Do not care if there are nested blocks inside or snakemake keywords inside.
 
         it could be INDENT -> [any content] -> DEDENT, or [any content] -> DEDENT
@@ -173,7 +201,13 @@ class TokenIterator:
         self.denext(*reversed(head[i:]))
         return head[:i] + dedents[:deindelta]
 
+    def __iter__(self):
+        return self
+
     def __next__(self) -> TokenInfo:
+        """Turns an unexpected end of the token stream into an
+        :class:`UnsupportedSyntax` error mentioning what was being parsed.
+        """
         if self._buffered_tokens:
             token = self._buffered_tokens.pop()
         else:
@@ -194,6 +228,7 @@ class TokenIterator:
 
     @property
     def rest(self):
+        """Yield all remaining tokens without ``UnsupportedSyntax``"""
         while self._buffered_tokens:
             yield self._buffered_tokens.pop()
         yield from self._live_tokens
@@ -210,26 +245,40 @@ class TokenIterator:
 
 
 class LogicalLine(NamedTuple):
+    """One logical line of Python source, split into token groups.
+
+    It is a single line of source code,
+    possibly continued across multiple physical lines.
+    A complete python expression cannot be split
+     by new line inside multiline strings or brackets,
+    logical line handles that correctly.
+    """
+
     head_noncoding: list[TokenInfo]
+    """blank lines and comments before the line"""
     deindents: list[TokenInfo]
+    """leading ``INDENT``/``DEDENT`` tokens"""
     body: list[TokenInfo]
+    """the content tokens"""
     end: TokenInfo
     """NEWLINE or ENDMARKER"""
 
     @property
-    def end_op(self):
+    def endswith_colon(self):
+        """Will expect a block body after this line,
+        and this head line does not contain any content after the colon.
+        """
         body_size = len(self.body)
         if body_size < 2:  # single op line make no sense
             return None
         last_token = self.body[-1]
         if last_token.type == tokenize.COMMENT:
             last_token = self.body[-2]
-        if last_token.type != tokenize.OP:
-            return None
-        return last_token.string
+        return is_op(":", last_token)
 
     @property
     def deindelta(self):
+        """Net indentation change before this line"""
         if not self.deindents:
             return 0
         if [i.type for i in self.deindents] == [tokenize.INDENT]:
@@ -239,6 +288,7 @@ class LogicalLine(NamedTuple):
 
     @property
     def linestrs(self):
+        """The source lines belonging to it."""
         if not self.head_noncoding and self.body:
             if self.body[0].start[0] == self.end.end[0]:
                 return [self.body[0].line]
@@ -246,6 +296,7 @@ class LogicalLine(NamedTuple):
 
     @property
     def iter(self):
+        """Yield all tokens of the line in source order."""
         yield from self.head_noncoding
         yield from self.deindents
         yield from self.body

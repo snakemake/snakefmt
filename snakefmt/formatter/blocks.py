@@ -60,7 +60,7 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, list[TokenInfo]
     (head,) = prior_colon
     components = head.strip().split()
     formatted_head = indent + " ".join(components) + ":"
-    if block.colon_line.end_op == ":":
+    if block.colon_line.endswith_colon:
         # only a single line comment or empty is possible here, add directly
         colon_token = next(post_colon)
         post = tokens2linestrs(post_colon.rest)

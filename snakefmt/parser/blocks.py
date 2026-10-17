@@ -319,7 +319,7 @@ class ColonBlock(Block):
 
     def consume(self, tokens):
         """Consume tokens until the end of the block head line (the line with `:`)"""
-        if self.colon_line.end_op == ":":
+        if self.colon_line.endswith_colon:
             self.consume_body(tokens)
         # else: single line indent such as `else: pass` or `except: pass`
 
