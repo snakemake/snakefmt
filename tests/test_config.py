@@ -14,7 +14,7 @@ from snakefmt.config import (
     read_snakefmt_config,
 )
 from snakefmt.exceptions import MalformattedToml
-from snakefmt.formatter import TAB
+from snakefmt.formatter.indent import TAB
 from snakefmt.snakefmt import main
 from tests import setup_formatter
 
@@ -197,7 +197,7 @@ class TestReadBlackConfig:
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH, target_versions=DEFAULT_TARGET_VERSIONS
         )
-        assert formatter.black_mode == expected
+        assert formatter.mode == expected
 
     def test_read_black_config_settings(self, tmp_path):
         path = tmp_path / "config.toml"
@@ -223,7 +223,7 @@ class TestReadBlackConfig:
         expected = black.FileMode(
             line_length=black_line_length, target_versions=DEFAULT_TARGET_VERSIONS
         )
-        assert formatter.black_mode == expected
+        assert formatter.mode == expected
 
         # Now, add overriding snakefmt line length
         formatter = setup_formatter(
@@ -232,7 +232,7 @@ class TestReadBlackConfig:
         expected = black.FileMode(
             line_length=snakefmt_line_length, target_versions=DEFAULT_TARGET_VERSIONS
         )
-        assert formatter.black_mode == expected
+        assert formatter.mode == expected
 
     def test_unrecognised_black_options_in_config_ignored_and_default_line_length_used(
         self, tmp_path
@@ -242,7 +242,7 @@ class TestReadBlackConfig:
         path.write_text("[tool.black]\nfoo = false")
 
         read_black_config(path)
-        actual = formatter.black_mode
+        actual = formatter.mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH, target_versions=DEFAULT_TARGET_VERSIONS
         )
@@ -264,7 +264,7 @@ class TestReadBlackConfig:
         path.write_text("[tool.black]\nskip_string_normalization = false")
 
         read_black_config(path)
-        actual = formatter.black_mode
+        actual = formatter.mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH,
             string_normalization=True,
@@ -279,7 +279,7 @@ class TestReadBlackConfig:
         path.write_text("[tool.black]\nskip-string-normalization = 0")
 
         read_black_config(path)
-        actual = formatter.black_mode
+        actual = formatter.mode
         expected = black.FileMode(
             line_length=DEFAULT_LINE_LENGTH,
             string_normalization=True,
@@ -301,7 +301,7 @@ class TestReadBlackConfig:
             string_normalization=False,
             target_versions=DEFAULT_TARGET_VERSIONS,
         )
-        assert formatter.black_mode == expected
+        assert formatter.mode == expected
 
 
 class TestShellFormattingConfig:
