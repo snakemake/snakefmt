@@ -1,10 +1,6 @@
-from collections import OrderedDict
-from typing import Optional, TypeVar
-
-from snakefmt.parser.blocks import NamedBlock
+from snakefmt.parser.blocks import NamedBlock, init_block_register
 from snakefmt.parser.snakemake_blocks import (
     SnakemakeArgumentsBlock,
-    SnakemakeBlock,
     SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
     SnakemakeInlineArgumentBlock,
@@ -13,23 +9,7 @@ from snakefmt.parser.snakemake_blocks import (
     Use,
 )
 
-
-def _init_block_register():
-    T = TypeVar("T", bound=SnakemakeBlock)
-
-    def register_block(name: Optional[str] = None):
-        def decorator(type_: type[T]) -> type[T]:
-            keyword = name or type_._keyword()
-            namespace[keyword] = type_
-            return type_
-
-        return decorator
-
-    namespace: OrderedDict[str, type[SnakemakeBlock]] = OrderedDict()
-    return namespace, register_block
-
-
-global_snakemake_subautomata, _register = _init_block_register()
+global_snakemake_subautomata, _register = init_block_register()
 
 
 @_register()
@@ -124,7 +104,7 @@ class OnError(SnakemakeExecutableBlock): ...
 
 @_register()
 class Module(NamedBlock, SnakemakeDirectiveBlock):
-    subautomata, _register = _init_block_register()
+    subautomata, _register = init_block_register()
 
     @_register()
     class Name(SnakemakeInlineArgumentBlock): ...
@@ -154,7 +134,7 @@ class Module(NamedBlock, SnakemakeDirectiveBlock):
 
 
 class _Rule(NamedBlock, SnakemakeDirectiveBlock):
-    subautomata, _register = _init_block_register()
+    subautomata, _register = init_block_register()
 
     @_register()
     class Name(SnakemakeUnnamedArgumentBlock): ...
@@ -256,7 +236,7 @@ class UseRule(Use):
 @_register()
 class Rule(_Rule):
     # Action
-    exec_subautomata, _register = _init_block_register()
+    exec_subautomata, _register = init_block_register()
 
     @_register()
     class Run(SnakemakeExecutableBlock): ...

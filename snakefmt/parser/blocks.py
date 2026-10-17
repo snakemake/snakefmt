@@ -1,7 +1,8 @@
 import tokenize
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from tokenize import TokenInfo
-from typing import Iterator, Mapping, NamedTuple
+from typing import Iterator, Mapping, NamedTuple, Optional, TypeVar
 
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.tokens import (
@@ -332,16 +333,24 @@ class ColonBlock(Block):
         return token.type == tokenize.NAME and token.string == self.keyword
 
 
-class CallableBlock(ColonBlock):
-    """A block starting with `def` or `class`, and only has a single body PythonBlock
-    Also contain heading decorators (`@` lines)
+def init_block_register():
+    T = TypeVar("T", bound=ColonBlock)
 
-    Also, snakemake keywords should not be used in `async` blocks
+    def register_block(name: Optional[str] = None):
+        def decorator(type_: type[T]) -> type[T]:
+            keyword = name or type_._keyword()
+            namespace[keyword] = type_
+            return type_
 
-    TODO: although not recommended, snakemake keywords can be used in
-      function/class body
-    Should handle that cases in the future
-    """
+        return decorator
+
+    namespace: OrderedDict[str, type[ColonBlock]] = OrderedDict()
+    return namespace, register_block
+
+
+class ColonPythonBlock(ColonBlock):
+    """Refused to consume body blocks.
+    Treat the body as plain Python code, until the next DEDENT"""
 
     def consume_body(self, tokens):
         lines, tail_noncoding = tokens.next_block()
@@ -353,63 +362,11 @@ class CallableBlock(ColonBlock):
         raise NotImplementedError
 
 
-function_class_blocks: dict[str, type[CallableBlock]] = {
-    i.lower(): type(i.capitalize(), (CallableBlock,), {}) for i in ("def", "class")
-}
-
-
-class IfForTryWithBlock(ColonBlock):
-    def consume_body(self, tokens):
-        from snakefmt.parser.snakefile import Snakefile
-
-        blocks = Snakefile(self.deindent_level + 1, tokens, []).body_blocks
-        self.body_blocks.extend(blocks)
-
-    def compilation(self):
-        raise NotImplementedError
-
-
-class UnknownIndentBlock(IfForTryWithBlock):
+class UnknownIndentBlock(ColonPythonBlock):
     """Although I cannot imadge why an INDENT occurs
-    without the control of existing colon keywords, but just in case,
-    I will treat the contents as a global block
+    without the control of known colon keywords,
+    but just in case, I will treat the indented content as plain Python.
     """
-
-
-if_for_try_with_blocks: dict[str, type[IfForTryWithBlock]] = {
-    i.lower(): type(i.capitalize(), (IfForTryWithBlock,), {})
-    for i in ("if elif else " "for while " "try except finally " "with").split()
-}
-
-
-class CaseBlock(IfForTryWithBlock): ...
-
-
-class MatchBlock(ColonBlock):
-    subautomata = {"case": CaseBlock}
-
-    def consume_body(self, tokens):
-        blocks = self.consume_subblocks(tokens, ender_subblock=True)
-        if any(not isinstance(i, CaseBlock) for i in blocks):
-            raise UnsupportedSyntax(
-                f"Unexpected content in {self.keyword} block: "
-                f"only `Case` keyword is allowed, but got {blocks}"
-            )
-        self.body_blocks = blocks
-
-    def compilation(self):
-        raise NotImplementedError
-
-
-class AsyncBlock(CallableBlock): ...
-
-
-python_subautomata: dict[str, type[ColonBlock]] = {
-    **function_class_blocks,
-    **if_for_try_with_blocks,
-    "match": MatchBlock,
-    "async": AsyncBlock,
-}
 
 
 class NamedBlock(ColonBlock):

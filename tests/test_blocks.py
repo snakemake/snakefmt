@@ -11,8 +11,8 @@ from snakefmt.formatter.blocks import format_block
 from snakefmt.formatter.indent import TAB
 from snakefmt.formatter.segments import format_snakefile
 from snakefmt.formatter.state import FormatState
-from snakefmt.parser.blocks import CallableBlock, IfForTryWithBlock, PythonBlock
-from snakefmt.parser.snakefile import Snakefile
+from snakefmt.parser.blocks import PythonBlock
+from snakefmt.parser.snakefile import ScopeBodyBlock, Snakefile
 from snakefmt.parser.tokens import TokenIterator, is_fstring_start
 
 if sys.version_info >= (3, 12):
@@ -284,7 +284,7 @@ class TestBlock:
             "",
         ]
         fun1 = block.body_blocks[0]
-        assert isinstance(fun1, CallableBlock)
+        assert isinstance(fun1, ScopeBodyBlock)
         assert [i.string for i in fun1.colon_line.body] == ["def", "f", "(", ")", ":"]
         assert not fun1.tail_noncoding
         assert ["".join(i.full_linestrs) for i in fun1.body_blocks] == [
@@ -300,7 +300,7 @@ class TestBlock:
             (tokenize.DEDENT, "", (5, 0), (5, 0), "b = f'''\n"),
         ]
         if3 = block.body_blocks[2]
-        assert isinstance(if3, IfForTryWithBlock)
+        assert isinstance(if3, ScopeBodyBlock)
         assert [i.string for i in if3.colon_line.body] == [
             *("with", "d", ":", "# comment"),
         ]
