@@ -9,7 +9,7 @@
 `snakefmt` formats the body of Snakemake `shell:` directives by invoking
 [`shfmt`](https://github.com/mvdan/sh), a Go binary that formats POSIX shell,
 Bash, and (since 3.13) Zsh. The integration is implemented in
-`snakefmt/shell_formatter.py` and shells out to the `shfmt` executable via
+`snakefmt/formatter/shell.py` and shells out to the `shfmt` executable via
 `subprocess.run`.
 
 The Go binary is currently delivered as a Python wheel by
@@ -51,7 +51,7 @@ from a single-maintainer upstream?
 
 **We continue to depend on `shfmt-py`.** No additional distribution work is
 undertaken until one of the revisit triggers below fires. The integration
-point in `snakefmt/shell_formatter.py` is structured so that swapping the
+point in `snakefmt/formatter/shell.py` is structured so that swapping the
 backend later is a single-function change: `_invoke_shfmt` is the seam, and the
 masking logic that adapts Snakemake placeholders for shell parsers is shared
 across any future backend.
@@ -68,7 +68,7 @@ across any future backend.
   Snakefile sizes this has not been observed to be a user-visible cost.
 - The shell-formatter call site is structured so that, if any of the revisit
   triggers fires, the replacement work is contained to the implementation of
-  `_invoke_shfmt` (or its successor) in `snakefmt/shell_formatter.py`.
+  `_invoke_shfmt` (or its successor) in `snakefmt/formatter/shell.py`.
 
 ## Update — 2026-05-14
 

@@ -534,6 +534,7 @@ rule c:
 
 Disables directive sorting for the enclosed region while still applying all other formatting.
 Directives between `# fmt: off[sort]` and `# fmt: on[sort]` are kept in their original order.
+A `# fmt: on[sort]` inside a block nested within the `# fmt: off[sort]` region re-enables sorting for that nested block only; the outer region stays unsorted.
 A plain `# fmt: on` also closes a `# fmt: off[sort]` region.
 
 ```python
@@ -552,6 +553,7 @@ rule keep_my_order:
 
 Disables formatting for the single next Snakemake keyword block (e.g. `rule`, `checkpoint`, `use rule`).
 Only that block is left unformatted; all subsequent blocks are formatted normally.
+It targets Snakemake keyword blocks only: placing it before a Python control-flow block such as `if` does not skip that block or the Snakemake blocks inside it.
 
 ```python
 rule formatted:
@@ -574,10 +576,9 @@ rule also_formatted:
 
 #### `# fmt: skip`
 
-`# fmt: skip` preserves a single line exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
+`# fmt: skip` preserves the line it is written on (and, inside a Snakemake directive, that directive's parameter contents) exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
 
-> **Note:** `# fmt: skip` is not yet supported within Snakemake rule blocks.
-> It currently applies only to plain Python lines outside of rules, checkpoints, and similar Snakemake constructs.
+It works on plain Python lines as well as on Snakemake directive head lines and parameter lines inside rules, checkpoints, and similar constructs.
 
 </details>
 

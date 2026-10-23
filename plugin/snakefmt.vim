@@ -27,7 +27,6 @@ python3 << EndPython3
 import sys
 import vim
 import time
-from io import StringIO
 
 try:
     from snakefmt import __version__ as snakefmt_version
@@ -48,7 +47,6 @@ else:
         DEFAULT_LINE_LENGTH,
     )
     from snakefmt.formatter import Formatter
-    from snakefmt.parser.parser import Snakefile
 
     def Snakefmt():
         start = time.time()
@@ -59,9 +57,10 @@ else:
 
         buffer_str = "\n".join(vim.current.buffer) + "\n"
         try:
-            snakefile = Snakefile(StringIO(buffer_str))
-            formatter = Formatter(
-                snakefile, line_length=line_length, black_config_file=pyproject_toml
+            formatter = Formatter.setup(
+                buffer_str,
+                line_length=line_length,
+                black_config_file=pyproject_toml,
             )
             new_buffer_str = formatter.get_formatted()
         except Exception as exc:

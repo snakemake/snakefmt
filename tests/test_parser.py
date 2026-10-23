@@ -3,7 +3,7 @@
 Examples where we raise errors but snakemake does not are listed as 'SMK_NOBREAK'
 """
 
-from io import StringIO
+import tokenize
 
 import pytest
 
@@ -15,27 +15,26 @@ from snakefmt.exceptions import (
     NoParametersError,
     TooManyParameters,
 )
-from snakefmt.formatter import TAB
-from tests import Formatter, Snakefile, setup_formatter
+from snakefmt.formatter.indent import TAB
+from snakefmt.parser.tokens import TokenIterator
+from tests import setup_formatter
+
+
+def generate_tokens(text: str):
+    return tokenize.generate_tokens(iter(text.splitlines(keepends=True)).__next__)
 
 
 class TestSnakefileTokenizer:
     text = f"rule a:\n{TAB * 1}threads: 8"
 
     def test_snakefile_sequential_parsing(self):
-        istream = StringIO(self.text)
-        expected_sequence = istream.read().split()
-        istream.seek(0)
-        snakefile = Snakefile(istream)
+        expected_sequence = ["rule", "a", ":", "\n", "", "threads", ":", "8"]
+        snakefile = TokenIterator("", generate_tokens(self.text))
         for expected_word in expected_sequence:
-            try:
-                parsed_word = next(snakefile).string
-                assert expected_word == parsed_word
-            except Exception:
-                break
+            assert next(snakefile).string.strip(" \t") == expected_word
 
     def test_snakefile_staggered_parsing(self):
-        snakefile = Snakefile(StringIO(self.text))
+        snakefile = TokenIterator("", generate_tokens(self.text))
         token_buffer = list()
         next(snakefile)
         for _ in range(3):
@@ -77,7 +76,7 @@ class TestKeywordSyntax:
         In that case black will complain of invalid python and not format it.
         """
         with pytest.raises(InvalidPython):
-            setup_formatter(f"role a: \n" f'{TAB * 1}input: "b"')
+            setup_formatter(f"role a: \n" f'{TAB * 1}input: "b"').get_formatted()
 
     def test_duplicate_anonymous_rule_passes(self):
         setup_formatter(
@@ -135,28 +134,20 @@ class TestUseRuleKeywordSyntax:
 
 class TestParamSyntax:
     def test_key_value_no_key_fails(self):
-        with pytest.raises(InvalidParameterSyntax, match="Operator ="):
-            stream = StringIO("rule a:" '\n\tinput: = "file.txt"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+        with pytest.raises(InvalidParameterSyntax, match=r"L2: Operator ="):
+            setup_formatter("rule a:" '\n\tinput: = "file.txt"')
 
     def test_key_value_invalid_key_fails(self):
-        with pytest.raises(InvalidParameterSyntax, match="Invalid key"):
-            stream = StringIO("rule a:" '\n\tinput: \n\t\t2 = "file.txt"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+        with pytest.raises(InvalidParameterSyntax, match=r"L3: Invalid key"):
+            setup_formatter("rule a:" '\n\tinput: \n\t\t2 = "file.txt"')
 
     def test_single_parameter_keyword_disallows_multiple_parameters(self):
         with pytest.raises(TooManyParameters, match="benchmark"):
-            stream = StringIO("rule a:" '\n\tbenchmark: "f1.txt", "f2.txt"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a:" '\n\tbenchmark: "f1.txt", "f2.txt"')
 
     def test_single_parameter_keyword_disallows_kwarg(self):
         with pytest.raises(InvalidParameter, match="container .* positional"):
-            stream = StringIO("rule a: \n" '\tcontainer: a = "envs/sing.img"')
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter("rule a: \n" '\tcontainer: a = "envs/sing.img"')
 
     def test_parameter_list_keyword_disallows_kwarg(self):
         with pytest.raises(InvalidParameterSyntax):
@@ -179,15 +170,17 @@ class TestParamSyntax:
             f'{TAB * 2}bar="file.txt",\n'
             f"{TAB * 2}baz=\n"
         )
-        with pytest.raises(NoParametersError, match="baz"):
+        with pytest.raises(InvalidParameterSyntax, match="baz"):
             setup_formatter(snakecode)
 
     def test_use_with(self):
         with pytest.raises(
-            InvalidParameterSyntax, match="Syntax 'keyword with:' not allowed for"
+            InvalidParameterSyntax, match=r"'input with:' is not allowed"
         ):
             setup_formatter("rule a:\n" f'{TAB * 1}input with: touch("file.txt")')
-        with pytest.raises(SyntaxError, match="threads with: <params>"):
+        with pytest.raises(
+            InvalidParameterSyntax, match=r"'threads with:' is not allowed"
+        ):
             setup_formatter("use rule a as a1 with:\n" f"{TAB * 1}threads with: 4")
         with pytest.raises(SyntaxError, match="Colon.*expected"):
             setup_formatter("use rule a as a1 with:\n" f"{TAB * 1}input with '4'")
@@ -197,48 +190,36 @@ class TestIndentationErrors:
     def test_param_collating(self):
         "The keyword gets collated to the previous parameter value"
         with pytest.raises(InvalidParameterSyntax, match="benchmark"):
-            stream = StringIO(
+            setup_formatter(
                 "rule a: \n"
                 "\tcontainer: \n"
                 '\t\t"envs/sing.img"\n'
                 '\t\t\tbenchmark: "bench.txt"'
-            )
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            ).get_formatted()
 
     def test_keyword_under_indentation(self):
         "The keyword gets interpreted as python code"
         with pytest.raises(InvalidPython, match="benchmark"):
-            stream = StringIO(
+            setup_formatter(
                 "rule a: \n"
                 "\tcontainer: \n"
                 '\t\t"envs/sing.img"\n'
                 'benchmark: "bench.txt"'
                 '\toutput: "b"'
-            )
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            ).get_formatted()
 
     def test_keyword_indented_at_parameter_level(self):
         with pytest.raises(InvalidParameterSyntax, match="output"):
-            stream = StringIO(
-                (
-                    "rule a: \n"
-                    "\tinput: \n"
-                    '\t\t"f1", \n'
-                    "\t\toutput: \n"
-                    '\t\t\t"f2"'
-                )
-            )
-            snakefile = Snakefile(stream)
-            Formatter(snakefile)
+            setup_formatter(
+                "rule a: \n" "\tinput: \n" '\t\t"f1", \n' "\t\toutput: \n" '\t\t\t"f2"'
+            ).get_formatted()
 
 
 class TestPythonCode:
     def test_invalid_python_code_fails(self):
         python_code = f"if invalid code here:\n" f"{TAB * 1}break"
         with pytest.raises(InvalidPython):
-            setup_formatter(python_code)
+            setup_formatter(python_code).get_formatted()
 
     def test_invalid_python_code_preceding_nested_rule_fails(self):
         snakecode = (
@@ -246,9 +227,9 @@ class TestPythonCode:
         )
         snakecode2 = f"def p:\n" f"{TAB * 1}rule a:\n" f"{TAB * 2}threads: 1"
         with pytest.raises(InvalidPython):
-            setup_formatter(snakecode)
+            setup_formatter(snakecode).get_formatted()
         with pytest.raises(InvalidPython):
-            setup_formatter(snakecode2)
+            setup_formatter(snakecode2).get_formatted()
 
     def test_rules_inside_python_code_passes(self):
         snake = (
@@ -292,7 +273,7 @@ class TestPythonCode:
             f'{TAB * 4}input: "in"\n'
         )
         with pytest.raises(InvalidPython):
-            setup_formatter(snake_code)
+            setup_formatter(snake_code).get_formatted()
 
     def test_multiline_correctly_passed_to_black(self):
         snake = """rule multiqc_report:
@@ -311,3 +292,9 @@ class TestPythonCode:
         ),
 """
         setup_formatter(snake)
+
+
+class TestInvalidInputRaisesRealErrors:
+    def test_empty_rule_inside_if(self):
+        with pytest.raises(EmptyContextError, match="L2: rule"):
+            setup_formatter("if x:\n    rule a:\n")
