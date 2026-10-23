@@ -4,6 +4,8 @@ from typing import Optional
 
 class LogConfig:
     log_template = "[%(levelname)s]{0} %(message)s"
+    logger: logging.Logger
+    handler: logging.StreamHandler
 
     @classmethod
     def init(cls, log_level: int):

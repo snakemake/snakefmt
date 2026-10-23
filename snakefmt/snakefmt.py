@@ -1,7 +1,6 @@
 import logging
 import re
 import sys
-from io import StringIO
 from pathlib import Path
 from typing import Iterator, List, Optional, Pattern, Set, Tuple, Union
 
@@ -20,7 +19,6 @@ from snakefmt.directive_order import (
 )
 from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
-from snakefmt.parser.parser import Snakefile
 
 sys.tracebacklimit = 0  # Disable exceptions tracebacks
 
@@ -321,9 +319,8 @@ def main(
             LogConfig.switch(str(path))
 
         try:
-            snakefile = Snakefile(StringIO(original_content))
-            formatter = Formatter(
-                snakefile,
+            formatter = Formatter.setup(
+                original_content,
                 line_length=line_length,
                 sort_directives=sort_directives,
                 directive_order=directive_order or (),

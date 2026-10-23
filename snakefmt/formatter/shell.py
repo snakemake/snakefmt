@@ -3,8 +3,8 @@ import subprocess
 import uuid
 
 from snakefmt.exceptions import InvalidShell
-
-TAB = "    "
+from snakefmt.formatter.indent import TAB
+from snakefmt.parser.tokens import splitlines
 
 # Matches `{{...}}` escaped brace pairs — these encode literal shell `{...}` after
 # Snakemake's str.format() render. Masked FIRST so the single-brace pattern doesn't
@@ -93,7 +93,7 @@ def _mask_heredocs(code: str) -> tuple[str, tuple[tuple[str, str], ...]]:
     nonce = uuid.uuid4().hex
     out_lines: list[str] = []
     blocks: list[tuple[str, str]] = []
-    lines = code.splitlines(keepends=True)
+    lines = [*splitlines(code)]
 
     i = 0
     while i < len(lines):
@@ -168,7 +168,7 @@ def _indent_preserving_heredocs(text: str, indent: str) -> str:
     state: str | None = None  # Can be: None, "'", '"', '`', 'HEREDOC'
     heredoc_delim: str | None = None
 
-    for line in text.splitlines(keepends=True):
+    for line in splitlines(text):
         stripped = line.rstrip("\n")
 
         # Do not indent lines starting inside a multiline string or heredoc.

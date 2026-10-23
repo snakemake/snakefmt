@@ -1,11 +1,13 @@
 """
-Completeness tests: checks that the grammar used is a bijection of the snakemake grammar
-    To use the latest snakemake grammar, run `uv update snakemake` from this repo
+Completeness tests: checks that the grammar used is a bijection of the snakemake
+grammar. To use the latest snakemake grammar, run
+`uv lock --upgrade-package snakemake` from this repo.
 """
 
 from snakemake import parser
 
-from snakefmt.parser import grammar
+from snakefmt.parser.grammar import Module, Rule, UseRule
+from snakefmt.parser.snakefile import Snakefile, python_subautomata
 
 
 class TestCompleteness:
@@ -23,20 +25,20 @@ class TestCompleteness:
 
     def test_global_context_completeness(self):
         target_keywords = set(parser.Python.subautomata)
-        existing_keywords = set(grammar.SnakeGlobal.spec)
+        existing_keywords = set(Snakefile.subautomata).difference(python_subautomata)
         self.check_completeness(target_keywords, existing_keywords)
 
     def test_module_context_completeness(self):
         target_keywords = set(parser.Module.subautomata)
-        existing_keywords = set(grammar.SnakeModule.spec)
+        existing_keywords = set(Module.subautomata)
         self.check_completeness(target_keywords, existing_keywords)
 
     def test_use_rule_context_completeness(self):
         target_keywords = set(parser.UseRule.subautomata)
-        existing_keywords = set(grammar.SnakeUseRule.spec)
+        existing_keywords = set(UseRule.subautomata)
         self.check_completeness(target_keywords, existing_keywords)
 
     def test_rule_context_completeness(self):
         target_keywords = set(parser.Rule.subautomata)
-        existing_keywords = set(grammar.SnakeRule.spec)
+        existing_keywords = set(Rule.subautomata)
         self.check_completeness(target_keywords, existing_keywords)

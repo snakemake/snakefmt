@@ -30,7 +30,7 @@ def SyntaxFormError(line_nb: str, keyword_line: str, syntax_form: str):
     raise SyntaxError(f"{line_nb}'{keyword_line}' not of form '{syntax_form}'")
 
 
-class InvalidParameterSyntax(Exception):
+class InvalidParameterSyntax(SyntaxError):
     pass
 
 
@@ -46,8 +46,12 @@ class TooManyParameters(Exception):
     pass
 
 
-class UnsupportedSyntax(Exception):
+class UnsupportedSyntax(SyntaxError):
     pass
+
+
+class EndOfInput(UnsupportedSyntax):
+    """The token stream ended while a construct was still open."""
 
 
 class InvalidBlackConfiguration(Exception):
