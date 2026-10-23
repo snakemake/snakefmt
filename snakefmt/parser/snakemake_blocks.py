@@ -344,13 +344,14 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
     def consume_body(self, tokens):
         blocks = self.consume_subblocks(tokens, ender_subblock=True)
         keyword = self.colon_line.body[0].string
+        action_keywords = set(getattr(self, "exec_subautomata", {}))
         no_content = True
-        seen_docstring = False
-        seen_directive = False
+        seen_action = False
         for block in blocks:
             if isinstance(block, SnakemakeBlock):
                 no_content = False
-                seen_directive = True
+                if block.colon_line.body[0].string in action_keywords:
+                    seen_action = True
                 continue
             if not isinstance(block, PythonBlock):
                 rep = block.start_token or self.start_token
@@ -367,13 +368,14 @@ class SnakemakeDirectiveBlock(SnakemakeBlock):
             if not code:
                 continue
             if all(token.type == tokenize.STRING for token in code):
-                if seen_directive or seen_docstring:
+                # Snakemake accepts standalone docstrings anywhere before the
+                # action, not just at the top of the rule/module body.
+                if seen_action:
                     rep = code[0]
                     raise SyntaxError(
-                        f"{line_nb(rep)}Unexpected docstring in "
-                        f"{keyword} definition"
+                        f"{line_nb(rep)}Docstrings must appear before the "
+                        f"rule action in {keyword} definition"
                     )
-                seen_docstring = True
                 no_content = False
                 continue
             rep = block.start_token
