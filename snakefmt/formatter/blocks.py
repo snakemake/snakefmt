@@ -110,9 +110,25 @@ def _format_arguments_body(
         return _deindent_lines(block.argument)
     if any(i.string.strip() for i in block.argument.tail_noncoding):
         Warnings.block_comment_below(block.keyword, block.colon_line.body[0].start[0])
-    return format_post_colon(
+    formatted = format_post_colon(
         block.argument, mode, block.deindent_level, block.trailing_comma
     )
+    return _drop_trailing_lone_comma(formatted)
+
+
+def _drop_trailing_lone_comma(formatted: str) -> str:
+    """Drop a redundant trailing comma that Black left on its own line.
+
+    When a parameter line has `# fmt: skip`, Black must not touch that line, so
+    a missing trailing comma is placed on the next line. If it is the last
+    parameter, that comma is optional and only looks like a stray line.
+    """
+    comma = formatted.rfind(",")
+    if comma > 0:
+        newline = formatted.rfind("\n", 0, comma)
+        if newline >= 0 and formatted[newline:].strip() == ",":
+            return formatted[: newline + 1]
+    return formatted
 
 
 format_body.register(_format_arguments_body)
