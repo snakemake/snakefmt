@@ -244,7 +244,7 @@ class TokenIterator:
                 # report exact line
                 message, (line, column) = e.args
                 if (
-                    message != "EOF in multi-line string"
+                    "EOF in multi-line string" not in message
                     and self._last_token is not None
                 ):
                     line = self._last_token.start[0]
