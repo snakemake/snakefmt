@@ -1843,6 +1843,11 @@ rule all:
         )
         assert setup_formatter(snakecode).get_formatted() == expected
 
+    def test_crlf_input_stays_crlf(self):
+        snakecode = 'rule a:\r\n    input: "a"\r\n'
+        expected = 'rule a:\r\n    input:\r\n        "a",\r\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
 
 class TestLineWrapping:
     def test_long_line_within_rule_indentation_taken_into_account(self):
