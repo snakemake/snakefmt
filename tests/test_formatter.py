@@ -1468,6 +1468,30 @@ rule a:
         )
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_docstring_reordered_only_when_sorting_directives(self):
+        snakecode = "rule a:\n" '    input: "i"\n' '    "doc"\n' '    output: "o"\n'
+        expected = (
+            "rule a:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f'{TAB}"doc"\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert setup_formatter(snakecode, sort_params=False).get_formatted() == expected
+        expected_sorted = (
+            "rule a:\n"
+            f'{TAB}"doc"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert (
+            setup_formatter(snakecode, sort_params=True).get_formatted()
+            == expected_sorted
+        )
+
     def test_multiple_leading_docstrings(self):
         snakecode = (
             "rule a:\n"

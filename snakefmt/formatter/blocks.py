@@ -192,7 +192,6 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
     and format them together with the head line.
     """
     formatted: list[str] = []
-    docstrings: list[str] = []
     directives: dict[str, str] = {}
     tail_noncoding: list[str] = []
     indent = TAB * (block.deindent_level + 1)
@@ -204,13 +203,9 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
         if tail_noncoding:
             raise UnsupportedSyntax("Unexpected comments before a directive body")
         if isinstance(sub, PythonBlock):
-            # Standalone string blocks are rule/module docstrings. Keep them at
-            # the top in source order, regardless of directive sorting.
-            docstrings.append(format_block(sub, mode, state))
+            formatted_docstring = format_block(sub, mode, state)
             for line in sub.head_linestrs:
                 state = state.update(line.lstrip())
-            # A blank line the user wrote between the docstring
-            # and the first directive is kept
             if index + 1 < len(block.body_blocks):
                 following = block.body_blocks[index + 1]
                 if not isinstance(following, SnakemakeBlock):
@@ -221,7 +216,10 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
                     )
                 head_noncoding = following.colon_line.head_noncoding
                 if head_noncoding and head_noncoding[0].type == tokenize.NL:
-                    docstrings.append("\n")
+                    # A blank line the user wrote between the docstring
+                    # and the first directive is kept
+                    formatted_docstring += "\n"
+            formatted.append(formatted_docstring)
             continue
         if not isinstance(sub, SnakemakeBlock):
             token = sub.start_token or block.start_token
@@ -295,7 +293,7 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
     if tail_noncoding:
         tail_noncoding = [i.lstrip().rstrip("\n") for i in tail_noncoding]
         formatted.extend(f"{indent}{i}\n" for i in tail_noncoding if i)
-    return "".join(docstrings + formatted)
+    return "".join(formatted)
 
 
 def sort_directives(
