@@ -32,6 +32,8 @@ class SnakemakeBlock(ColonBlock):
     nameable = False
     """an optional identifier may precede the colon (`storage a:`, `input with:`)"""
 
+    allow_decorate = True
+
     @property
     def start_token(self):
         token = super().start_token

@@ -804,6 +804,17 @@ class TestComplexPythonFormatting:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_decorated_rule(self):
+        """Snakemake blocks may be preceded by Python decorator lines."""
+        snakecode = '@deco\nrule a:\n    input: "a"\n'
+        expected = f'@deco\nrule a:\n{TAB}input:\n        "a",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_fmt_skip_on_decorator_keeps_it_attached_to_rule(self):
+        snakecode = '@deco  # fmt: skip\nrule a:\n    input: "a"\n'
+        expected = "@deco  # fmt: skip\n" "rule a:\n" "    input:\n" '        "a",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
 
 # (input, expected output) of a Snakemake keyword nested inside a Python block
 NESTED_SNAKECODE = [
