@@ -220,6 +220,16 @@ class TestIndentationErrors:
                 "rule a: \n" "\tinput: \n" '\t\t"f1", \n' "\t\toutput: \n" '\t\t\t"f2"'
             ).get_formatted()
 
+    def test_non_decorator_after_decorator(self):
+        with pytest.raises(InvalidPython) as excinfo:
+            setup_formatter('@foo\nx = 1\nrule a:\n    output: "x"\n').get_formatted()
+        assert ": 2:" in str(excinfo.value)
+
+    def test_trailing_decorator(self):
+        with pytest.raises(InvalidPython) as excinfo:
+            setup_formatter("@dec\n").get_formatted()
+        assert ": 2:" in str(excinfo.value)
+
 
 class TestPythonCode:
     def test_invalid_python_code_fails(self):
