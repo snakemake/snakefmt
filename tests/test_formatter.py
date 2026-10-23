@@ -2065,6 +2065,31 @@ class TestRunBlockFormatting:
             setup_formatter(snakecode).get_formatted()
         assert "Newline expected after keyword 'run'" in str(excinfo.value)
 
+    def test_fstring_expression_spacing_is_preserved(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            '        f"""\n'
+            "        echo {1 + 2}\n"
+            '        """\n'
+        )
+        assert (
+            setup_formatter(snakecode, format_shell=True).get_formatted() == snakecode
+        )
+
+    def test_fstring_shell_block_is_formatted(self):
+        snakecode = (
+            "rule a:\n" " shell:\n" '  f"""\n' "  echo   {x}   |   cat\n" '  """\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}f"""\n'
+            f"{TAB * 2}echo {{x}} | cat\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert setup_formatter(snakecode, format_shell=True).get_formatted() == expected
+
 
 class TestSortFormatting:
     sort_simple = (

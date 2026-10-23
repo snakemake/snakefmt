@@ -173,38 +173,32 @@ class Argument:
                     # skip
                     continue
             current += component
-        while lines:
-            n = len(lines)
-            while n:
-                cand = [t for i in range(n) for t in lines[i]]
-                if validate_parameters(cand):
-                    if cand:
-                        yield cls(cand)
-                    lines = lines[n:]
-                    break
-                n -= 1
-            else:
-                flat = [token for line in lines for token in line if effective(token)]
-                if not flat:
-                    raise InvalidParameterSyntax("Invalid parameter")
-                first = flat[0]
-                if is_op("=", first):
-                    raise InvalidParameterSyntax(
-                        f"{line_nb(first)}Operator = used with no preceding key"
-                    )
-                for i, token in enumerate(flat[1:], 1):
-                    if is_op("=", token):
-                        if first.type != tokenize.NAME:
-                            key = tokenize.untokenize(
-                                [(t.type, t.string) for t in flat[:i]]
-                            ).strip()
-                            raise InvalidParameterSyntax(
-                                f"{line_nb(first)}Invalid key {key}"
-                            )
-                        break
+        cand = [t for line in lines for t in line]
+        if validate_parameters(cand):
+            if cand:
+                yield cls(cand)
+        else:
+            flat = [token for line in lines for token in line if effective(token)]
+            if not flat:
+                raise InvalidParameterSyntax("Invalid parameter")
+            first = flat[0]
+            if is_op("=", first):
                 raise InvalidParameterSyntax(
-                    f"{line_nb(first)}Invalid parameter {first.line.strip()}"
+                    f"{line_nb(first)}Operator = used with no preceding key"
                 )
+            for i, token in enumerate(flat[1:], 1):
+                if is_op("=", token):
+                    if first.type != tokenize.NAME:
+                        key = tokenize.untokenize(
+                            [(t.type, t.string) for t in flat[:i]]
+                        ).strip()
+                        raise InvalidParameterSyntax(
+                            f"{line_nb(first)}Invalid key {key}"
+                        )
+                    break
+            raise InvalidParameterSyntax(
+                f"{line_nb(first)}Invalid parameter {first.line.strip()}"
+            )
 
 
 class PythonArgumentsBlock(PythonBlock):

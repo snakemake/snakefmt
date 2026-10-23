@@ -24,6 +24,7 @@ from snakefmt.parser.snakemake_blocks import (
 from snakefmt.parser.tokens import (
     TokenIterator,
     effective,
+    is_fstring_start,
     line_nb,
     splitlines,
     tokens2linestrs,
@@ -346,7 +347,11 @@ def _(block: Rule.Shell, mode: Mode, state: FormatState) -> str:
             component = tokens.next_component()
         except UnsupportedSyntax:
             return formatted
-        if not (len(component) == 1 and component[0].type == tokenize.STRING):
+        if not (
+            len(component) == 1
+            and component[0].type == tokenize.STRING
+            or is_fstring_start(component[0])
+        ):
             if any(effective(token) for token in component):
                 return formatted
             # Comment, newline, indent or other non-coding token.

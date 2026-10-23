@@ -188,8 +188,8 @@ class TestParamSyntax:
 
 class TestIndentationErrors:
     def test_param_collating(self):
-        "The keyword gets collated to the previous parameter value"
-        with pytest.raises(InvalidParameterSyntax, match="benchmark"):
+        "A keyword indented under a parameter value is rejected"
+        with pytest.raises(InvalidParameterSyntax, match="Invalid parameter"):
             setup_formatter(
                 "rule a: \n"
                 "\tcontainer: \n"
