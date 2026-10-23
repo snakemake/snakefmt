@@ -243,7 +243,7 @@ class TokenIterator:
             except tokenize.TokenError as e:
                 # report exact line
                 message, (line, column) = e.args
-                if self._last_token is not None:
+                if message != "EOF in multi-line string" and self._last_token is not None:
                     line = self._last_token.start[0]
                 raise InvalidPython(
                     f"Tokenization error:\n```\n"
