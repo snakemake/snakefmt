@@ -42,6 +42,7 @@ Its body is global scope (snakemake keywords may appear there).
 @_register()
 class Match(ColonBlock):
     subautomata, _register = init_block_register()
+    soft = True
 
     @_register()
     class Case(ScopeBodyBlock): ...

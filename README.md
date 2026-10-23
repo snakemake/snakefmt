@@ -576,9 +576,9 @@ rule also_formatted:
 
 #### `# fmt: skip`
 
-`# fmt: skip` preserves the line it is written on (and, inside a Snakemake directive, that directive's parameter contents) exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
+`# fmt: skip` preserves the line it is written on exactly as written, without any formatting (see [Black's documentation][black-skip] for details).
 
-It works on plain Python lines as well as on Snakemake directive head lines and parameter lines inside rules, checkpoints, and similar constructs.
+When the marker is on a Snakemake directive head line, it also preserves that directive's parameter contents. A marker on an individual parameter line protects only that line; it does not preserve the rest of the parameter list.
 
 </details>
 

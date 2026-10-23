@@ -16,6 +16,8 @@ from snakefmt.exceptions import (
     TooManyParameters,
 )
 from snakefmt.formatter.indent import TAB
+from snakefmt.parser.blocks import PythonBlock
+from snakefmt.parser.snakefile import Snakefile
 from snakefmt.parser.tokens import TokenIterator
 from tests import setup_formatter
 
@@ -77,6 +79,10 @@ class TestKeywordSyntax:
         """
         with pytest.raises(InvalidPython):
             setup_formatter(f"role a: \n" f'{TAB * 1}input: "b"').get_formatted()
+
+    def test_soft_keywords_without_colon_are_python(self):
+        snakefile = Snakefile.parse("match = 1\n")
+        assert all(isinstance(block, PythonBlock) for block in snakefile.body_blocks)
 
     def test_duplicate_anonymous_rule_passes(self):
         setup_formatter(

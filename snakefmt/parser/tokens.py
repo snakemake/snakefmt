@@ -18,7 +18,7 @@ import tokenize
 from tokenize import TokenInfo
 from typing import Iterator, NamedTuple, Optional
 
-from snakefmt.exceptions import UnsupportedSyntax
+from snakefmt.exceptions import EndOfInput, InvalidPython, UnsupportedSyntax
 
 
 def line_nb(token: TokenInfo) -> str:
@@ -234,14 +234,21 @@ class TokenIterator:
                 token = next(self._live_tokens)
             except StopIteration as e:
                 if self._last_token is None:
-                    raise UnsupportedSyntax(
-                        f"Unexpected content of '{self.name}'"
-                    ) from e
+                    raise EndOfInput(f"Unexpected content of '{self.name}'") from e
                 else:
-                    raise UnsupportedSyntax(
+                    raise EndOfInput(
                         f"Unexpected end of file after symbol"
                         f"[{self._last_token}] while parsing '{self.name}'"
                     ) from e
+            except tokenize.TokenError as e:
+                # report exact line
+                message, (line, column) = e.args
+                if self._last_token is not None:
+                    line = self._last_token.start[0]
+                raise InvalidPython(
+                    f"Tokenization error:\n```\n"
+                    f"Cannot parse: {line}:{column}: {message}\n```\n"
+                ) from None
         self._last_token = token
         return token
 

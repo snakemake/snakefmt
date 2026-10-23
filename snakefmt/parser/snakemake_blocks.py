@@ -6,6 +6,7 @@ from typing import Iterable
 from snakefmt.exceptions import (
     ColonError,
     EmptyContextError,
+    EndOfInput,
     InvalidParameter,
     InvalidParameterSyntax,
     NewlineError,
@@ -145,7 +146,7 @@ class Argument:
                     metaarg.append(component)
                     if len(component) == 1 and is_op(",", component[0]):
                         break
-            except UnsupportedSyntax:
+            except EndOfInput:
                 process = False
             if metaarg:
                 yield from cls._munch(metaarg)

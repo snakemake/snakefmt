@@ -50,6 +50,10 @@ class UnsupportedSyntax(SyntaxError):
     pass
 
 
+class EndOfInput(UnsupportedSyntax):
+    """The token stream ended while a construct was still open."""
+
+
 class InvalidBlackConfiguration(Exception):
     pass
 

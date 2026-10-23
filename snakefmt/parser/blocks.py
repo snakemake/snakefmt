@@ -179,7 +179,10 @@ class Block(ABC):
                         )
                     indent_str = extract_line_indent(line.body[0].line)
                 if block := self.recognize(line.body[0]):
-                    append_sub(block, [line])
+                    if block.soft and not line.endswith_colon:
+                        plain_python_lines.append(line)
+                    else:
+                        append_sub(block, [line])
                 elif line.body[0].string == "@":
                     headers: list[LogicalLine] = []
                     while line.body and line.body[0].string == "@":
@@ -275,6 +278,8 @@ class ColonBlock(Block):
         return self._keyword()
 
     allow_decorate = False
+    soft = False
+    """Python soft keywords are only blocks when their head line ends with `:`."""
 
     def split_colon_line(self):
         """Split the colon line into two parts:
