@@ -221,6 +221,21 @@ class TestIndentationErrors:
             ).get_formatted()
 
 
+class TestInvalidInputRaisesRealErrors:
+    def test_docstring_after_action_fails(self):
+        with pytest.raises(SyntaxError, match="before the rule action"):
+            setup_formatter(
+                "rule a:\n"
+                '    output: "y"\n'
+                '    shell: "touch {output}"\n'
+                '    "doc"\n'
+            )
+
+    def test_empty_rule_inside_if(self):
+        with pytest.raises(EmptyContextError, match="L2: rule"):
+            setup_formatter("if x:\n    rule a:\n")
+
+
 class TestPythonCode:
     def test_invalid_python_code_fails(self):
         python_code = f"if invalid code here:\n" f"{TAB * 1}break"
@@ -298,9 +313,3 @@ class TestPythonCode:
         ),
 """
         setup_formatter(snake)
-
-
-class TestInvalidInputRaisesRealErrors:
-    def test_empty_rule_inside_if(self):
-        with pytest.raises(EmptyContextError, match="L2: rule"):
-            setup_formatter("if x:\n    rule a:\n")

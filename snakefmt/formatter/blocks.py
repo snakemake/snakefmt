@@ -203,9 +203,23 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
         if tail_noncoding:
             raise UnsupportedSyntax("Unexpected comments before a directive body")
         if isinstance(sub, PythonBlock):
-            formatted.append(format_block(sub, mode, state))
+            formatted_docstring = format_block(sub, mode, state)
             for line in sub.head_linestrs:
                 state = state.update(line.lstrip())
+            if index + 1 < len(block.body_blocks):
+                following = block.body_blocks[index + 1]
+                if not isinstance(following, SnakemakeBlock):
+                    token = following.start_token or block.start_token
+                    raise UnsupportedSyntax(
+                        f"{line_nb(token)}Unexpected block type in "
+                        "snakemake keyword block"
+                    )
+                head_noncoding = following.colon_line.head_noncoding
+                if head_noncoding and head_noncoding[0].type == tokenize.NL:
+                    # A blank line the user wrote between the docstring
+                    # and the first directive is kept
+                    formatted_docstring += "\n"
+            formatted.append(formatted_docstring)
             continue
         if not isinstance(sub, SnakemakeBlock):
             token = sub.start_token or block.start_token

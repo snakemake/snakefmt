@@ -1407,6 +1407,114 @@ rule a:
         expected = f'rule a:\n{TAB}message:\n{TAB * 2}"Step #1: " + "go"\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
+    @pytest.mark.parametrize("sort_params", [False, True])
+    @pytest.mark.parametrize("blank_line", [False, True])
+    def test_docstring_followed_by_comment_with_directives(
+        self, sort_params, blank_line
+    ):
+        """A docstring keeps its indentation; a following comment stays attached
+        to its directive, including when directives are sorted."""
+        blank = "\n" if blank_line else ""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{blank}"
+            f"{TAB * 1}# trailing comment\n"
+            f'{TAB * 1}output: "o"\n'
+            f'{TAB * 1}input: "i"\n'
+        )
+        expected = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{blank}"
+        )
+        if sort_params:
+            expected += (
+                f"{TAB * 1}input:\n"
+                f'{TAB * 2}"i",\n'
+                f"{TAB * 1}# trailing comment\n"
+                f"{TAB * 1}output:\n"
+                f'{TAB * 2}"o",\n'
+            )
+        else:
+            expected += (
+                f"{TAB * 1}# trailing comment\n"
+                f"{TAB * 1}output:\n"
+                f'{TAB * 2}"o",\n'
+                f"{TAB * 1}input:\n"
+                f'{TAB * 2}"i",\n'
+            )
+        assert (
+            setup_formatter(snakecode, sort_params=sort_params).get_formatted()
+            == expected
+        )
+
+    def test_docstring_only_rule(self):
+        snakecode = f'rule a:\n{TAB}"doc"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_docstring_trailing_comment_not_duplicated(self):
+        """A trailing comment after a rule's leading Python block is emitted once"""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}# trailing comment\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_docstring_reordered_only_when_sorting_directives(self):
+        snakecode = "rule a:\n" '    input: "i"\n' '    "doc"\n' '    output: "o"\n'
+        expected = (
+            "rule a:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f'{TAB}"doc"\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert setup_formatter(snakecode, sort_params=False).get_formatted() == expected
+        expected_sorted = (
+            "rule a:\n"
+            f'{TAB}"doc"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+        )
+        assert (
+            setup_formatter(snakecode, sort_params=True).get_formatted()
+            == expected_sorted
+        )
+
+    def test_multiple_leading_docstrings(self):
+        snakecode = (
+            "rule a:\n"
+            '    output: "o"\n'
+            '    "doc1"\n'
+            '    input: "i"\n'
+            '    "doc2"\n'
+            '    shell: "touch {output}"\n'
+        )
+        expected = (
+            "rule a:\n"
+            f'{TAB}"doc1"\n'
+            f'{TAB}"doc2"\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"touch {{output}}"\n'
+        )
+        assert setup_formatter(snakecode, sort_params=True).get_formatted() == expected
+        assert setup_formatter(expected, sort_params=True).get_formatted() == expected
+
 
 class TestReformatting_SMK_BREAK:
     """
