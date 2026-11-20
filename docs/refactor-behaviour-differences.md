@@ -55,6 +55,14 @@ rules. Black side effects produced by the old formatter are not preserved.
   break `<<-` heredocs. Covered by
   `test_tpq_alignment_and_keep_relative_indenting`.
 
+## Error precedence
+
+The whole Snakefile is parsed before formatting starts. A parse error later in
+the file can therefore be reported before a Black error earlier in it. This
+changes which error users see. `test_invalid_python_error_line_number` now uses
+`input: x` instead of `pass` so that it still exercises Black line-number
+mapping rather than the new parser error.
+
 ## `use rule` comma formatting
 
 - `use rule a, b from m` is newly accepted by the refactor. `master` rejects this multi-rule form. Its rule names are also rendered as `a, b`.
