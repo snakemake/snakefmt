@@ -139,13 +139,24 @@ def _unmask_heredocs(code: str, blocks: tuple[tuple[str, str], ...]) -> str:
     return code
 
 
-def format_shell_code(code: str) -> str:
-    """Format shell code using shfmt, preserving Snakemake `{var}` placeholders."""
+def _format_shell_code_keep_var_masks(
+    code: str,
+) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
+    """Format shell code with shfmt, leaving Snakemake `{var}` placeholders and
+    `{{...}}` escaped brace pairs masked as one-line tokens.
+
+    Returns (formatted, tokens, originals) for `_unmask_snakemake_vars`.
+    """
     masked, var_tokens, var_originals = _mask_snakemake_vars(code)
     masked, heredoc_blocks = _mask_heredocs(masked)
     formatted = _invoke_shfmt(masked)
     formatted = _unmask_heredocs(formatted, heredoc_blocks)
-    return _unmask_snakemake_vars(formatted, var_tokens, var_originals)
+    return formatted, var_tokens, var_originals
+
+
+def format_shell_code(code: str) -> str:
+    """Format shell code using shfmt, preserving Snakemake `{var}` placeholders."""
+    return _unmask_snakemake_vars(*_format_shell_code_keep_var_masks(code))
 
 
 _HEREDOC_START = re.compile(r"<<-?\s*['\"]?([^'\"\s<>|;&()]+)['\"]?")
@@ -249,14 +260,21 @@ def format_python_string_literal(literal: str, target_indent: int = 0) -> str:
     quote = match.group(2)
     content = match.group(3)
 
-    formatted_content = format_shell_code(content)
+    formatted_content, var_tokens, var_originals = _format_shell_code_keep_var_masks(
+        content
+    )
 
     # Ensure it ends with a single newline before the closing quotes
     formatted_content = formatted_content.rstrip("\n") + "\n"
 
-    # Indent the content, preserving heredoc terminator placement
+    # Indent the content, preserving heredoc terminator placement. This runs before
+    # unmasking so a multi-line `{{...}}` brace group is still a one-line token: its
+    # inner lines come back verbatim instead of gaining the indent again (issue #337).
     used_indent = TAB * target_indent
     indented_content = _indent_preserving_heredocs(formatted_content, used_indent)
+    indented_content = _unmask_snakemake_vars(
+        indented_content, var_tokens, var_originals
+    )
 
     # Prepend a newline if the first line is indented so it drops below opening quote
     if indented_content and not indented_content.startswith("\n"):
