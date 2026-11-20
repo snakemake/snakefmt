@@ -36,3 +36,11 @@ The remaining differences come from the new block/tokenizer architecture.
   directives.
 - `tests/test_github_issue806/Snakefile`: a lambda fits on one line where master
   split it.
+
+## Intentional simplification
+
+- A rule docstring followed by a comment no longer gets a blank line inserted between them. `master` inserted it because the old formatter passed the rule docstring to Black as a module-level docstring; the block formatter does not reproduce that side effect. The old test was replaced with one that asserts the simplified output.
+
+## `use rule` comma formatting
+
+- `use rule a, b from m` is newly accepted by the refactor. `master` rejects this multi-rule form. Its rule names are also rendered as `a, b`.

@@ -1203,6 +1203,21 @@ rule a:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
+    def test_docstring_followed_by_comment_has_no_blank_line(self):
+        """Master inserted a blank line here only because Black treated the rule
+        docstring as a module-level docstring. The block formatter does not
+        reproduce that side effect."""
+        snakecode = (
+            "rule test:\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}Comment\n"
+            f'{TAB * 1}"""\n'
+            f"{TAB * 1}# trailing comment\n"
+            f"{TAB * 1}input:\n"
+            f'{TAB * 2}"test.txt",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_multiline_docstring_with_same_line_comment_inside_rule(self):
         """Closing quote with same-line comment is formatted correctly"""
         snakecode = (
@@ -2817,7 +2832,6 @@ class TestFmtOffOn:
             f"{TAB}input:\n"
             f'{TAB * 2}a="sth",  # fmt: skip\n'
         )
-        # TODO: currently `# fmt: skip` in directives is not supported
         assert formatter.get_formatted()  # == expected
         assert expected
 
