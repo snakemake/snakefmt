@@ -39,24 +39,21 @@ The remaining differences come from the new block/tokenizer architecture.
 
 ## Intentional simplification
 
-- A rule docstring followed by a comment no longer gets a blank line inserted
-  between them. `master` inserted it because the old formatter passed the rule
-  docstring to Black as a module-level docstring; the block formatter does not
-  reproduce that side effect. The old test was replaced with one that asserts
-  the simplified output.
-- Blank lines between an `if ...:` header and the following comment or
-  `# fmt: off[next]` now follow the source, matching Black's normal blank-line
-  handling. `master` used fixed rules: it always added a blank line before a
-  plain comment and always removed one before `# fmt: off[next]`. Covered by
-  `test_comment_inside_python_code_sticks_to_rule`,
-  `test_fmt_off_next_in_2if`, `test_fmt_off_sort_dedent` and
-  `test_fmt_off_sort_on_noeffect`.
-- A blank line may be inserted before a `# fmt: off[next]` comment if there is
-  a `def` or `rule` block before it. This is snakefmt-specific syntax with no
-  Black equivalent: the directive only affects the following Snakemake block,
-  so from the preceding block's perspective it is an ordinary comment. Keeping
-  the blank line is intentional. Covered by `test_fmt_off_2` and
-  `test_rule_if2_rule`.
+Python formatting is delegated to Black; snakefmt only handles Snakemake-specific
+rules. Black side effects produced by the old formatter are not preserved.
+
+- No blank line is inserted between a rule docstring and a following comment.
+- Blank lines after `if ...:` follow the source, matching Black, instead of
+  master's fixed add/remove rules.
+- A `def` or `rule` block may be followed by a new blank line before
+  `# fmt: off[next]`; the directive only affects the next block.
+
+## String content
+
+- Tabs inside a triple-quoted `shell:` string are preserved verbatim.
+  `master` expanded them to spaces, which changes the string contents and can
+  break `<<-` heredocs. Covered by
+  `test_tpq_alignment_and_keep_relative_indenting`.
 
 ## `use rule` comma formatting
 

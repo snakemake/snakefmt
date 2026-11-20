@@ -1037,7 +1037,7 @@ rule a:
 '''
         formatter = setup_formatter(snakecode)
 
-        # Now the activity is corrected.
+        # Tabs are string content: preserve them rather than expanding to spaces.
         expected = f'''rule a:
 {TAB * 1}shell:
 {TAB * 2}"""Starts here
