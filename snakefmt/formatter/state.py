@@ -7,7 +7,8 @@ _FMT_DIRECTIVE_RE = re.compile(
 
 
 class FormatState(NamedTuple):
-    fmt_on: bool = True
+    fmt_on: bool | None = True
+    """False: explicitly disabled here. None: disabled by an enclosing scope."""
     sort_directives: bool | None = None
     skip_next: bool = False  # one-time directive for the next snakemake block
     format_shell: bool = False
@@ -32,8 +33,8 @@ class FormatState(NamedTuple):
 
         Currently, options can be:
         - sort: whether to sort snakemake directives (e.g. input, output, params, etc.)
-        - next: whether to apply the directive to the next snakemake block only
-            Do not effect blocks after empty lines.
+        - next: whether to apply the directive to the next snakemake block only.
+            Blank lines before that block do not cancel it.
             Cannot be disabled by `# fmt: on[next]`
         - only the first directive will be applied
 
@@ -44,19 +45,21 @@ class FormatState(NamedTuple):
                     sort_directives == None  -> haven't enabled originally
                 turn it on
         """
-        if match := _FMT_DIRECTIVE_RE.match(comment):
+        if match := _FMT_DIRECTIVE_RE.match(comment.rstrip()):
             directive, options = match.groups()
             # Parse options: "sort,next" -> ["sort", "next"] -> "sort"
             option = [opt.strip() for opt in (options or "").split(",")][0]
-            if not self.fmt_on:  # only check `# fmt: on`
+            if self.fmt_on is None:
+                return self
+            if self.fmt_on is False:
                 if directive == "on" and not option:
                     return self._replace(fmt_on=True)
             elif directive == "on":
                 if option == "sort":
                     return self._replace(sort_directives=True)
-                if self.sort_directives is False:
-                    # re-enable sorting if it was disabled by `# fmt: off[sort]` before,
-                    # but should effect if no `# fmt: off[sort]` in this indent before.
+                if not option and self.sort_directives is False:
+                    # A plain `# fmt: on` re-enables sorting disabled earlier;
+                    # other options such as `on[next]` must not.
                     return self._replace(sort_directives=True)
             elif directive == "off":
                 if option == "sort":
@@ -76,7 +79,10 @@ class FormatState(NamedTuple):
     def found_skip(comment: str):
         return "# fmt: skip" in comment
 
-    def reset_sort(self):
+    def reset(self) -> "FormatState":
+        """Reset per-scope state before entering a nested block."""
+        if not self.fmt_on:
+            return self._replace(fmt_on=None)
         if self.sort_directives is False:
             return self._replace(sort_directives=None)
         return self
