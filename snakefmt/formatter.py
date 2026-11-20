@@ -394,8 +394,16 @@ class Formatter(Parser):
         except black.parsing.InvalidInput as e:
             err_msg = ""
             # Not clear whether all Black errors start with 'Cannot parse' - it seems to
-            # in the tests I ran
-            match = re.search(r"(Cannot parse.*?:\s*)(?P<line>\d+)(.*)", str(e))
+            # in the tests I ran. Black >= 26.10 writes it in lowercase and puts the
+            # offending source line and a caret on the lines after the line number.
+            # Anchored to the start: Black's "INTERNAL ERROR: ... produced invalid
+            # code" also contains "cannot parse", but its line number points into
+            # Black's own output, not into the code we gave it.
+            match = re.match(
+                r"(cannot parse.*?:\s*)(?P<line>\d+)(.*)",
+                str(e),
+                flags=re.IGNORECASE | re.DOTALL,
+            )
             try:
                 next_token = next(self.snakefile)
                 self.snakefile.denext(next_token)

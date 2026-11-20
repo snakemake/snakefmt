@@ -5,6 +5,7 @@ errors arise, as tested in test_parser.py.
 """
 
 import textwrap
+from collections.abc import Callable
 from unittest import mock
 
 import black
@@ -2300,6 +2301,95 @@ def test_invalid_python_error_eof():
     assert "Black error:" in msg
     assert ": 3:" in msg
     assert "Note reported line number may be an approximation" in msg
+
+
+def black_format_str_failing_on(snippet: str, message: str) -> Callable[..., str]:
+    """Stub for black.format_str that raises `message` (the exact text Black 26.10
+    gives) when asked to format `snippet`, and formats everything else for real."""
+    real_format_str = black.format_str
+
+    def side_effect(src, *args, **kwargs):
+        if src == snippet:
+            raise black.parsing.InvalidInput(message)
+        return real_format_str(src, *args, **kwargs)
+
+    return side_effect
+
+
+def test_invalid_python_error_line_number_black_26_10_format():
+    """Black 26.10 lowercased 'cannot parse' and moved the source line and a caret
+    onto lines of their own; the line number must still be the Snakefile's."""
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}run:\n"
+        f"{TAB * 2}a = \n"
+        f"{TAB * 2}b = 2\n"
+        "rule b:\n"
+        f"{TAB * 1}pass\n"
+    )
+    side_effect = black_format_str_failing_on(
+        "if x:\n    a = \n    b = 2\n",
+        "cannot parse for target version Python 3.13: 2:8\n"
+        "        a = \n"
+        "           ^\n"
+        "ParseError: bad input",
+    )
+    with mock.patch("black.format_str", spec=True, side_effect=side_effect):
+        with pytest.raises(InvalidPython) as excinfo:
+            setup_formatter(snakecode).get_formatted()
+    msg = str(excinfo.value)
+    assert "cannot parse for target version Python 3.13: 3:8\n" in msg
+    assert "           ^\nParseError: bad input" in msg
+    assert "could not determine the true line number" not in msg
+
+
+def test_invalid_python_error_eof_black_26_10_format():
+    snakecode = f"rule a:\n{TAB * 1}run:\n{TAB * 2}a = \n"
+    side_effect = black_format_str_failing_on(
+        "a = \n",
+        "cannot parse for target version Python 3.13: 1:4\n"
+        "    a = \n"
+        "       ^\n"
+        "ParseError: bad input",
+    )
+    with mock.patch("black.format_str", spec=True, side_effect=side_effect):
+        with pytest.raises(InvalidPython) as excinfo:
+            setup_formatter(snakecode).get_formatted()
+    msg = str(excinfo.value)
+    assert "cannot parse for target version Python 3.13: 3:4\n" in msg
+    assert "       ^\nParseError: bad input" in msg
+    assert "Note reported line number may be an approximation" in msg
+
+
+def test_black_internal_error_is_not_reported_as_a_snakefile_line():
+    """When Black fails to parse its *own* output, the line number points into
+    Black's output, so it must not be mapped onto a Snakefile line."""
+    snakecode = (
+        "rule a:\n"
+        f"{TAB * 1}run:\n"
+        f"{TAB * 2}a = 1\n"
+        f"{TAB * 2}b = 2\n"
+        "rule b:\n"
+        f'{TAB * 1}input: "x"\n'
+    )
+    side_effect = black_format_str_failing_on(
+        "if x:\n    a = 1\n    b = 2\n",
+        "INTERNAL ERROR: Black 26.10.1 on Python (CPython) 3.13.2 produced invalid"
+        " code:\n"
+        "cannot parse for target version Python 3.13: 2:8\n"
+        "        a = 1\n"
+        "           ^\n"
+        "ParseError: bad input\n"
+        "Please report a bug on https://github.com/psf/black/issues.  "
+        "This invalid output might be helpful: /tmp/blk_x.log",
+    )
+    with mock.patch("black.format_str", spec=True, side_effect=side_effect):
+        with pytest.raises(InvalidPython) as excinfo:
+            setup_formatter(snakecode).get_formatted()
+    msg = str(excinfo.value)
+    assert "INTERNAL ERROR: Black 26.10.1" in msg
+    assert "cannot parse for target version Python 3.13: 2:8\n" in msg
+    assert "could not determine the true line number" in msg
 
 
 @mock.patch("black.format_str", spec=True)
