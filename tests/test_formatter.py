@@ -124,6 +124,38 @@ class TestSimpleParamFormatting:
             == expected
         )
 
+    def test_skip_magic_trailing_comma_preserves_trailing_comment(self, tmp_path):
+        config = tmp_path / "pyproject.toml"
+        config.write_text("[tool.black]\nskip-magic-trailing-comma = true\n")
+        snakecode = (
+            "rule a:\n"
+            "    params:\n"
+            "        x=1,  # c\n"
+            "        y=[1,2,]  # sth\n"
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}params:\n"
+            f"{TAB * 2}x=1,  # c\n"
+            f"{TAB * 2}y=[1, 2],  # sth\n"
+        )
+        assert (
+            setup_formatter(snakecode, black_config_file=config).get_formatted()
+            == expected
+        )
+
+    def test_skip_magic_trailing_comma_keeps_nested_values_collapsed(self, tmp_path):
+        config = tmp_path / "pyproject.toml"
+        config.write_text("[tool.black]\nskip-magic-trailing-comma = true\n")
+        snakecode = "rule a:\n    params: x=1, y=[1,2,]\n"
+        expected = (
+            "rule a:\n" f"{TAB}params:\n" f"{TAB * 2}x=1,\n" f"{TAB * 2}y=[1, 2],\n"
+        )
+        assert (
+            setup_formatter(snakecode, black_config_file=config).get_formatted()
+            == expected
+        )
+
 
 class TestModuleFormatting:
     def test_module_specific_keyword_formatting(self):

@@ -21,6 +21,11 @@ from typing import Iterator, NamedTuple, Optional
 from snakefmt.exceptions import EndOfInput, InvalidPython, UnsupportedSyntax
 
 
+def tokenize_text(text: str) -> Iterator[TokenInfo]:
+    """Tokenize a string using the same line splitting as the parser."""
+    return tokenize.generate_tokens(splitlines(text).readline)
+
+
 def line_nb(token: TokenInfo) -> str:
     """for error messages."""
     return f"L{token.start[0]}: "

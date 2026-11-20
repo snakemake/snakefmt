@@ -25,8 +25,10 @@ from snakefmt.parser.tokens import (
     TokenIterator,
     effective,
     is_fstring_start,
+    is_op,
     line_nb,
     splitlines,
+    tokenize_text,
     tokens2linestrs,
 )
 
@@ -343,7 +345,7 @@ def _(block: Rule.Shell, mode: Mode, state: FormatState) -> str:
     formatted = _format_arguments_body(block, mode, state)
     if not state.format_shell:
         return formatted
-    tokens = TokenIterator("", tokenize.generate_tokens(splitlines(formatted).readline))
+    tokens = TokenIterator("", tokenize_text(formatted))
     while True:
         try:
             component = tokens.next_component()
@@ -376,6 +378,13 @@ def _token_offset(text: str, position: tuple[int, int]) -> int:
     for _ in range(line - 1):
         offset = text.find("\n", offset) + 1
     return offset + column
+
+
+def _check_trailing_comma(text: str) -> bool:
+    """Whether the last effective token of the text is a comma."""
+    tokens = list(tokenize_text(text))
+    last = next(token for token in reversed(tokens) if effective(token))
+    return is_op(",", last)
 
 
 def format_post_colon(
@@ -465,6 +474,16 @@ def format_post_colon(
     parts.append(source(start, token.end))
     tail_noncoding = "".join(tokens2linestrs(iter(block.tail_noncoding)))
     formatable = "".join(parts) + tail_noncoding
+    if not mode.magic_trailing_comma:
+        # Let Black remove nested trailing commas with the user's mode, then
+        # add the outer trailing comma back so the parameter list still splits.
+        normalized = black.format_python(formatable, mode, 0, partial="(")
+        normalized = "".join(
+            deindent_lines(TAB, 0, normalized.splitlines(keepends=True))
+        ).rstrip()
+        if not _check_trailing_comma(normalized):
+            normalized += "\n,"
+        formatable = normalized + "\n"
     # Directives always keep one parameter per line, even when the user enables
     # Black's skip-magic-trailing-comma option.
     parameter_mode = replace(mode, magic_trailing_comma=True)

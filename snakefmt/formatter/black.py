@@ -8,13 +8,13 @@ import black.parsing
 from snakefmt.config import Mode
 from snakefmt.exceptions import InvalidPython
 from snakefmt.formatter.indent import TAB
-from snakefmt.parser.tokens import extract_line_indent, splitlines
+from snakefmt.parser.tokens import extract_line_indent, splitlines, tokenize_text
 
 
 def _contains_comment(text: str) -> bool:
     """Whether ``text`` contains a comment token (not merely a ``#`` in a string)."""
     try:
-        tokens = tokenize.generate_tokens(splitlines(text).__next__)
+        tokens = tokenize_text(text)
         return any(token.type == tokenize.COMMENT for token in tokens)
     except (tokenize.TokenError, IndentationError):
         return False
