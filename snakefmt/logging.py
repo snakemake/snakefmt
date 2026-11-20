@@ -43,7 +43,7 @@ class Warnings:
 
     @staticmethod
     def duplicate_directive(keyword: str, line_nb: int):
-        msg = f'L{line_nb}: Duplicate directive "{keyword}" will be ignored.'
+        msg = f'L{line_nb}: Duplicate directive "{keyword}" may have no effect.'
         LogConfig.get_logger().warning(msg)
 
     @staticmethod
