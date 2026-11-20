@@ -7,7 +7,8 @@ _FMT_DIRECTIVE_RE = re.compile(
 
 
 class FormatState(NamedTuple):
-    fmt_on: bool = True
+    fmt_on: bool | None = True
+    """False: explicitly disabled here. None: disabled by an enclosing scope."""
     sort_directives: bool | None = None
     skip_next: bool = False  # one-time directive for the next snakemake block
     format_shell: bool = False
@@ -48,7 +49,9 @@ class FormatState(NamedTuple):
             directive, options = match.groups()
             # Parse options: "sort,next" -> ["sort", "next"] -> "sort"
             option = [opt.strip() for opt in (options or "").split(",")][0]
-            if not self.fmt_on:  # only check `# fmt: on`
+            if self.fmt_on is None:
+                return self
+            if self.fmt_on is False:
                 if directive == "on" and not option:
                     return self._replace(fmt_on=True)
             elif directive == "on":
@@ -76,7 +79,10 @@ class FormatState(NamedTuple):
     def found_skip(comment: str):
         return "# fmt: skip" in comment
 
-    def reset_sort(self):
+    def reset(self) -> "FormatState":
+        """Reset per-scope state before entering a nested block."""
+        if not self.fmt_on:
+            return self._replace(fmt_on=None)
         if self.sort_directives is False:
             return self._replace(sort_directives=None)
         return self

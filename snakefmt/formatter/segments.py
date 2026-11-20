@@ -69,7 +69,7 @@ def format_segments(
     yield from _format_head(block.head_lines)
     last_keyword = ""
     line = ""
-    state = state.reset_sort()
+    state = state.reset()
     for sub in block.body_blocks:
         restart_state = state = state.consume_skip_next()
         # update state from head_noncoding

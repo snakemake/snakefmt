@@ -2677,6 +2677,18 @@ class TestFmtOffOn:
             )
             assert setup_formatter(expected).get_formatted() == expected
 
+    def test_nested_fmt_on_does_not_override_enclosing_off(self):
+        snakecode = (
+            "# fmt: off\n"
+            "if True:\n"
+            "    # fmt: on\n"
+            "    rule a:\n"
+            '        input: "a"\n'
+            "rule b:\n"
+            '    input: "b"\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_fmt_off_on_in_run(self):
         """# fmt: off inside Python code is handled by Black."""
         code = (
