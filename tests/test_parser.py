@@ -297,7 +297,7 @@ class TestPythonCode:
             mate="fq2",
         ),
 """
-        setup_formatter(snake)
+        assert setup_formatter(snake).get_formatted() == snake
 
 
 class TestInvalidInputRaisesRealErrors:

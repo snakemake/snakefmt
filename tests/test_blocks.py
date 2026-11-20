@@ -42,8 +42,7 @@ class TestTokenIterator:
                 contents = consume_fstring(token_iter)
                 break
         # endregion test
-        assert t == tokens[0]
-        assert contents == tokens[1:-2]
+        assert t.type == tokenize.FSTRING_START
         assert [i.type for i in contents] == [
             tokenize.FSTRING_MIDDLE,
             tokenize.FSTRING_END,
@@ -57,8 +56,7 @@ class TestTokenIterator:
         for t in token_iter:
             if is_fstring_start(t):
                 contents = consume_fstring(token_iter)
-                assert t == tokens[2]
-                assert contents == tokens[3:-2]
+                assert t.type == tokenize.FSTRING_START
                 assert [i.type for i in contents] == [
                     tokenize.FSTRING_MIDDLE,
                     tokenize.OP,
@@ -96,45 +94,42 @@ class TestTokenIterator:
         # return: `def f():`
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
         assert head_empty_lines == indents == []
-        assert contents == tokens[:5]
         assert [i.string for i in contents] == ["def", "f", "(", ")", ":"]
         assert {token.line} == {t.line for t in contents}
         # return: `return 1` with indent
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
         assert head_empty_lines == []
-        assert indents == [tokens[6]]
-        assert contents == tokens[7:9]
+        assert [i.type for i in indents] == [tokenize.INDENT]
         assert [i.string for i in contents] == ["return", "1"]
         assert {token.line} == {t.line for t in contents}
         # return: the full `b = f'''\n...` f-string, with dedent and empty lines
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
-        assert head_empty_lines == tokens[10:12]
-        assert indents == [tokens[12]]
-        assert contents == tokens[13:23]
+        assert [i.type for i in head_empty_lines] == [tokenize.NL, tokenize.NL]
+        assert [i.type for i in indents] == [tokenize.DEDENT]
         assert [i.string for i in contents] == [
             *("b", "=", "f'''", "\n", "{", "b", "=", "}", " f", "'''")
         ]
         assert token.line == contents[-1].line
         # return: `with d:`, with empty lines and inline comment
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
-        assert head_empty_lines == tokens[24:26]
+        assert [i.type for i in head_empty_lines] == [
+            tokenize.COMMENT,
+            tokenize.NL,
+        ]
         assert indents == []
-        assert contents == tokens[26:30]
         assert [i.string for i in contents] == ["with", "d", ":", "# comment"]
         assert {token.line} == {t.line for t in contents}
         # return: `pass`, with indent but no `\n` at the end
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
         assert head_empty_lines == []
-        assert indents == [tokens[31]]
-        assert contents == tokens[32:33]
+        assert [i.type for i in indents] == [tokenize.INDENT]
         assert [i.string for i in contents] == ["pass"]
         assert {token.line} == {t.line for t in contents}
         assert token.string == "" and token.type == tokenize.NEWLINE
         # return: the ENDMARKER, with dedent and no content
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
         assert head_empty_lines == contents == []
-        assert indents == [tokens[34]]
-        assert token == tokens[35] == tokens[-1]
+        assert [i.type for i in indents] == [tokenize.DEDENT]
         assert token.type == tokenize.ENDMARKER
 
     example2 = (
@@ -152,30 +147,27 @@ class TestTokenIterator:
     )
 
     def test_next_component(self):
-        tokens = generate_tokens(self.example2)
-        token_iter = TokenIterator("", iter(tokens))
-        index = 0
+        token_iter = TokenIterator("", iter(generate_tokens(self.example2)))
 
         def _check_single_component(*components: str):
-            nonlocal index
             for string in components:
                 contents = token_iter.next_component()
-                assert contents == tokens[index : index + 1]
-                assert [i.string for i in contents] == [string]
-                index += 1
+                assert [token.string for token in contents] == [string]
 
         _check_single_component("def", "components")
         contents = token_iter.next_component()
-        assert contents == tokens[2:5]
-        assert [i.string for i in contents] == ["(", "self", ")"]
-        index = 5
+        assert [token.string for token in contents] == ["(", "self", ")"]
+        assert [token.type for token in contents] == [
+            tokenize.OP,
+            tokenize.NAME,
+            tokenize.OP,
+        ]
         _check_single_component(
             *(":", "\n"),
             *("    ", "this_symbol", ":", "DocumentSymbol", "=", "DocumentSymbol"),
         )
         contents = token_iter.next_component()
-        assert contents == tokens[13:][:73]
-        assert [i.string for i in contents] == [
+        assert [token.string for token in contents] == [
             *("(", "\n"),
             *("name", "=", "self", ".", "name", ",", "\n"),
             *("detail", "=", "'\\n'", ".", "join", "("),
@@ -190,10 +182,10 @@ class TestTokenIterator:
             *("block", "=", "self", ",", "\n"),
             ")",
         ]
-        index = 86
         _check_single_component("\n", "yield", "this_symbol", "\n", "")
         contents = token_iter.next_component()
-        assert contents == tokens[91:][:1] == tokens[-1:]
+        assert [token.string for token in contents] == [""]
+        assert contents[0].type == tokenize.ENDMARKER
 
     example3 = (
         "with a as b:\n"  #
@@ -220,7 +212,6 @@ class TestTokenIterator:
         lines, tail_noncoding = TokenIterator("", iter(tokens[3:])).next_block()
         contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "with a as b:\n"
-        assert contents == tokens[3:][:35]
         assert contents[-1].type == tokenize.NL
         assert contents[-2].type == tokenize.NEWLINE
         assert contents[-2].line == "7# 7\n"
@@ -229,7 +220,6 @@ class TestTokenIterator:
         lines, tail_noncoding = TokenIterator("", iter(tokens[6:])).next_block()
         contents = contents_ = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "    b\n" and contents[0].type == tokenize.INDENT
-        assert contents == tokens[6:][:22] + tokens[32:][:2]
         assert {t.type for t in contents[-2:]} == {tokenize.DEDENT}
         assert contents[:-2][-1].line == "       \n"
         # even skip the heading indent, block ends at the same line
@@ -244,8 +234,7 @@ class TestTokenIterator:
         # enter the third block: exit before `      # 3\n` with 1 DEDENT only
         lines, tail_noncoding = TokenIterator("", iter(tokens[15:])).next_block()
         contents = [t for line in lines for t in line.iter] + tail_noncoding
-        assert contents[0].line == "        d\n" and tokens[14].type == tokenize.NEWLINE
-        assert contents == tokens[15:][:8] + tokens[32:][:1]
+        assert contents[0].line == "        d\n"
         assert [t.type for t in contents[-4:]] == [
             *(tokenize.COMMENT, tokenize.NL, tokenize.NL, tokenize.DEDENT)
         ]

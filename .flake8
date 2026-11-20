@@ -1,4 +1,4 @@
 [flake8]
 max-line-length = 88
-# the default ignores minus E704
+# E701 is needed for Black's one-line class/def stubs.
 ignore = E121,E123,E126,E226,E203,E24,E701,W503,W504
