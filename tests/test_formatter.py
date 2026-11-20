@@ -3009,6 +3009,25 @@ class TestFmtOffSort:
                 == expected2
             )
 
+    def test_fmt_on_next_does_not_enable_sorting(self):
+        snakecode = (
+            "# fmt: off[sort]\n"
+            "# fmt: on[next]\n"
+            "rule a:\n"
+            '    output: "o"\n'
+            '    input: "i"\n'
+        )
+        expected = (
+            "# fmt: off[sort]\n"
+            "# fmt: on[next]\n"
+            "rule a:\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+        )
+        assert setup_formatter(snakecode, sort_params=True).get_formatted() == expected
+
     def test_fmt_off_sort_dedent(self):
         """A deeper `# fmt: on` has no effect on sorting, while a deeper
         `# fmt: on[sort]` re-enables sorting for that nested block only.

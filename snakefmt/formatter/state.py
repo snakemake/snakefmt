@@ -45,7 +45,7 @@ class FormatState(NamedTuple):
                     sort_directives == None  -> haven't enabled originally
                 turn it on
         """
-        if match := _FMT_DIRECTIVE_RE.match(comment):
+        if match := _FMT_DIRECTIVE_RE.match(comment.rstrip()):
             directive, options = match.groups()
             # Parse options: "sort,next" -> ["sort", "next"] -> "sort"
             option = [opt.strip() for opt in (options or "").split(",")][0]
@@ -57,9 +57,9 @@ class FormatState(NamedTuple):
             elif directive == "on":
                 if option == "sort":
                     return self._replace(sort_directives=True)
-                if self.sort_directives is False:
-                    # re-enable sorting if it was disabled by `# fmt: off[sort]` before,
-                    # but should effect if no `# fmt: off[sort]` in this indent before.
+                if not option and self.sort_directives is False:
+                    # A plain `# fmt: on` re-enables sorting disabled earlier;
+                    # other options such as `on[next]` must not.
                     return self._replace(sort_directives=True)
             elif directive == "off":
                 if option == "sort":
