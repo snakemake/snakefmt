@@ -430,6 +430,12 @@ class TestComplexParamFormatting:
 
 
 class TestSimplePythonFormatting:
+    def test_commented_snakemake_syntax_formatted_as_python_code(self):
+        assert (
+            setup_formatter("#configfile: 'foo.yaml'").get_formatted()
+            == "# configfile: 'foo.yaml'\n"
+        )
+
     def test_python_code_with_multi_indent_passes(self):
         python_code = f"if p:\n{TAB * 1}for elem in p:\n{TAB * 2}dothing(elem)\n"
 

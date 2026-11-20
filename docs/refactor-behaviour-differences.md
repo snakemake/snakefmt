@@ -46,7 +46,11 @@ rules. Black side effects produced by the old formatter are not preserved.
 - Blank lines after `if ...:` follow the source, matching Black, instead of
   master's fixed add/remove rules.
 - A `def` or `rule` block may be followed by a new blank line before
-  `# fmt: off[next]`; the directive only affects the next block.
+  `# fmt: off[next]`; the directive only affects the next block, and one before
+  a Python `if` no longer skips it.
+- A deeper `# fmt: on[sort]` now takes effect.
+- Leading blank lines are stripped. Covered by `TestStorage::test_storage` and
+  `test_single_quoted_multiline_string_proper_tabbing`.
 
 ## String content
 
