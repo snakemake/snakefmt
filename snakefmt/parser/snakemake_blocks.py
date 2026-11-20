@@ -416,7 +416,8 @@ class Use(SnakemakeDirectiveBlock):
 
     def validate_head(self, allow_suffix=False):
         body = self.colon_line.body
-        line = body[0].line.split("#", 1)[0].strip()
+        line = "".join(tokens2linestrs(iter(body)))
+        line = line.replace("\\\n", "").split("#", 1)[0].strip()
 
         def fail():
             raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)

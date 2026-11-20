@@ -88,9 +88,9 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     if _found_skip(block.colon_line.body):
         return indent + source_line.lstrip(), ""
     prior_colon, post_colon = block.split_colon_line()
-    if len(prior_colon) != 1:
+    head = "".join(prior_colon).replace("\\\n", "")
+    if "\n" in head:
         raise UnsupportedSyntax("Snakemake keywords should be in one line")
-    (head,) = prior_colon
     components = head.strip().split()
     formatted_head = indent + " ".join(components) + ":"
     head_comment = "\n"
