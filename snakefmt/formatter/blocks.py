@@ -68,6 +68,14 @@ def _(block: SnakemakeBlock, mode: Mode, state: FormatState) -> str:
     return "".join([*formatted_prior, formatted_body])
 
 
+def _found_skip(tokens: Iterable[tokenize.TokenInfo]):
+    return any(
+        FormatState.found_skip(token.string)
+        for token in tokens
+        if token.type == tokenize.COMMENT
+    )
+
+
 @singledispatch
 def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     """Format the head line, up to and including the colon.
@@ -77,7 +85,7 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     """
     indent = TAB * block.deindent_level
     source_line = block.head_source_line()
-    if FormatState.found_skip(source_line):
+    if _found_skip(block.colon_line.body):
         return indent + source_line.lstrip(), ""
     prior_colon, post_colon = block.split_colon_line()
     if len(prior_colon) != 1:
@@ -108,7 +116,7 @@ def _format_arguments_body(
     block: SnakemakeArgumentsBlock, mode: Mode, state: FormatState
 ) -> str:
     """Format the parameters, positional before keyword, one per line."""
-    if state.found_skip(block.head_source_line()):
+    if _found_skip(block.colon_line.body):
         return _deindent_lines(block.argument)
     if any(i.string.strip() for i in block.argument.tail_noncoding):
         Warnings.block_comment_below(block.keyword, block.colon_line.body[0].start[0])
@@ -317,7 +325,7 @@ def _(block: UseRule, mode: Mode):
     """
     indent = TAB * block.deindent_level
     source_line = block.head_source_line()
-    if FormatState.found_skip(source_line):
+    if _found_skip(block.colon_line.body):
         return indent + source_line.lstrip(), ""
     head = indent + "use rule " + ", ".join(block.whitelist)
     if block.module:
