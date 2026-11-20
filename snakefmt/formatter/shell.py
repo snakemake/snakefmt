@@ -16,7 +16,7 @@ _DOUBLE_BRACE_PATTERN = re.compile(r"\{\{.*?\}\}", flags=re.DOTALL)
 # lookahead/lookbehind guards against `{{...}}` which was already masked above.
 # Intentionally permissive beyond the first character: captures {input[0]},
 # {threads:02d}, {wildcards.sample}, etc.
-_SINGLE_BRACE_PATTERN = re.compile(r"(?<!\{)\{([a-zA-Z0-9_][^{}]*)\}(?!\})")
+_SINGLE_BRACE_PATTERN = re.compile(r"(?<!\{)\{([a-zA-Z0-9_(\[\'\"][^{}]*)\}(?!\})")
 
 
 def _mask_snakemake_vars(code: str) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
