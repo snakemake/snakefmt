@@ -228,7 +228,8 @@ class Block(ABC):
     @property
     def indent_str(self) -> str:
         "tell the raw indent of the block"
-        assert self.start_token is not None, "start_token should be set after consume()"
+        if self.start_token is None:
+            raise RuntimeError("start_token should be set after consume()")
         return self.start_token.line[: self.start_token.start[1]]
 
     @property
@@ -274,7 +275,7 @@ class ColonBlock(Block):
 
     @property
     def keyword(self) -> str:
-        """Used such as `yield f"workflow.{self.keyword}("`"""
+        """Keyword identifying this block, e.g. ``rule`` or ``input``."""
         return self._keyword()
 
     allow_decorate = False
@@ -297,13 +298,18 @@ class ColonBlock(Block):
             last_line_tokens.extend(component)
         (colon_token,) = component
         prior = tokens2linestrs(iter(last_line_tokens))
-        prior[-1] = prior[-1][: colon_token.start[1]]
+        colon_prefix = colon_token.line[: colon_token.start[1]]
+        if last_line_tokens and last_line_tokens[-1].end[0] == colon_token.start[0]:
+            prior[-1] = colon_prefix
+        else:
+            prior.append(colon_prefix)
         token_iter.denext(colon_token)
         return prior, token_iter
 
     @property
     def colon_line(self):
-        assert self.head_lines, "ColonBlock should have head lines"
+        if not self.head_lines:
+            raise RuntimeError("ColonBlock should have head lines")
         return self.head_lines[-1]
 
     def consume(self, tokens):
@@ -317,9 +323,6 @@ class ColonBlock(Block):
         """Consume tokens until the end of the block body (the next DEDENT)
         The syntax will be validated by the subautomata, if any.
         """
-
-    def recognises(self, token: TokenInfo):
-        return token.type == tokenize.NAME and token.string == self.keyword
 
 
 def init_block_register():

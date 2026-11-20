@@ -25,8 +25,10 @@ from snakefmt.parser.tokens import (
     TokenIterator,
     effective,
     is_fstring_start,
+    is_op,
     line_nb,
     splitlines,
+    tokenize_text,
     tokens2linestrs,
 )
 
@@ -66,6 +68,14 @@ def _(block: SnakemakeBlock, mode: Mode, state: FormatState) -> str:
     return "".join([*formatted_prior, formatted_body])
 
 
+def _found_skip(tokens: Iterable[tokenize.TokenInfo]):
+    return any(
+        FormatState.found_skip(token.string)
+        for token in tokens
+        if token.type == tokenize.COMMENT
+    )
+
+
 @singledispatch
 def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     """Format the head line, up to and including the colon.
@@ -74,13 +84,13 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     tokens are returned; a trailing comment on the colon line is kept here.
     """
     indent = TAB * block.deindent_level
-    source_line = block.head_source_line()
-    if FormatState.found_skip(source_line):
-        return indent + source_line.lstrip(), ""
+    if _found_skip(block.colon_line.body):
+        raw_head = "".join(block.head_source_linestrs())
+        return indent + raw_head.lstrip(), ""
     prior_colon, post_colon = block.split_colon_line()
-    if len(prior_colon) != 1:
+    head = "".join(prior_colon).replace("\\\n", "")
+    if "\n" in head:
         raise UnsupportedSyntax("Snakemake keywords should be in one line")
-    (head,) = prior_colon
     components = head.strip().split()
     formatted_head = indent + " ".join(components) + ":"
     head_comment = "\n"
@@ -106,7 +116,7 @@ def _format_arguments_body(
     block: SnakemakeArgumentsBlock, mode: Mode, state: FormatState
 ) -> str:
     """Format the parameters, positional before keyword, one per line."""
-    if state.found_skip(block.head_source_line()):
+    if _found_skip(block.colon_line.body):
         return _deindent_lines(block.argument)
     if any(i.string.strip() for i in block.argument.tail_noncoding):
         Warnings.block_comment_below(block.keyword, block.colon_line.body[0].start[0])
@@ -192,7 +202,8 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
     and format them together with the head line.
     """
     formatted: list[str] = []
-    directives: dict[str, str] = {}
+    directives: dict[str, list[str]] = {}
+    seen_keywords: set[str] = set()
     tail_noncoding: list[str] = []
     indent = TAB * (block.deindent_level + 1)
     order = state.module_order if isinstance(block, Module) else state.rule_order
@@ -212,6 +223,11 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
             raise UnsupportedSyntax(
                 f"{line_nb(token)}Unexpected block type in " "snakemake keyword block"
             )
+        keyword = sub.start_token.string
+        if keyword in seen_keywords:
+            Warnings.duplicate_directive(keyword, sub.colon_line.body[0].start[0])
+        else:
+            seen_keywords.add(keyword)
         noncoding = tokens2linestrs(iter(sub.colon_line.head_noncoding))
         directive = ""
         for line in noncoding:  # here noncoding is already formated
@@ -224,9 +240,6 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
                 else:
                     directive += indent + black.format_python(linelstrip, mode, 0)
                 state = state.update(linelstrip)
-            elif state.skip_next:
-                # a blank line ends a `# fmt: off[next]` region
-                state = state.consume_skip_next()
             if state.not_format:
                 if directives:
                     formatted.extend(
@@ -264,7 +277,7 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
         else:
             directive += format_block(sub, mode, state)
             if state.sort_directives:
-                directives[sub.start_token.string] = directive
+                directives.setdefault(keyword, []).append(directive)
             else:
                 if directives:
                     raise UnsupportedSyntax(
@@ -283,16 +296,18 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
 
 
 def sort_directives(
-    directives: dict[str, str], order: Iterable[str] = (), default: Iterable[str] = ()
+    directives: dict[str, list[str]],
+    order: Iterable[str] = (),
+    default: Iterable[str] = (),
 ) -> Iterable[str]:
     """Yield the directives sorted by `order`. Clears `directives`."""
     for keyword in order:
         if keyword in directives:
-            yield directives.pop(keyword)
+            yield from directives.pop(keyword)
     if directives:
         for keyword in default:
             if keyword in directives:
-                yield directives.pop(keyword)
+                yield from directives.pop(keyword)
     if directives:
         raise UnsupportedSyntax(f"Unknown directives: {', '.join(directives)}")
 
@@ -304,17 +319,19 @@ def _(block: UseRule, mode: Mode):
     use rule * from other_workflow exclude ruleC
     use rule * from other_workflow as other_*
     use rule * from other_workflow
-    use rule a,b from other_workflow
+    use rule a, b from other_workflow
+
+    Comma-separated rule names and excludes are always rendered as `a, b`.
     """
     indent = TAB * block.deindent_level
-    source_line = block.head_source_line()
-    if FormatState.found_skip(source_line):
+    source_line = "".join(block.head_source_linestrs())
+    if _found_skip(block.colon_line.body):
         return indent + source_line.lstrip(), ""
-    head = indent + "use rule " + ",".join(block.whitelist)
+    head = indent + "use rule " + ", ".join(block.whitelist)
     if block.module:
         head += " from " + block.module
         if block.exclude:
-            head += " exclude " + ",".join(block.exclude)
+            head += " exclude " + ", ".join(block.exclude)
     if block.rename:
         head += " as " + block.rename
     if block.body_blocks:
@@ -341,7 +358,7 @@ def _(block: Rule.Shell, mode: Mode, state: FormatState) -> str:
     formatted = _format_arguments_body(block, mode, state)
     if not state.format_shell:
         return formatted
-    tokens = TokenIterator("", tokenize.generate_tokens(splitlines(formatted).readline))
+    tokens = TokenIterator("", tokenize_text(formatted))
     while True:
         try:
             component = tokens.next_component()
@@ -376,6 +393,13 @@ def _token_offset(text: str, position: tuple[int, int]) -> int:
     return offset + column
 
 
+def _check_trailing_comma(text: str) -> bool:
+    """Whether the last effective token of the text is a comma."""
+    tokens = list(tokenize_text(text))
+    last = next(token for token in reversed(tokens) if effective(token))
+    return is_op(",", last)
+
+
 def format_post_colon(
     block: PythonArgumentsBlock, mode: Mode, deindent_level: int, trailing_comma=True
 ) -> str:
@@ -400,24 +424,26 @@ def format_post_colon(
     if first is None:
         return ""
     lines: dict[int, str] = {}
-    for token in block.iter:
-        lines.update(
-            zip(
-                range(token.start[0], token.end[0] + 1),
-                splitlines(token.line),
-            )
-        )
-    if not lines:
-        return ""
+    for token in block.post_colon:
+        for row, text in zip(
+            range(token.start[0], token.end[0] + 1), splitlines(token.line)
+        ):
+            lines.setdefault(row, text)
+    for line in block.head_lines:
+        for token in line.iter:
+            for row, text in zip(
+                range(token.start[0], token.end[0] + 1), splitlines(token.line)
+            ):
+                lines.setdefault(row, text)
 
     def source(start: tuple[int, int], end: tuple[int, int]) -> str:
         """The block source text between two (line, col) positions, half-open."""
         if start[0] == end[0]:
-            return lines[start[0]][start[1] : end[1]]
-        text = lines[start[0]][start[1] :]
+            return lines.get(start[0], "\n")[start[1] : end[1]]
+        text = lines.get(start[0], "\n")[start[1] :]
         for row in range(start[0] + 1, end[0]):
-            text += lines[row]
-        text += lines[end[0]][: end[1]]
+            text += lines.get(row, "\n")
+        text += lines.get(end[0], "\n")[: end[1]]
         return text
 
     # Collect, in source order, everything between the previous parameter's
@@ -460,9 +486,17 @@ def format_post_colon(
                     trailing_comment = candidate.string
                     break
         parts.append(param_str.rstrip(","))
-    parts.append(source(start, token.end))
+    last = block.head_lines[-1].end if block.head_lines else block.post_colon[-1]
+    parts.append(source(start, last.end))
     tail_noncoding = "".join(tokens2linestrs(iter(block.tail_noncoding)))
     formatable = "".join(parts) + tail_noncoding
+    if not mode.magic_trailing_comma:
+        # Let Black remove nested trailing commas with the user's mode, then
+        # add the outer trailing comma back so the parameter list still splits.
+        normalized = black.format_python(formatable, mode, 0, partial="(")
+        if trailing_comma and not _check_trailing_comma(normalized):
+            normalized += "\n,"
+        formatable = normalized + "\n"
     # Directives always keep one parameter per line, even when the user enables
     # Black's skip-magic-trailing-comma option.
     parameter_mode = replace(mode, magic_trailing_comma=True)
