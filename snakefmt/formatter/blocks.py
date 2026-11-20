@@ -423,19 +423,18 @@ def format_post_colon(
     first = next(block.iter, None)
     if first is None:
         return ""
-    line_number = (
-        next(block.head_lines[0].iter).start[0] if block.head_lines else first.start[0]
-    )
-    head_lines = (line for chunk in block.head_linestrs for line in splitlines(chunk))
-    lines = dict(enumerate(head_lines, start=line_number))
+    lines: dict[int, str] = {}
     for token in block.post_colon:
-        if token.end[0] not in lines:
-            lines.update(
-                zip(
-                    range(token.start[0], token.end[0] + 1),
-                    splitlines(token.line),
-                )
-            )
+        for row, text in zip(
+            range(token.start[0], token.end[0] + 1), splitlines(token.line)
+        ):
+            lines.setdefault(row, text)
+    for line in block.head_lines:
+        for token in line.iter:
+            for row, text in zip(
+                range(token.start[0], token.end[0] + 1), splitlines(token.line)
+            ):
+                lines.setdefault(row, text)
 
     def source(start: tuple[int, int], end: tuple[int, int]) -> str:
         """The block source text between two (line, col) positions, half-open."""

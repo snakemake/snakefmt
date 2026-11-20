@@ -492,6 +492,22 @@ class TestComplexParamFormatting:
             "rule a:\n" f"{TAB}params:\n" f"{TAB * 2}a(b),\n"
         )
 
+    def test_missing_continuation_row_keeps_parameter_boundaries(self):
+        snakecode = (
+            "rule a:\n"
+            "    input:\n"
+            '        named=("first" \\\n'
+            "        \\\n"
+            '        "second"), "third",\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"third",\n'
+            f'{TAB * 2}named=("first" "second"),\n'
+        )
+        assert setup_formatter(snakecode, sort_params=True).get_formatted() == expected
+
 
 class TestSimplePythonFormatting:
     def test_commented_snakemake_syntax_formatted_as_python_code(self):
