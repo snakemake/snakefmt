@@ -418,16 +418,19 @@ def format_post_colon(
     first = next(block.iter, None)
     if first is None:
         return ""
-    lines: dict[int, str] = {}
-    for token in block.iter:
-        lines.update(
-            zip(
-                range(token.start[0], token.end[0] + 1),
-                splitlines(token.line),
+    line_number = (
+        next(block.head_lines[0].iter).start[0] if block.head_lines else first.start[0]
+    )
+    head_lines = (line for chunk in block.head_linestrs for line in splitlines(chunk))
+    lines = dict(enumerate(head_lines, start=line_number))
+    for token in block.post_colon:
+        if token.end[0] not in lines:
+            lines.update(
+                zip(
+                    range(token.start[0], token.end[0] + 1),
+                    splitlines(token.line),
+                )
             )
-        )
-    if not lines:
-        return ""
 
     def source(start: tuple[int, int], end: tuple[int, int]) -> str:
         """The block source text between two (line, col) positions, half-open."""
@@ -479,7 +482,8 @@ def format_post_colon(
                     trailing_comment = candidate.string
                     break
         parts.append(param_str.rstrip(","))
-    parts.append(source(start, token.end))
+    last = block.head_lines[-1].end if block.head_lines else block.post_colon[-1]
+    parts.append(source(start, last.end))
     tail_noncoding = "".join(tokens2linestrs(iter(block.tail_noncoding)))
     formatable = "".join(parts) + tail_noncoding
     if not mode.magic_trailing_comma:
