@@ -47,7 +47,9 @@ def format_python(
     """
     prefix = ""
     for i in range(indent):
-        prefix += " " * i + "def a():\n"
+        # The comment prevents Black from collapsing a one-statement body
+        # (notably `...`) onto the synthetic `def` line.
+        prefix += " " * i + "def a():  #\n"
     if partial == ":":
         # for block such as if/else/...
         safe_indent = max(extract_line_indent(line) for line in splitlines(raw))

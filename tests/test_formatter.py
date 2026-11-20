@@ -2157,6 +2157,11 @@ class TestRunBlockFormatting:
         )
         assert setup_formatter(snakecode, format_shell=True).get_formatted() == expected
 
+    @pytest.mark.parametrize("body", ["...", "pass"])
+    def test_ellipsis_and_pass_run_bodies_are_preserved(self, body):
+        snakecode = f"rule a:\n{TAB}run:\n{TAB * 2}{body}\n"
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
 
 class TestSortFormatting:
     sort_simple = (
