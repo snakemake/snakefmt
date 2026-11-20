@@ -1,5 +1,7 @@
 import logging
 
+from snakefmt.formatter import Formatter
+from snakefmt.logging import LogConfig
 from tests import setup_formatter
 
 
@@ -51,6 +53,13 @@ class TestLogging:
         assert any(
             w.startswith(expected_prefix) for w in warnings
         ), f"Expected warning starting with '{expected_prefix}', but got: {warnings}"
+
+    def test_warning_without_log_config_init(self, monkeypatch):
+        monkeypatch.delattr(LogConfig, "logger", raising=False)
+        monkeypatch.delattr(LogConfig, "handler", raising=False)
+        snakecode = 'rule a:\n    input:\n        "a",\n        # comment\n'
+        formatted = Formatter.setup(snakecode).get_formatted()
+        assert "input:" in formatted
 
     def test_duplicate_directive_warns(self, caplog):
         caplog.set_level(logging.WARNING, logger="snakefmt")

@@ -17,6 +17,8 @@ class LogConfig:
 
     @classmethod
     def get_logger(cls):
+        if not hasattr(cls, "logger"):
+            cls.init(logging.WARNING)
         return cls.logger
 
     @classmethod
