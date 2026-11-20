@@ -1484,7 +1484,7 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
 
-    def test_comment_below_paramkeyword_stays_untouched(self):
+    def test_comment_below_paramkeyword_is_normalised(self):
         snakecode = (
             "rule all:\n"
             f"{TAB * 1}input:\n"
@@ -1566,7 +1566,7 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
-    def test_no_inline_comments_stay_untouched(self):
+    def test_inline_comments_are_normalised(self):
         snakecode = (
             "rule all:\n"
             f"{TAB * 1}input:\n"
