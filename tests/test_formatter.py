@@ -2685,6 +2685,20 @@ class TestFmtOffOn:
         expected = "rule \\\n" "a:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"a",\n'
         assert setup_formatter(snakecode).get_formatted() == expected
 
+    def test_fmt_skip_preserves_parenthesized_directive_head(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB}input: (\n"
+            f'{TAB * 2}"a",\n'
+            f'{TAB * 2}"b",\n'
+            f"{TAB})  # fmt: skip\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_skip_emits_indented_body_once(self):
+        snakecode = "rule a:\n" f'{TAB}input: "a",  # fmt: skip\n' f'{TAB * 2}"b"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_fmt_skip_preserves_multiline_directive_head(self):
         snakecode = "rule a:\n" f"{TAB}input: \\\n" f'{TAB * 2}"a"  # fmt: skip\n'
         assert setup_formatter(snakecode).get_formatted() == snakecode
