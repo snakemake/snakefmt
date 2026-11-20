@@ -478,6 +478,11 @@ class TestComplexParamFormatting:
         )
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_missing_commas_are_filled(self):
+        snakecode = "rule a:\n    params:\n        foo(1)\n        bar(2)\n"
+        expected = f"rule a:\n{TAB}params:\n{TAB * 2}foo(1),\n{TAB * 2}bar(2),\n"
+        assert setup_formatter(snakecode).get_formatted() == expected
+
     def test_inline_multiline_argument_source_reconstruction(self):
         snakecode = "rule a:\n    params: a(\n     \\\n    b)\n"
         assert setup_formatter(snakecode).get_formatted() == (
