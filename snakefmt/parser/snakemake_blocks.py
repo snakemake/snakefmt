@@ -22,6 +22,7 @@ from snakefmt.parser.tokens import (
     effective,
     is_op,
     line_nb,
+    tokens2linestrs,
     validate_parameters,
 )
 
@@ -76,13 +77,13 @@ class SnakemakeBlock(ColonBlock):
         self.validate_head()
         super().consume(tokens)
 
-    def head_source_line(self) -> str:
-        """Original source line of the head, for `# fmt: skip` detection."""
-        return self.colon_line.body[0].line
+    def head_source_linestrs(self):
+        """Source lines of the logical head, excluding leading comments."""
+        return tokens2linestrs(iter(self.colon_line.body))
 
     def raw_source_linestrs(self):
         """Source lines of the block, excluding leading (head_noncoding) comments."""
-        yield self.head_source_line()
+        yield from self.head_source_linestrs()
         for block in self.body_blocks:
             yield from block.full_linestrs
 
@@ -415,7 +416,8 @@ class Use(SnakemakeDirectiveBlock):
 
     def validate_head(self, allow_suffix=False):
         body = self.colon_line.body
-        line = body[0].line.split("#", 1)[0].strip()
+        line = "".join(tokens2linestrs(iter(body)))
+        line = line.replace("\\\n", "").split("#", 1)[0].strip()
 
         def fail():
             raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)

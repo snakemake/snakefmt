@@ -69,7 +69,7 @@ def format_segments(
     yield from _format_head(block.head_lines)
     last_keyword = ""
     line = ""
-    state = state.reset_sort()
+    state = state.reset()
     for sub in block.body_blocks:
         restart_state = state = state.consume_skip_next()
         # update state from head_noncoding
@@ -244,6 +244,11 @@ def format_snakefile(snakefile: "Snakefile", mode: Mode, state: FormatState) -> 
     formatted, *formatted_split = black.format_python(
         raw_str, mode, line_map=line_map
     ).split(placeholder)
+    if len(formatted_split) != len(snakemake_codes):
+        raise RuntimeError(
+            "Black output changed the placeholder count; refusing to pair "
+            "misaligned segments"
+        )
     final_str = formatted
     for formatted, (snakemake_code, _) in zip(formatted_split, snakemake_codes):
         final_str = final_str.rsplit("\n", 1)[0] + "\n" + snakemake_code

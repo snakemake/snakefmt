@@ -31,6 +31,11 @@ def test_emptyInput_emptyOutput():
 
 
 class TestSimpleParamFormatting:
+    def test_rule_head_backslash_continuation(self):
+        snakecode = "rule \\\na:\n" f'{TAB}input: "a"\n'
+        expected = "rule a:\n" f"{TAB}input:\n" f'{TAB * 2}"a",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
     def test_simple_rule_one_input(self):
         stream = f'rule a:\n{TAB * 1}input: "foo.txt"'
         formatter = setup_formatter(stream)
@@ -109,7 +114,13 @@ class TestSimpleParamFormatting:
     def test_skip_magic_trailing_comma_applies_to_python_not_directives(self, tmp_path):
         config = tmp_path / "pyproject.toml"
         config.write_text("[tool.black]\nskip-magic-trailing-comma = true\n")
-        snakecode = 'rule a:\n    input: "a", "b"\n    output: "c", "d"\n'
+        snakecode = (
+            "rule a:\n"
+            '    input: "a", "b"\n'
+            '    output: "c", "d"\n'
+            '    message: "hi"\n'
+            '    shell: "echo hi"\n'
+        )
         expected = (
             "rule a:\n"
             f"{TAB}input:\n"
@@ -118,6 +129,10 @@ class TestSimpleParamFormatting:
             f"{TAB}output:\n"
             f'{TAB * 2}"c",\n'
             f'{TAB * 2}"d",\n'
+            f"{TAB}message:\n"
+            f'{TAB * 2}"hi"\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"echo hi"\n'
         )
         assert (
             setup_formatter(snakecode, black_config_file=config).get_formatted()
@@ -156,8 +171,6 @@ class TestSimpleParamFormatting:
             == expected
         )
 
-
-class TestModuleFormatting:
     def test_module_specific_keyword_formatting(self):
         formatter = setup_formatter(
             "module a: \n"
@@ -253,6 +266,11 @@ use rule * from other_workflow exclude ruleC, foo as other_*
     def test_consecutive_use_rule_lines_get_no_blank_line(self):
         snakecode = "use rule * from m\nuse rule a from m\n"
         assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_use_rule_backslash_continuation(self):
+        snakecode = "use rule a from m \\\n    exclude b\n"
+        expected = "use rule a from m exclude b\n"
+        assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_use_multiple_rules(self):
         snakecode = "use rule a, b from m\n"
@@ -459,6 +477,36 @@ class TestComplexParamFormatting:
             "# use all available cores -1 (because of the pipe) for calling\n"
         )
         assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_inline_multiline_argument_source_reconstruction(self):
+        snakecode = "rule a:\n    params: a(\n     \\\n    b)\n"
+        assert setup_formatter(snakecode).get_formatted() == (
+            "rule a:\n" f"{TAB}params:\n" f"{TAB * 2}a(b),\n"
+        )
+
+    def test_indented_multiline_argument_source_reconstruction(self):
+        snakecode = (
+            "rule a:\n" "    params:\n" "        a(\n" "         \\\n" "        b)\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == (
+            "rule a:\n" f"{TAB}params:\n" f"{TAB * 2}a(b),\n"
+        )
+
+    def test_missing_continuation_row_keeps_parameter_boundaries(self):
+        snakecode = (
+            "rule a:\n"
+            "    input:\n"
+            '        named=("first" \\\n'
+            "        \\\n"
+            '        "second"), "third",\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"third",\n'
+            f'{TAB * 2}named=("first" "second"),\n'
+        )
+        assert setup_formatter(snakecode, sort_params=True).get_formatted() == expected
 
 
 class TestSimplePythonFormatting:
@@ -2659,6 +2707,29 @@ class TestFmtOffOn:
             expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
 
+    def test_fmt_skip_preserves_multiline_rule_head(self):
+        snakecode = 'rule \\\na:  # fmt: skip\n    input: "a"\n'
+        expected = "rule \\\n" "a:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"a",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_fmt_skip_preserves_parenthesized_directive_head(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB}input: (\n"
+            f'{TAB * 2}"a",\n'
+            f'{TAB * 2}"b",\n'
+            f"{TAB})  # fmt: skip\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_skip_emits_indented_body_once(self):
+        snakecode = "rule a:\n" f'{TAB}input: "a",  # fmt: skip\n' f'{TAB * 2}"b"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_skip_preserves_multiline_directive_head(self):
+        snakecode = "rule a:\n" f"{TAB}input: \\\n" f'{TAB * 2}"a"  # fmt: skip\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_fmt_off_not_on(self):
         """`
         - `# fmt: on` at a deeper indentation level than `# fmt: off` has no effect
@@ -2677,6 +2748,18 @@ class TestFmtOffOn:
                 + code
             )
             assert setup_formatter(expected).get_formatted() == expected
+
+    def test_nested_fmt_on_does_not_override_enclosing_off(self):
+        snakecode = (
+            "# fmt: off\n"
+            "if True:\n"
+            "    # fmt: on\n"
+            "    rule a:\n"
+            '        input: "a"\n'
+            "rule b:\n"
+            '    input: "b"\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_fmt_off_on_in_run(self):
         """# fmt: off inside Python code is handled by Black."""
@@ -2905,6 +2988,30 @@ class TestFmtOffOn:
         assert formatter.get_formatted()  # == expected
         assert expected
 
+    def test_fmt_off_preserves_multiline_directive_header(self):
+        snakecode = (
+            "rule a:\n"
+            "    # fmt: off\n"
+            "    input: (\n"
+            '        "a",\n'
+            '        "b",\n'
+            "    )\n"
+            "    # fmt: on\n"
+            '    output: "c"\n'
+        )
+        expected = (
+            "rule a:\n"
+            "    # fmt: off\n"
+            "    input: (\n"
+            '        "a",\n'
+            '        "b",\n'
+            "    )\n"
+            "    # fmt: on\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"c",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
     def test_fmt_on_inside_rule_takes_effect(self):
         snakecode = (
             "rule a:\n"
@@ -2973,6 +3080,25 @@ class TestFmtOffSort:
                 setup_formatter(expected2, sort_params=True).get_formatted()
                 == expected2
             )
+
+    def test_fmt_on_next_does_not_enable_sorting(self):
+        snakecode = (
+            "# fmt: off[sort]\n"
+            "# fmt: on[next]\n"
+            "rule a:\n"
+            '    output: "o"\n'
+            '    input: "i"\n'
+        )
+        expected = (
+            "# fmt: off[sort]\n"
+            "# fmt: on[next]\n"
+            "rule a:\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"o",\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"i",\n'
+        )
+        assert setup_formatter(snakecode, sort_params=True).get_formatted() == expected
 
     def test_fmt_off_sort_dedent(self):
         """A deeper `# fmt: on` has no effect on sorting, while a deeper

@@ -17,6 +17,8 @@ class LogConfig:
 
     @classmethod
     def get_logger(cls):
+        if not hasattr(cls, "logger"):
+            cls.init(logging.WARNING)
         return cls.logger
 
     @classmethod
@@ -41,7 +43,7 @@ class Warnings:
 
     @staticmethod
     def duplicate_directive(keyword: str, line_nb: int):
-        msg = f'L{line_nb}: Duplicate directive "{keyword}" is ignored.'
+        msg = f'L{line_nb}: Duplicate directive "{keyword}" may have no effect.'
         LogConfig.get_logger().warning(msg)
 
     @staticmethod

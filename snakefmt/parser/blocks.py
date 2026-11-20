@@ -298,7 +298,11 @@ class ColonBlock(Block):
             last_line_tokens.extend(component)
         (colon_token,) = component
         prior = tokens2linestrs(iter(last_line_tokens))
-        prior[-1] = prior[-1][: colon_token.start[1]]
+        colon_prefix = colon_token.line[: colon_token.start[1]]
+        if last_line_tokens and last_line_tokens[-1].end[0] == colon_token.start[0]:
+            prior[-1] = colon_prefix
+        else:
+            prior.append(colon_prefix)
         token_iter.denext(colon_token)
         return prior, token_iter
 
