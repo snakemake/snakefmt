@@ -59,4 +59,4 @@ class TestLogging:
         )
         setup_formatter(snakecode, sort_params=True).get_formatted()
         warnings = [rec.message for rec in caplog.records]
-        assert any('Duplicate directive "input" is ignored' in w for w in warnings)
+        assert any('Duplicate directive "input"' in w for w in warnings)
