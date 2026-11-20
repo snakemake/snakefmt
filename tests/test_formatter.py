@@ -2916,6 +2916,30 @@ class TestFmtOffOn:
         assert formatter.get_formatted()  # == expected
         assert expected
 
+    def test_fmt_off_preserves_multiline_directive_header(self):
+        snakecode = (
+            "rule a:\n"
+            "    # fmt: off\n"
+            "    input: (\n"
+            '        "a",\n'
+            '        "b",\n'
+            "    )\n"
+            "    # fmt: on\n"
+            '    output: "c"\n'
+        )
+        expected = (
+            "rule a:\n"
+            "    # fmt: off\n"
+            "    input: (\n"
+            '        "a",\n'
+            '        "b",\n'
+            "    )\n"
+            "    # fmt: on\n"
+            f"{TAB}output:\n"
+            f'{TAB * 2}"c",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
     def test_fmt_on_inside_rule_takes_effect(self):
         snakecode = (
             "rule a:\n"

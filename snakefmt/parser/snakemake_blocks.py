@@ -22,6 +22,7 @@ from snakefmt.parser.tokens import (
     effective,
     is_op,
     line_nb,
+    tokens2linestrs,
     validate_parameters,
 )
 
@@ -82,7 +83,7 @@ class SnakemakeBlock(ColonBlock):
 
     def raw_source_linestrs(self):
         """Source lines of the block, excluding leading (head_noncoding) comments."""
-        yield self.head_source_line()
+        yield from tokens2linestrs(iter(self.colon_line.body))
         for block in self.body_blocks:
             yield from block.full_linestrs
 
