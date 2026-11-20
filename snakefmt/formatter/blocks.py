@@ -355,7 +355,7 @@ def _(block: Rule.Shell, mode: Mode, state: FormatState) -> str:
     comments/blank lines and the trailing-comma handling; only the
     literal itself is then swapped for its `shfmt`'ed form.
     """
-    if state.found_skip(block.head_source_line()):
+    if _found_skip(block.colon_line.body):
         return _deindent_lines(block.argument)
     formatted = _format_arguments_body(block, mode, state)
     if not state.format_shell:
