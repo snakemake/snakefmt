@@ -193,7 +193,7 @@ module other_workflow:
         "other_workflow/Snakefile"
 
 
-use rule * from other_workflow exclude ruleC,foo as other_*
+use rule * from other_workflow exclude ruleC, foo as other_*
 """
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == snakecode
@@ -224,7 +224,7 @@ use rule * from other_workflow exclude ruleC,foo as other_*
 
     def test_use_multiple_rules(self):
         snakecode = "use rule a, b from m\n"
-        expected = "use rule a,b from m\n"
+        expected = "use rule a, b from m\n"
         assert setup_formatter(snakecode).get_formatted() == expected
 
 

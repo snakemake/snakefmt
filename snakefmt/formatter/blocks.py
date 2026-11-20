@@ -304,17 +304,19 @@ def _(block: UseRule, mode: Mode):
     use rule * from other_workflow exclude ruleC
     use rule * from other_workflow as other_*
     use rule * from other_workflow
-    use rule a,b from other_workflow
+    use rule a, b from other_workflow
+
+    Comma-separated rule names and excludes are always rendered as `a, b`.
     """
     indent = TAB * block.deindent_level
     source_line = block.head_source_line()
     if FormatState.found_skip(source_line):
         return indent + source_line.lstrip(), ""
-    head = indent + "use rule " + ",".join(block.whitelist)
+    head = indent + "use rule " + ", ".join(block.whitelist)
     if block.module:
         head += " from " + block.module
         if block.exclude:
-            head += " exclude " + ",".join(block.exclude)
+            head += " exclude " + ", ".join(block.exclude)
     if block.rename:
         head += " as " + block.rename
     if block.body_blocks:
