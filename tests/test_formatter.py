@@ -3649,6 +3649,18 @@ class TestShellBlockFormatting:
             == self._UNFORMATTED
         )
 
+    def test_fmt_skip_on_shell_head_preserves_body(self):
+        snakecode = (
+            "rule a:\n"
+            "    shell:  # fmt: skip\n"
+            '        """\n'
+            "  echo   hi\n"
+            '"""\n'
+        )
+        assert (
+            setup_formatter(snakecode, format_shell=True).get_formatted() == snakecode
+        )
+
     def test_fmt_off_opts_out_of_shell_formatting(self):
         """A # fmt: off / # fmt: on region prevents shell formatting."""
         code = (
