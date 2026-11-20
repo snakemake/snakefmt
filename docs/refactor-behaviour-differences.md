@@ -37,6 +37,22 @@ The remaining differences come from the new block/tokenizer architecture.
 - `tests/test_github_issue806/Snakefile`: a lambda fits on one line where master
   split it.
 
+## Breaking API changes
+
+This refactor removes or moves several importable symbols:
+
+- `snakefmt.parser.parser.Snakefile` and the old
+  `Formatter(snakefile, ...)` entry point. Use
+  `Formatter.setup(source).get_formatted()` instead.
+- `snakefmt.shell_formatter`. Use `snakefmt.formatter.shell`.
+- `snakefmt.formatter.TAB`. Use `snakefmt.formatter.indent.TAB`.
+- `InvalidParameterSyntax` and `UnsupportedSyntax` now subclass `SyntaxError`.
+  Code catching the old plain exceptions should catch `SyntaxError` instead.
+
+The Vim plugin has been updated to the new formatter API. Other editor
+integrations that imported `snakefmt.parser.parser` or used the old
+`Formatter(snakefile, ...)` constructor need the same migration.
+
 ## Intentional simplification
 
 Python formatting is delegated to Black; snakefmt only handles Snakemake-specific
