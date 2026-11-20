@@ -51,3 +51,12 @@ class TestLogging:
         assert any(
             w.startswith(expected_prefix) for w in warnings
         ), f"Expected warning starting with '{expected_prefix}', but got: {warnings}"
+
+    def test_duplicate_directive_warns(self, caplog):
+        caplog.set_level(logging.WARNING, logger="snakefmt")
+        snakecode = (
+            "rule a:\n" '    input: "a"\n' '    input: "b"\n' '    output: "c"\n'
+        )
+        setup_formatter(snakecode, sort_params=True).get_formatted()
+        warnings = [rec.message for rec in caplog.records]
+        assert any('Duplicate directive "input" is ignored' in w for w in warnings)

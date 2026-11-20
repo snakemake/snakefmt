@@ -40,6 +40,11 @@ class Warnings:
         LogConfig.get_logger().warning(f"{msg}\n\t{PEP8_BLOCK_COMMENTS}")
 
     @staticmethod
+    def duplicate_directive(keyword: str, line_nb: int):
+        msg = f'L{line_nb}: Duplicate directive "{keyword}" is ignored.'
+        LogConfig.get_logger().warning(msg)
+
+    @staticmethod
     def comment_relocation(keyword: str, line_nb: int):
         msg = (
             f'L{line_nb}: Inline-formatted keyword "{keyword}" had its'

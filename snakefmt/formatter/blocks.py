@@ -194,7 +194,8 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
     and format them together with the head line.
     """
     formatted: list[str] = []
-    directives: dict[str, str] = {}
+    directives: dict[str, list[str]] = {}
+    seen_keywords: set[str] = set()
     tail_noncoding: list[str] = []
     indent = TAB * (block.deindent_level + 1)
     order = state.module_order if isinstance(block, Module) else state.rule_order
@@ -214,6 +215,11 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
             raise UnsupportedSyntax(
                 f"{line_nb(token)}Unexpected block type in " "snakemake keyword block"
             )
+        keyword = sub.start_token.string
+        if keyword in seen_keywords:
+            Warnings.duplicate_directive(keyword, sub.colon_line.body[0].start[0])
+        else:
+            seen_keywords.add(keyword)
         noncoding = tokens2linestrs(iter(sub.colon_line.head_noncoding))
         directive = ""
         for line in noncoding:  # here noncoding is already formated
@@ -266,7 +272,7 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
         else:
             directive += format_block(sub, mode, state)
             if state.sort_directives:
-                directives[sub.start_token.string] = directive
+                directives.setdefault(keyword, []).append(directive)
             else:
                 if directives:
                     raise UnsupportedSyntax(
@@ -285,16 +291,18 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
 
 
 def sort_directives(
-    directives: dict[str, str], order: Iterable[str] = (), default: Iterable[str] = ()
+    directives: dict[str, list[str]],
+    order: Iterable[str] = (),
+    default: Iterable[str] = (),
 ) -> Iterable[str]:
     """Yield the directives sorted by `order`. Clears `directives`."""
     for keyword in order:
         if keyword in directives:
-            yield directives.pop(keyword)
+            yield from directives.pop(keyword)
     if directives:
         for keyword in default:
             if keyword in directives:
-                yield directives.pop(keyword)
+                yield from directives.pop(keyword)
     if directives:
         raise UnsupportedSyntax(f"Unknown directives: {', '.join(directives)}")
 

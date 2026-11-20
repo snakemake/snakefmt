@@ -2338,6 +2338,22 @@ class TestSortFormatting:
         f'{TAB * 2}"wrapper"\n',
     )
 
+    def test_duplicate_directives_are_preserved(self):
+        snakecode = (
+            "rule a:\n" '    input: "a"\n' '    input: "b"\n' '    output: "c"\n'
+        )
+        expected = (
+            "rule a:\n"
+            f"{TAB}input:\n"
+            f'{TAB * 2}"a",\n'
+            f"{TAB}input:\n"
+            f'{TAB * 2}"b",\n'
+            f"{TAB}output:\n"
+            f'{TAB * 2}"c",\n'
+        )
+        assert setup_formatter(snakecode, sort_params=True).get_formatted() == expected
+        assert setup_formatter(snakecode, sort_params=False).get_formatted() == expected
+
     def test_sorting_module(self):
         formatter = setup_formatter(self.sort_module[0], sort_params=True)
         assert formatter.get_formatted() == self.sort_module[1]
