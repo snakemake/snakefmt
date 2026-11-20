@@ -1654,6 +1654,19 @@ class TestCommentTreatment:
         )
         assert setup_formatter(snakecode).get_formatted() == expected
 
+    @pytest.mark.parametrize("character", ["\x0c", "\x85"])
+    def test_line_separator_in_comment_does_not_become_code(self, character):
+        snakecode = (
+            "rule a:\n"
+            '    input: "a"\n'
+            f'# x{character}os.remove("data")\n'
+            "rule b:\n"
+            '    input: "b"\n'
+        )
+        formatted = setup_formatter(snakecode).get_formatted()
+        assert f'# x{character}os.remove("data")\n' in formatted
+        assert '\n\nos.remove("data")\n' not in formatted
+
 
 class TestNewlineSpacing:
     def test_parameter_keyword_spacing_above(self):

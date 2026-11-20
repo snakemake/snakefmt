@@ -8,7 +8,7 @@ from snakefmt.formatter.indent import TAB, deindent_lines
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import Block, ColonBlock
 from snakefmt.parser.snakemake_blocks import SnakemakeBlock
-from snakefmt.parser.tokens import LogicalLine, tokens2linestrs
+from snakefmt.parser.tokens import LogicalLine, splitlines, tokens2linestrs
 
 if TYPE_CHECKING:
     from snakefmt.parser.snakefile import Snakefile
@@ -161,9 +161,9 @@ def format_snakemake_segments(
     if last_fmt_on and state.fmt_on:
         if last_keyword == block.keyword:
             # pre-format these lines and yield together
-            pre_formatted = black.format_python(
-                "".join(noncoding_lines), mode, 0
-            ).splitlines(keepends=True)
+            pre_formatted = splitlines(
+                black.format_python("".join(noncoding_lines), mode, 0)
+            ).readlines()
             for line in pre_formatted:
                 if state.found_skip(line):
                     yield None, line, None
