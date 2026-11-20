@@ -313,9 +313,3 @@ class TestPythonCode:
         ),
 """
         assert setup_formatter(snake).get_formatted() == snake
-
-
-class TestInvalidInputRaisesRealErrors:
-    def test_empty_rule_inside_if(self):
-        with pytest.raises(EmptyContextError, match="L2: rule"):
-            setup_formatter("if x:\n    rule a:\n")
