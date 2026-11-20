@@ -31,6 +31,11 @@ def test_emptyInput_emptyOutput():
 
 
 class TestSimpleParamFormatting:
+    def test_rule_head_backslash_continuation(self):
+        snakecode = "rule \\\na:\n" f'{TAB}input: "a"\n'
+        expected = "rule a:\n" f"{TAB}input:\n" f'{TAB * 2}"a",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
     def test_simple_rule_one_input(self):
         stream = f'rule a:\n{TAB * 1}input: "foo.txt"'
         formatter = setup_formatter(stream)
@@ -166,8 +171,6 @@ class TestSimpleParamFormatting:
             == expected
         )
 
-
-class TestModuleFormatting:
     def test_module_specific_keyword_formatting(self):
         formatter = setup_formatter(
             "module a: \n"
@@ -263,6 +266,11 @@ use rule * from other_workflow exclude ruleC, foo as other_*
     def test_consecutive_use_rule_lines_get_no_blank_line(self):
         snakecode = "use rule * from m\nuse rule a from m\n"
         assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_use_rule_backslash_continuation(self):
+        snakecode = "use rule a from m \\\n    exclude b\n"
+        expected = "use rule a from m exclude b\n"
+        assert setup_formatter(snakecode).get_formatted() == expected
 
     def test_use_multiple_rules(self):
         snakecode = "use rule a, b from m\n"
@@ -2657,6 +2665,15 @@ class TestFmtOffOn:
             code1 = "\n# fmt: off\n" + code + "\n# fmt: on\n" + code
             expected = "# fmt: off\n" + code + "\n# fmt: on\n" + formatted
             assert setup_formatter(code1).get_formatted() == expected
+
+    def test_fmt_skip_preserves_multiline_rule_head(self):
+        snakecode = 'rule \\\na:  # fmt: skip\n    input: "a"\n'
+        expected = "rule \\\n" "a:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"a",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_fmt_skip_preserves_multiline_directive_head(self):
+        snakecode = "rule a:\n" f"{TAB}input: \\\n" f'{TAB * 2}"a"  # fmt: skip\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_fmt_off_not_on(self):
         """`

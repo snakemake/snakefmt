@@ -84,9 +84,9 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     tokens are returned; a trailing comment on the colon line is kept here.
     """
     indent = TAB * block.deindent_level
-    source_line = block.head_source_line()
     if _found_skip(block.colon_line.body):
-        return indent + source_line.lstrip(), ""
+        raw_head = "".join(block.head_source_linestrs())
+        return indent + raw_head.lstrip(), ""
     prior_colon, post_colon = block.split_colon_line()
     head = "".join(prior_colon).replace("\\\n", "")
     if "\n" in head:
@@ -324,7 +324,7 @@ def _(block: UseRule, mode: Mode):
     Comma-separated rule names and excludes are always rendered as `a, b`.
     """
     indent = TAB * block.deindent_level
-    source_line = block.head_source_line()
+    source_line = "".join(block.head_source_linestrs())
     if _found_skip(block.colon_line.body):
         return indent + source_line.lstrip(), ""
     head = indent + "use rule " + ", ".join(block.whitelist)
