@@ -22,6 +22,7 @@ from snakefmt.parser.tokens import (
     effective,
     is_op,
     line_nb,
+    tokens2linestrs,
     validate_parameters,
 )
 
@@ -35,7 +36,8 @@ class SnakemakeBlock(ColonBlock):
     @property
     def start_token(self):
         token = super().start_token
-        assert token is not None, "SnakemakeBlock should have a start_token"
+        if token is None:
+            raise RuntimeError("SnakemakeBlock should have a start_token")
         return token
 
     def validate_head(self, allow_suffix=False):
@@ -75,13 +77,13 @@ class SnakemakeBlock(ColonBlock):
         self.validate_head()
         super().consume(tokens)
 
-    def head_source_line(self) -> str:
-        """Original source line of the head, for `# fmt: skip` detection."""
-        return self.colon_line.body[0].line
+    def head_source_linestrs(self):
+        """Source lines of the logical head, excluding leading comments."""
+        return tokens2linestrs(iter(self.colon_line.body))
 
     def raw_source_linestrs(self):
         """Source lines of the block, excluding leading (head_noncoding) comments."""
-        yield self.head_source_line()
+        yield from self.head_source_linestrs()
         for block in self.body_blocks:
             yield from block.full_linestrs
 
@@ -132,9 +134,10 @@ class Argument:
     def from_token(cls, tokens: Iterable[TokenInfo]):
         """Split parameter tokens into `Argument`s.
 
-        Parameters are delimited by top-level commas. Each region is handed to
-        `_munch` (whole first, then maximal munch by lines). Comment-only lines
-        belong to the previous argument, or to `head_noncoding` if none.
+        Parameters are delimited by top-level commas. Each comma-delimited
+        region is validated as one parameter by `_munch`; invalid regions are
+        rejected. Comment-only lines belong to the previous argument, or to
+        `head_noncoding` if none.
         """
         tokeniter = TokenIterator("", iter(tokens))
         process = True
@@ -153,12 +156,12 @@ class Argument:
 
     @classmethod
     def _munch(cls, region: list[list[TokenInfo]]):
-        """Split one comma-delimited region into `Argument`s.
+        """Validate one comma-delimited region as a single ``Argument``.
 
-        The whole region is tried first, so implicit string concatenation and
-        operator continuations stay a single parameter. Only if the whole region
-        is not one valid argument is it split by lines, taking the longest valid
-        prefix each time (maximal munch).
+        Line grouping is used to preserve implicit string concatenation,
+        comments and operator continuations. If the whole region is not one
+        valid argument, the region is rejected with ``InvalidParameterSyntax``;
+        there is no shorter-prefix fallback.
         """
         current: list[TokenInfo] = []
         lines = [current]
@@ -235,9 +238,11 @@ class SnakemakeArgumentsBlock(SnakemakeBlock):
 
     @property
     def argument(self):
-        assert len(self.body_blocks) == 1
+        if len(self.body_blocks) != 1:
+            raise RuntimeError("Snakemake argument block should have one body")
         (block,) = self.body_blocks
-        assert isinstance(block, self.Argument)
+        if not isinstance(block, self.Argument):
+            raise RuntimeError("Unexpected block type in Snakemake argument body")
         return block
 
     def consume(self, tokens):
@@ -413,7 +418,8 @@ class Use(SnakemakeDirectiveBlock):
 
     def validate_head(self, allow_suffix=False):
         body = self.colon_line.body
-        line = body[0].line.split("#", 1)[0].strip()
+        line = "".join(tokens2linestrs(iter(body)))
+        line = line.replace("\\\n", "").split("#", 1)[0].strip()
 
         def fail():
             raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)

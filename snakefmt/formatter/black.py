@@ -8,13 +8,13 @@ import black.parsing
 from snakefmt.config import Mode
 from snakefmt.exceptions import InvalidPython
 from snakefmt.formatter.indent import TAB
-from snakefmt.parser.tokens import extract_line_indent, splitlines
+from snakefmt.parser.tokens import extract_line_indent, splitlines, tokenize_text
 
 
 def _contains_comment(text: str) -> bool:
     """Whether ``text`` contains a comment token (not merely a ``#`` in a string)."""
     try:
-        tokens = tokenize.generate_tokens(splitlines(text).__next__)
+        tokens = tokenize_text(text)
         return any(token.type == tokenize.COMMENT for token in tokens)
     except (tokenize.TokenError, IndentationError):
         return False
@@ -47,7 +47,9 @@ def format_python(
     """
     prefix = ""
     for i in range(indent):
-        prefix += " " * i + "def a():\n"
+        # The comment prevents Black from collapsing a one-statement body
+        # (notably `...`) onto the synthetic `def` line.
+        prefix += " " * i + "def a():  #\n"
     if partial == ":":
         # for block such as if/else/...
         safe_indent = max(extract_line_indent(line) for line in splitlines(raw))
@@ -64,30 +66,40 @@ def format_python(
     except black.parsing.InvalidInput as e:
         err_msg = str(e)
         # Not clear whether all Black errors start with 'Cannot parse' - it seems to
-        # in the tests I ran
-        match = re.search(r"(Cannot parse.*?:\s*)(?P<line>\d+)(.*)", err_msg)
+        # in the tests I ran. Black >= 26.10 writes it in lowercase and puts the
+        # offending source line and a caret on the lines after the line number.
+        # Anchored to the start: Black's "INTERNAL ERROR: ... produced invalid
+        # code" also contains "cannot parse", but its line number points into
+        # Black's own output, not into the code we gave it.
+        match = re.match(
+            r"(cannot parse.*?:\s*)(?P<line>\d+)(.*)",
+            str(e),
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        mapped = None
         if match:
             line = int(match.group("line"))
             if start_token is not None:
                 mapped = start_token.start[0]
-            else:
-                mapped = None
-                if line_map is not None:
-                    if 0 < line <= len(line_map):
-                        mapped = line_map[line - 1]
-                    elif line == len(line_map) + 1:
-                        # Black reports EOF one line past the last line.
-                        for index in range(len(line_map) - 1, -1, -1):
-                            line_index = line_map[index]
-                            if line_index is not None:
-                                mapped = line_index + (line - index - 1)
-                                break
+            elif line_map is not None:
+                if 0 < line <= len(line_map):
+                    mapped = line_map[line - 1]
+                elif line == len(line_map) + 1:
+                    # Black reports EOF one line past the last line.
+                    for index in range(len(line_map) - 1, -1, -1):
+                        line_index = line_map[index]
+                        if line_index is not None:
+                            mapped = line_index + (line - index - 1)
+                            break
             if mapped is not None:
                 err_msg = match.group(1) + str(mapped) + match.group(3)
-        err_msg += (
-            "\n\n(Note reported line number may be incorrect, as"
-            " snakefmt could not determine the true line number)"
-        )
+        if mapped is not None:
+            err_msg += "\n\n(Note reported line number may be an approximation)"
+        else:
+            err_msg += (
+                "\n\n(Note reported line number may be an approximation, as"
+                " snakefmt could not determine the true line number)"
+            )
         err_msg = f"Black error:\n```\n{str(err_msg)}\n```\n"
         raise InvalidPython(err_msg) from None
     if indent:
