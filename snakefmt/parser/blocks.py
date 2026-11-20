@@ -275,7 +275,7 @@ class ColonBlock(Block):
 
     @property
     def keyword(self) -> str:
-        """Used such as `yield f"workflow.{self.keyword}("`"""
+        """Keyword identifying this block, e.g. ``rule`` or ``input``."""
         return self._keyword()
 
     allow_decorate = False
