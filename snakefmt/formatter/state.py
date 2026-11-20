@@ -33,8 +33,8 @@ class FormatState(NamedTuple):
 
         Currently, options can be:
         - sort: whether to sort snakemake directives (e.g. input, output, params, etc.)
-        - next: whether to apply the directive to the next snakemake block only
-            Do not effect blocks after empty lines.
+        - next: whether to apply the directive to the next snakemake block only.
+            Blank lines before that block do not cancel it.
             Cannot be disabled by `# fmt: on[next]`
         - only the first directive will be applied
 

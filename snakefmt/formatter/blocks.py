@@ -232,9 +232,6 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
                 else:
                     directive += indent + black.format_python(linelstrip, mode, 0)
                 state = state.update(linelstrip)
-            elif state.skip_next:
-                # a blank line ends a `# fmt: off[next]` region
-                state = state.consume_skip_next()
             if state.not_format:
                 if directives:
                     formatted.extend(
