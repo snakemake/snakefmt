@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.1.1](https://github.com/snakemake/snakefmt/compare/v2.1.0...v2.1.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* report Snakefile line numbers for Black 26.10+ parse errors ([#339](https://github.com/snakemake/snakefmt/issues/339)) ([8677f6f](https://github.com/snakemake/snakefmt/commit/8677f6f6718a02d1756bb3c179a237e969596528))
+
 ## [2.1.0](https://github.com/snakemake/snakefmt/compare/v2.0.3...v2.1.0) (2026-10-14)
 
 
