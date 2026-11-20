@@ -39,7 +39,18 @@ The remaining differences come from the new block/tokenizer architecture.
 
 ## Intentional simplification
 
-- A rule docstring followed by a comment no longer gets a blank line inserted between them. `master` inserted it because the old formatter passed the rule docstring to Black as a module-level docstring; the block formatter does not reproduce that side effect. The old test was replaced with one that asserts the simplified output.
+- A rule docstring followed by a comment no longer gets a blank line inserted
+  between them. `master` inserted it because the old formatter passed the rule
+  docstring to Black as a module-level docstring; the block formatter does not
+  reproduce that side effect. The old test was replaced with one that asserts
+  the simplified output.
+- Blank lines between an `if ...:` header and the following comment or
+  `# fmt: off[next]` now follow the source, matching Black's normal blank-line
+  handling. `master` used fixed rules: it always added a blank line before a
+  plain comment and always removed one before `# fmt: off[next]`. Covered by
+  `test_comment_inside_python_code_sticks_to_rule`,
+  `test_fmt_off_next_in_2if`, `test_fmt_off_sort_dedent` and
+  `test_fmt_off_sort_on_noeffect`.
 
 ## `use rule` comma formatting
 
