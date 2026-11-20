@@ -400,7 +400,7 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
 
 def validate_parameters(tokens: list[TokenInfo]):
     """Whether `tokens` parse as a single call argument."""
-    text = tokenize.untokenize(tokens).strip()
+    text = tokenize.untokenize([(token.type, token.string) for token in tokens]).strip()
     try:
         ast.parse(f"param({text}\n)")
     except SyntaxError:
