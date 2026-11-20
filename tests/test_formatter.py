@@ -478,6 +478,20 @@ class TestComplexParamFormatting:
         )
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_inline_multiline_argument_source_reconstruction(self):
+        snakecode = "rule a:\n    params: a(\n     \\\n    b)\n"
+        assert setup_formatter(snakecode).get_formatted() == (
+            "rule a:\n" f"{TAB}params:\n" f"{TAB * 2}a(b),\n"
+        )
+
+    def test_indented_multiline_argument_source_reconstruction(self):
+        snakecode = (
+            "rule a:\n" "    params:\n" "        a(\n" "         \\\n" "        b)\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == (
+            "rule a:\n" f"{TAB}params:\n" f"{TAB * 2}a(b),\n"
+        )
+
 
 class TestSimplePythonFormatting:
     def test_commented_snakemake_syntax_formatted_as_python_code(self):

@@ -440,11 +440,11 @@ def format_post_colon(
     def source(start: tuple[int, int], end: tuple[int, int]) -> str:
         """The block source text between two (line, col) positions, half-open."""
         if start[0] == end[0]:
-            return lines[start[0]][start[1] : end[1]]
-        text = lines[start[0]][start[1] :]
+            return lines.get(start[0], "\n")[start[1] : end[1]]
+        text = lines.get(start[0], "\n")[start[1] :]
         for row in range(start[0] + 1, end[0]):
-            text += lines[row]
-        text += lines[end[0]][: end[1]]
+            text += lines.get(row, "\n")
+        text += lines.get(end[0], "\n")[: end[1]]
         return text
 
     # Collect, in source order, everything between the previous parameter's
