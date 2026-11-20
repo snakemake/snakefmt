@@ -96,8 +96,6 @@ class TokenIterator:
         self._live_tokens = tokens
         self._buffered_tokens: list[TokenInfo] = list()
         self.lines = 0
-        self.rulecount = 0
-        self._overwrite_cmd: Optional[str] = None
         self._last_token: Optional[TokenInfo] = None
 
     def next_new_line(self):
@@ -168,7 +166,8 @@ class TokenIterator:
                 deindelta -= line.deindelta
                 break
             elif line.end.type == tokenize.ENDMARKER:
-                assert deindelta == 1
+                if deindelta != 1:
+                    raise RuntimeError("Unexpected deindent count at end of file")
                 break
             lines.append(line)
         # there must be somewhere a DEDENT token to end the block,
@@ -202,8 +201,8 @@ class TokenIterator:
         """
         head, dedents, body, end = line
         self.denext(end, *reversed(body), *reversed(dedents[deindelta:]))
-        if body and indent:
-            assert not body[0].line.startswith(indent), (
+        if body and indent and body[0].line.startswith(indent):
+            raise RuntimeError(
                 f"indent of ending block(`{indent!r}`) should longer "
                 f"than the next line(`{body[0].line!r}`)"
             )
@@ -213,8 +212,8 @@ class TokenIterator:
             if token.type == tokenize.COMMENT:
                 if not extract_line_indent(token.line).startswith(indent):
                     break
-            else:
-                assert token.type == tokenize.NL, f"Unexpected token {token!r}"
+            elif token.type != tokenize.NL:
+                raise RuntimeError(f"Unexpected token {token!r}")
         else:
             i += 1  # == len(head), push all head tokens back
         self.denext(*reversed(head[i:]))
@@ -312,7 +311,8 @@ class LogicalLine(NamedTuple):
             return 0
         if [i.type for i in self.deindents] == [tokenize.INDENT]:
             return 1
-        assert {i.type for i in self.deindents} == {tokenize.DEDENT}
+        if {i.type for i in self.deindents} != {tokenize.DEDENT}:
+            raise RuntimeError("Expected only DEDENT tokens")
         return -len(self.deindents)
 
     @property
@@ -354,7 +354,8 @@ class LogicalLine(NamedTuple):
             ):
                 head_empty_lines.append(token)
             elif token.type == tokenize.INDENT or token.type == tokenize.DEDENT:
-                assert not contents, "Never expect deindents after any content"
+                if contents:
+                    raise RuntimeError("Never expect deindents after any content")
                 deindents.append(token)
             else:
                 contents.append(token)
@@ -384,7 +385,8 @@ def tokens2linestrs(tokens: Iterator[TokenInfo]):
     for i in sorted(lines):
         line = lines[i]
         if i in string_interior_lines:
-            assert newlines, "block cannot start inner a multiline-string"
+            if not newlines:
+                raise RuntimeError("block cannot start inner a multiline-string")
             newlines[-1] += line
         else:
             newlines.append(line)

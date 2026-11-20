@@ -35,7 +35,8 @@ class SnakemakeBlock(ColonBlock):
     @property
     def start_token(self):
         token = super().start_token
-        assert token is not None, "SnakemakeBlock should have a start_token"
+        if token is None:
+            raise RuntimeError("SnakemakeBlock should have a start_token")
         return token
 
     def validate_head(self, allow_suffix=False):
@@ -235,9 +236,11 @@ class SnakemakeArgumentsBlock(SnakemakeBlock):
 
     @property
     def argument(self):
-        assert len(self.body_blocks) == 1
+        if len(self.body_blocks) != 1:
+            raise RuntimeError("Snakemake argument block should have one body")
         (block,) = self.body_blocks
-        assert isinstance(block, self.Argument)
+        if not isinstance(block, self.Argument):
+            raise RuntimeError("Unexpected block type in Snakemake argument body")
         return block
 
     def consume(self, tokens):

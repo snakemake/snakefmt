@@ -228,7 +228,8 @@ class Block(ABC):
     @property
     def indent_str(self) -> str:
         "tell the raw indent of the block"
-        assert self.start_token is not None, "start_token should be set after consume()"
+        if self.start_token is None:
+            raise RuntimeError("start_token should be set after consume()")
         return self.start_token.line[: self.start_token.start[1]]
 
     @property
@@ -303,7 +304,8 @@ class ColonBlock(Block):
 
     @property
     def colon_line(self):
-        assert self.head_lines, "ColonBlock should have head lines"
+        if not self.head_lines:
+            raise RuntimeError("ColonBlock should have head lines")
         return self.head_lines[-1]
 
     def consume(self, tokens):
@@ -317,9 +319,6 @@ class ColonBlock(Block):
         """Consume tokens until the end of the block body (the next DEDENT)
         The syntax will be validated by the subautomata, if any.
         """
-
-    def recognises(self, token: TokenInfo):
-        return token.type == tokenize.NAME and token.string == self.keyword
 
 
 def init_block_register():
