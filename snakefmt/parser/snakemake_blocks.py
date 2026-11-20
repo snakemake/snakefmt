@@ -133,9 +133,10 @@ class Argument:
     def from_token(cls, tokens: Iterable[TokenInfo]):
         """Split parameter tokens into `Argument`s.
 
-        Parameters are delimited by top-level commas. Each region is handed to
-        `_munch` (whole first, then maximal munch by lines). Comment-only lines
-        belong to the previous argument, or to `head_noncoding` if none.
+        Parameters are delimited by top-level commas. Each comma-delimited
+        region is validated as one parameter by `_munch`; invalid regions are
+        rejected. Comment-only lines belong to the previous argument, or to
+        `head_noncoding` if none.
         """
         tokeniter = TokenIterator("", iter(tokens))
         process = True
@@ -154,12 +155,12 @@ class Argument:
 
     @classmethod
     def _munch(cls, region: list[list[TokenInfo]]):
-        """Split one comma-delimited region into `Argument`s.
+        """Validate one comma-delimited region as a single ``Argument``.
 
-        The whole region is tried first, so implicit string concatenation and
-        operator continuations stay a single parameter. Only if the whole region
-        is not one valid argument is it split by lines, taking the longest valid
-        prefix each time (maximal munch).
+        Line grouping is used to preserve implicit string concatenation,
+        comments and operator continuations. If the whole region is not one
+        valid argument, the region is rejected with ``InvalidParameterSyntax``;
+        there is no shorter-prefix fallback.
         """
         current: list[TokenInfo] = []
         lines = [current]
