@@ -51,6 +51,12 @@ The remaining differences come from the new block/tokenizer architecture.
   `test_comment_inside_python_code_sticks_to_rule`,
   `test_fmt_off_next_in_2if`, `test_fmt_off_sort_dedent` and
   `test_fmt_off_sort_on_noeffect`.
+- A blank line may be inserted before a `# fmt: off[next]` comment if there is
+  a `def` or `rule` block before it. This is snakefmt-specific syntax with no
+  Black equivalent: the directive only affects the following Snakemake block,
+  so from the preceding block's perspective it is an ordinary comment. Keeping
+  the blank line is intentional. Covered by `test_fmt_off_2` and
+  `test_rule_if2_rule`.
 
 ## `use rule` comma formatting
 
