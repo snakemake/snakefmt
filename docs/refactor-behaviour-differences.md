@@ -68,6 +68,16 @@ rules. Black side effects produced by the old formatter are not preserved.
 - Leading blank lines are stripped. Covered by `TestStorage::test_storage` and
   `test_single_quoted_multiline_string_proper_tabbing`.
 
+## Newly accepted syntax
+
+The block parser now accepts and formats:
+
+- `match` / `case` blocks;
+- Snakemake directives inside `class` / `try` bodies;
+- docstring-only rules.
+
+Covered by `TestNewSyntaxFormatting`.
+
 ## String content
 
 - Tabs inside a triple-quoted `shell:` string are preserved verbatim.

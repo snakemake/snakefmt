@@ -3739,3 +3739,61 @@ class TestShellBlockFormatting:
         assert (
             setup_formatter(unformatted, format_shell=True).get_formatted() == expected
         )
+
+
+class TestNewSyntaxFormatting:
+    def test_match_case(self):
+        snakecode = "match x:\n" f"{TAB}case 1:\n" f"{TAB * 2}pass\n"
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_match_case_with_rule(self):
+        snakecode = (
+            "match x:\n"
+            f"{TAB}case 1:\n"
+            f"{TAB * 2}rule a:\n"
+            f'{TAB * 3}input: "a"\n'
+        )
+        expected = (
+            "match x:\n"
+            f"{TAB}case 1:\n"
+            "\n"
+            f"{TAB * 2}rule a:\n"
+            f"{TAB * 3}input:\n"
+            f'{TAB * 4}"a",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_rule_inside_class(self):
+        snakecode = "class A:\n" f"{TAB}rule a:\n" f'{TAB * 2}input: "a"\n'
+        expected = (
+            "class A:\n" "\n" f"{TAB}rule a:\n" f"{TAB * 2}input:\n" f'{TAB * 3}"a",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_rule_inside_try(self):
+        snakecode = (
+            "try:\n"
+            f"{TAB}rule a:\n"
+            f'{TAB * 2}input: "a"\n'
+            "except Exception:\n"
+            f"{TAB}rule b:\n"
+            f'{TAB * 2}input: "b"\n'
+        )
+        expected = (
+            "try:\n"
+            "\n"
+            f"{TAB}rule a:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"a",\n'
+            "\n"
+            "except Exception:\n"
+            "\n"
+            f"{TAB}rule b:\n"
+            f"{TAB * 2}input:\n"
+            f'{TAB * 3}"b",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_docstring_only_rule(self):
+        snakecode = f'rule a:\n{TAB}"doc"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
