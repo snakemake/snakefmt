@@ -109,7 +109,13 @@ class TestSimpleParamFormatting:
     def test_skip_magic_trailing_comma_applies_to_python_not_directives(self, tmp_path):
         config = tmp_path / "pyproject.toml"
         config.write_text("[tool.black]\nskip-magic-trailing-comma = true\n")
-        snakecode = 'rule a:\n    input: "a", "b"\n    output: "c", "d"\n'
+        snakecode = (
+            "rule a:\n"
+            '    input: "a", "b"\n'
+            '    output: "c", "d"\n'
+            '    message: "hi"\n'
+            '    shell: "echo hi"\n'
+        )
         expected = (
             "rule a:\n"
             f"{TAB}input:\n"
@@ -118,6 +124,10 @@ class TestSimpleParamFormatting:
             f"{TAB}output:\n"
             f'{TAB * 2}"c",\n'
             f'{TAB * 2}"d",\n'
+            f"{TAB}message:\n"
+            f'{TAB * 2}"hi"\n'
+            f"{TAB}shell:\n"
+            f'{TAB * 2}"echo hi"\n'
         )
         assert (
             setup_formatter(snakecode, black_config_file=config).get_formatted()

@@ -490,7 +490,7 @@ def format_post_colon(
         # Let Black remove nested trailing commas with the user's mode, then
         # add the outer trailing comma back so the parameter list still splits.
         normalized = black.format_python(formatable, mode, 0, partial="(")
-        if not _check_trailing_comma(normalized):
+        if trailing_comma and not _check_trailing_comma(normalized):
             normalized += "\n,"
         formatable = normalized + "\n"
     # Directives always keep one parameter per line, even when the user enables
