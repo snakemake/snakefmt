@@ -298,6 +298,15 @@ use rule * from other_workflow exclude ruleC, foo as other_*
         ):
             assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_use_rule_skip_keeps_head_newline(self):
+        snakecode = (
+            "use rule a from m with:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"x"\n'
+        )
+        expected = (
+            "use rule a from m with:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"x",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
 
 class TestComplexParamFormatting:
     """
@@ -1823,12 +1832,17 @@ class TestNewlineSpacing:
             keyval[0]
             for keyval in global_snakemake_subautomata.items()
             if issubclass(keyval[1], SnakemakeInlineArgumentBlock)
+            and keyval[0] != "ruleorder"
         ]
         snakecode = '{keyword_param}: "value1"\n{keyword_param}: "value2"\n'
         for keyword in global_single_param_keywords:
             replaced = snakecode.format(keyword_param=keyword)
             formatter = setup_formatter(replaced)
             assert formatter.get_formatted() == replaced
+
+    def test_repeated_ruleorder_no_spacing(self):
+        snakecode = "ruleorder: a > b\nruleorder: class > def\n"
+        assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_repeated_parameter_keyword_comment_in_between_no_spacing(self):
         snakecode = 'include: "a"\n# A comment\n # c2\ninclude: "b"\n'
@@ -4030,4 +4044,17 @@ class TestNewSyntaxFormatting:
 
     def test_docstring_only_rule(self):
         snakecode = f'rule a:\n{TAB}"doc"\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_localrules_accepts_python_keyword_names(self):
+        snakecode = "localrules: class, prepare\n"
+        expected = f"localrules:\n{TAB}class,\n{TAB}prepare,\n"
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_localrules_indented(self):
+        snakecode = f"localrules:\n{TAB}class,\n{TAB}prepare,\n"
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_ruleorder_accepts_python_keyword_names(self):
+        snakecode = "ruleorder: class > b > c\n"
         assert setup_formatter(snakecode).get_formatted() == snakecode

@@ -3,6 +3,8 @@ from snakefmt.parser.snakemake_blocks import (
     SnakemakeArgumentsBlock,
     SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
+    SnakemakeIdentifiersBlock,
+    SnakemakeIdentifiersOrderBlock,
     SnakemakeInlineArgumentBlock,
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
@@ -37,7 +39,8 @@ class Report(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Ruleorder(SnakemakeInlineArgumentBlock): ...
+class Ruleorder(SnakemakeInlineArgumentBlock):
+    Argument = SnakemakeIdentifiersOrderBlock
 
 
 @_register("singularity")
@@ -58,7 +61,8 @@ class Register_Envvars(SnakemakeUnnamedArgumentsBlock): ...
 
 
 @_register()
-class Localrules(SnakemakeUnnamedArgumentsBlock): ...
+class Localrules(SnakemakeUnnamedArgumentsBlock):
+    Argument = SnakemakeIdentifiersBlock
 
 
 @_register()
