@@ -3034,12 +3034,10 @@ class TestFmtOffOn:
         expected = (
             "rule a:\n"
             f"{TAB}params:\n"
-            f"{TAB * 2}x=[1, 2, 3],  # fmt: skip\n"
-            f"{TAB}input:\n"
-            f'{TAB * 2}a="sth",  # fmt: skip\n'
+            f"{TAB * 2}x = [ 1,2,3] # fmt: skip\n"
+            f"{TAB}input: a= 'sth'   # fmt: skip\n"
         )
-        assert formatter.get_formatted()  # == expected
-        assert expected
+        assert formatter.get_formatted() == expected
 
     def test_fmt_off_preserves_multiline_directive_header(self):
         snakecode = (
