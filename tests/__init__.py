@@ -1,9 +1,7 @@
 import logging
-from io import StringIO
 
 from snakefmt.formatter import Formatter
 from snakefmt.logging import LogConfig
-from snakefmt.parser.parser import Snakefile
 
 
 def setup_formatter(
@@ -15,11 +13,11 @@ def setup_formatter(
     directive_order: tuple[str, ...] = (),
     module_directive_order: tuple[str, ...] = (),
 ):
-    stream = StringIO(snake)
-    smk = Snakefile(stream)
+
     LogConfig.init(logging.DEBUG)
-    return Formatter(
-        smk,
+
+    return Formatter.setup(
+        snake,
         line_length=line_length,
         sort_directives=sort_params,
         black_config_file=black_config_file,

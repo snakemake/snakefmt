@@ -14,7 +14,7 @@ from snakefmt.config import (
     read_snakefmt_config,
 )
 from snakefmt.exceptions import MalformattedToml
-from snakefmt.formatter import TAB
+from snakefmt.formatter.indent import TAB
 from snakefmt.snakefmt import main
 from tests import setup_formatter
 

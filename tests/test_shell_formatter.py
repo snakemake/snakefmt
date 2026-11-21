@@ -1,7 +1,7 @@
 import pytest
 
 from snakefmt.exceptions import InvalidShell
-from snakefmt.shell_formatter import (
+from snakefmt.formatter.shell import (
     _indent_preserving_heredocs,
     format_python_string_literal,
     format_shell_code,
