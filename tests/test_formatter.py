@@ -2217,6 +2217,17 @@ class TestRunBlockFormatting:
             setup_formatter(snakecode).get_formatted()
         assert "Newline expected after keyword 'run'" in str(excinfo.value)
 
+    def test_fstring_parenthesised_field_is_not_shell_syntax(self):
+        snakecode = 'rule a:\n    shell:\n        f"""\necho {(1 + 2)}\n"""\n'
+        expected = (
+            "rule a:\n"
+            f"{TAB}shell:\n"
+            f'{TAB * 2}f"""\n'
+            f"{TAB * 2}echo {{(1 + 2)}}\n"
+            f'{TAB * 2}"""\n'
+        )
+        assert setup_formatter(snakecode, format_shell=True).get_formatted() == expected
+
     def test_fstring_expression_spacing_is_preserved(self):
         snakecode = (
             "rule a:\n"
@@ -3837,6 +3848,18 @@ class TestShellBlockFormatting:
         assert (
             setup_formatter(self._UNFORMATTED, format_shell=False).get_formatted()
             == self._UNFORMATTED
+        )
+
+    def test_fmt_skip_on_shell_head_preserves_body(self):
+        snakecode = (
+            "rule a:\n"
+            "    shell:  # fmt: skip\n"
+            '        """\n'
+            "  echo   hi\n"
+            '"""\n'
+        )
+        assert (
+            setup_formatter(snakecode, format_shell=True).get_formatted() == snakecode
         )
 
     def test_fmt_off_opts_out_of_shell_formatting(self):
