@@ -2742,6 +2742,33 @@ class TestFmtOffOn:
         snakecode = "rule a:\n" f"{TAB}input: \\\n" f'{TAB * 2}"a"  # fmt: skip\n'
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_fmt_skip_preserves_row_without_token(self):
+        snakecode = (
+            "rule a:\n" f"{TAB}params: a(\n" "     \\\n" f"{TAB}b)  # fmt: skip\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_skip_preserves_indented_row_without_token(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB}params:  # fmt: skip\n"
+            f"{TAB * 2}a(\n"
+            "         \\\n"
+            f"{TAB * 2}b)\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_off_preserves_row_without_token(self):
+        snakecode = (
+            "# fmt: off\n"
+            "rule a:\n"
+            f"{TAB}params: a(\n"
+            "     \\\n"
+            f"{TAB}b)\n"
+            "# fmt: on\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
     def test_fmt_off_not_on(self):
         """`
         - `# fmt: on` at a deeper indentation level than `# fmt: off` has no effect

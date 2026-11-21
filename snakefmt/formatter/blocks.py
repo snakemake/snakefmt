@@ -29,7 +29,6 @@ from snakefmt.parser.tokens import (
     line_nb,
     splitlines,
     tokenize_text,
-    tokens2linestrs,
 )
 
 
@@ -97,7 +96,7 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     if block.colon_line.endswith_colon:
         # only a single line comment or empty is possible here, add directly
         colon_token = next(post_colon)
-        post = tokens2linestrs(post_colon.rest)
+        post = block.source.lines(post_colon.rest)
         if post:
             post[0] = post[0][colon_token.end[1] :]
             head_comment = black.format_python("".join(post), mode, partial="#")
@@ -228,7 +227,7 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
             Warnings.duplicate_directive(keyword, sub.colon_line.body[0].start[0])
         else:
             seen_keywords.add(keyword)
-        noncoding = tokens2linestrs(iter(sub.colon_line.head_noncoding))
+        noncoding = sub.source.lines(sub.colon_line.head_noncoding)
         directive = ""
         for line in noncoding:  # here noncoding is already formated
             linelstrip = line.lstrip()
@@ -285,7 +284,7 @@ def _(block: SnakemakeDirectiveBlock, mode: Mode, state: FormatState) -> str:
                     )
                 formatted.append(directive)
         if sub.tail_noncoding:
-            tail_noncoding = tokens2linestrs(iter(sub.tail_noncoding))
+            tail_noncoding = sub.source.lines(sub.tail_noncoding)
         # no `\n` between
     if directives:
         formatted.extend(sort_directives(directives, order, block.subautomata))
@@ -358,7 +357,7 @@ def _(block: Rule.Shell, mode: Mode, state: FormatState) -> str:
     formatted = _format_arguments_body(block, mode, state)
     if not state.format_shell:
         return formatted
-    tokens = TokenIterator("", tokenize_text(formatted))
+    tokens = TokenIterator.from_text("", formatted)
     while True:
         try:
             component = tokens.next_component()
@@ -488,7 +487,7 @@ def format_post_colon(
         parts.append(param_str.rstrip(","))
     last = block.head_lines[-1].end if block.head_lines else block.post_colon[-1]
     parts.append(source(start, last.end))
-    tail_noncoding = "".join(tokens2linestrs(iter(block.tail_noncoding)))
+    tail_noncoding = "".join(block.source.lines(block.tail_noncoding))
     formatable = "".join(parts) + tail_noncoding
     if not mode.magic_trailing_comma:
         # Let Black remove nested trailing commas with the user's mode, then

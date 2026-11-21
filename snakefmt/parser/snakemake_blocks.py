@@ -1,6 +1,5 @@
 import tokenize
 from tokenize import TokenInfo
-from typing import Iterable
 
 from snakefmt.exceptions import (
     ColonError,
@@ -21,7 +20,6 @@ from snakefmt.parser.tokens import (
     effective,
     is_op,
     line_nb,
-    tokens2linestrs,
     validate_parameters,
 )
 
@@ -78,7 +76,7 @@ class SnakemakeBlock(ColonBlock):
 
     def head_source_linestrs(self):
         """Source lines of the logical head, excluding leading comments."""
-        return tokens2linestrs(iter(self.colon_line.body))
+        return self.source.lines(self.colon_line.body)
 
     def raw_source_linestrs(self):
         """Source lines of the block, excluding leading (head_noncoding) comments."""
@@ -130,7 +128,7 @@ class Argument:
         return bool(self.tokens) and is_op(",", self.tokens[-1])
 
     @classmethod
-    def from_token(cls, tokens: Iterable[TokenInfo]):
+    def from_token(cls, tokeniter: TokenIterator):
         """Split parameter tokens into `Argument`s.
 
         Parameters are delimited by top-level commas. Each comma-delimited
@@ -138,7 +136,6 @@ class Argument:
         rejected. Comment-only lines belong to the previous argument, or to
         `head_noncoding` if none.
         """
-        tokeniter = TokenIterator("", iter(tokens))
         process = True
         while process:
             metaarg: list[list[TokenInfo]] = []
@@ -218,7 +215,8 @@ class PythonArgumentsBlock(PythonBlock):
     ):
         super().__init__(deindent_level, tokens, lines)
         self.post_colon = list(post_colon or [])
-        self.params = list(Argument.from_token(self.iter))
+        tokeniter = TokenIterator("", iter(self.iter), self.source)
+        self.params = list(Argument.from_token(tokeniter))
 
     @property
     def iter(self):
@@ -415,7 +413,7 @@ class Use(SnakemakeDirectiveBlock):
 
     def validate_head(self, allow_suffix=False):
         body = self.colon_line.body
-        line = "".join(tokens2linestrs(iter(body)))
+        line = "".join(self.source.lines(body))
         line = line.replace("\\\n", "").split("#", 1)[0].strip()
 
         def fail():

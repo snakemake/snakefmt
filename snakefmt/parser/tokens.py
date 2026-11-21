@@ -16,7 +16,7 @@ import io
 import sys
 import tokenize
 from tokenize import TokenInfo
-from typing import Iterator, NamedTuple, Optional
+from typing import Iterable, Iterator, NamedTuple, Optional
 
 from snakefmt.exceptions import EndOfInput, InvalidPython, UnsupportedSyntax
 
@@ -91,17 +91,70 @@ def splitlines(text: str):
     return io.StringIO(text)
 
 
+class Source(NamedTuple):
+    """Original source text plus the character offset of each line start."""
+
+    text: str
+    line_starts: tuple[int, ...]
+
+    @classmethod
+    def from_text(cls, text: str):
+        starts = []
+        offset = 0
+        for line in splitlines(text):
+            starts.append(offset)
+            offset += len(line)
+        starts.append(offset)
+        return cls(text, tuple(starts))
+
+    def lines(self, tokens: Iterable[TokenInfo]):
+        """Original physical lines for a token span, including tokenless rows."""
+        _tokens = [
+            token
+            for token in tokens
+            if token.type not in (tokenize.INDENT, tokenize.DEDENT)
+        ]
+        newlines: list[str] = []
+        if not _tokens:
+            return newlines
+        start = min(token.start[0] for token in _tokens)
+        end = max(token.end[0] for token in _tokens)
+        line_count = len(self.line_starts) - 1
+        if start > line_count:
+            return newlines
+        end = min(end, line_count)
+        string_interior_lines: set[int] = set()
+        for token in _tokens:
+            if token.start[0] != token.end[0]:
+                string_interior_lines.update(
+                    range(token.start[0] + 1, token.end[0] + 1)
+                )
+        for row in range(start, end + 1):
+            line = self.text[self.line_starts[row - 1] : self.line_starts[row]]
+            if row in string_interior_lines:
+                if not newlines:
+                    raise RuntimeError("block cannot start inner a multiline-string")
+                newlines[-1] += line
+            else:
+                newlines.append(line)
+        return newlines
+
+
 class TokenIterator:
     """A ``tokenize.TokenInfo`` iterator that can buffer and push back tokens."""
 
-    def __init__(self, name, tokens: Iterator[TokenInfo]):
+    def __init__(self, name, tokens: Iterator[TokenInfo], source: Source):
         """``name`` is used in error messages to describe what is being parsed."""
 
         self.name = name
         self._live_tokens = tokens
         self._buffered_tokens: list[TokenInfo] = list()
-        self.lines = 0
+        self.source = source
         self._last_token: Optional[TokenInfo] = None
+
+    @classmethod
+    def from_text(cls, name: str, text: str):
+        return cls(name, tokenize_text(text), Source.from_text(text))
 
     def next_new_line(self):
         return LogicalLine.from_token(self)
@@ -321,14 +374,6 @@ class LogicalLine(NamedTuple):
         return -len(self.deindents)
 
     @property
-    def linestrs(self):
-        """The source lines belonging to it."""
-        if not self.head_noncoding and self.body:
-            if self.body[0].start[0] == self.end.end[0]:
-                return [self.body[0].line]
-        return tokens2linestrs(iter(self.iter))
-
-    @property
     def iter(self):
         """Yield all tokens of the line in source order."""
         yield from self.head_noncoding
@@ -365,37 +410,6 @@ class LogicalLine(NamedTuple):
             else:
                 contents.append(token)
         return cls(head_empty_lines, deindents, contents, token)
-
-
-def tokens2linestrs(tokens: Iterator[TokenInfo]):
-    """Convert a sequence of tokens into a list of strings, one for each line.
-    ignore deindents (may be reorganized from next few lines)
-    """
-
-    lines: dict[int, str] = {}
-    # Lines that are interior to a multiline token (string / f-string body).
-    # Their content must not be reindented.
-    string_interior_lines: set[int] = set()
-    for token in tokens:
-        if not_deindent(token) and token.end[0] not in lines:
-            # split multiline tokens with lineno for dereplication
-            lines.update(
-                zip(range(token.start[0], token.end[0] + 1), splitlines(token.line))
-            )
-            if token.start[0] != token.end[0]:
-                string_interior_lines.update(
-                    range(token.start[0] + 1, token.end[0] + 1)
-                )
-    newlines: list[str] = []
-    for i in sorted(lines):
-        line = lines[i]
-        if i in string_interior_lines:
-            if not newlines:
-                raise RuntimeError("block cannot start inner a multiline-string")
-            newlines[-1] += line
-        else:
-            newlines.append(line)
-    return newlines
 
 
 def validate_parameters(tokens: list[TokenInfo]):
