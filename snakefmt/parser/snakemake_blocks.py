@@ -337,6 +337,16 @@ class SnakemakeExecutableBlock(SnakemakeBlock):
         self.body_blocks.append(executable)
 
 
+class SnakemakeInlineExecutableBlock(SnakemakeExecutableBlock):
+    """Executable block that also accepts `keyword: <suite>` inline."""
+
+    def consume(self, tokens):
+        if not self.colon_line.endswith_colon:
+            self.validate_head(allow_suffix=True)
+            return
+        super().consume(tokens)
+
+
 class SnakemakeDirectiveBlock(SnakemakeBlock):
     """Block of snakemake directives, such as `rule:`, `module:`, etc.
     The contents are other snakemake blocks.
