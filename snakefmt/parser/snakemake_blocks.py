@@ -1,5 +1,6 @@
 import tokenize
 from tokenize import TokenInfo
+from typing import Iterable
 
 from snakefmt.exceptions import (
     ColonError,
