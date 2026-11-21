@@ -298,6 +298,15 @@ use rule * from other_workflow exclude ruleC, foo as other_*
         ):
             assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_use_rule_skip_keeps_head_newline(self):
+        snakecode = (
+            "use rule a from m with:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"x"\n'
+        )
+        expected = (
+            "use rule a from m with:  # fmt: skip\n" f"{TAB}input:\n" f'{TAB * 2}"x",\n'
+        )
+        assert setup_formatter(snakecode).get_formatted() == expected
+
 
 class TestComplexParamFormatting:
     """

@@ -322,9 +322,9 @@ def _(block: UseRule, mode: Mode):
     Comma-separated rule names and excludes are always rendered as `a, b`.
     """
     indent = TAB * block.deindent_level
-    source_line = block.source.span(block.colon_line.body)
     if _found_skip(block.colon_line.body):
-        return indent + source_line.lstrip(), ""
+        raw_head = "".join(block.head_source_linestrs())
+        return indent + raw_head.lstrip(), ""
     head = indent + "use rule " + ", ".join(block.whitelist)
     if block.module:
         head += " from " + block.module
@@ -334,6 +334,7 @@ def _(block: UseRule, mode: Mode):
         head += " as " + block.rename
     if block.body_blocks:
         head += " with:"
+    source_line = block.source.span(block.colon_line.body)
     comment_index = source_line.find("#")
     if comment_index >= 0:
         head_comment = black.format_python(
