@@ -3,6 +3,7 @@ from snakefmt.parser.snakemake_blocks import (
     SnakemakeArgumentsBlock,
     SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
+    SnakemakeIdentifiersBlock,
     SnakemakeInlineArgumentBlock,
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
@@ -58,7 +59,8 @@ class Register_Envvars(SnakemakeUnnamedArgumentsBlock): ...
 
 
 @_register()
-class Localrules(SnakemakeUnnamedArgumentsBlock): ...
+class Localrules(SnakemakeUnnamedArgumentsBlock):
+    Argument = SnakemakeIdentifiersBlock
 
 
 @_register()

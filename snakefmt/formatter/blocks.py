@@ -19,6 +19,7 @@ from snakefmt.parser.snakemake_blocks import (
     SnakemakeBlock,
     SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
+    SnakemakeIdentifiersBlock,
     SnakemakeInlineArgumentBlock,
 )
 from snakefmt.parser.tokens import (
@@ -393,6 +394,44 @@ def _token_offset(text: str, position: tuple[int, int]) -> int:
     return offset + column
 
 
+def _mask_identifiers(text: str):
+    """Replace every NAME token with same-length underscores.
+
+    `ruleorder` and `localrules` accept names that are Python keywords, which
+    Black cannot parse. Equal-length placeholders keep the source columns (and
+    therefore Black's line-breaking decisions) unchanged.
+
+    Returns the masked text and the original names in source order.
+    """
+    names: list[str] = []
+    for token in tokenize_text(text):
+        if token.type == tokenize.NAME:
+            offset = _token_offset(text, token.start)
+            text = (
+                text[:offset]
+                + "_" * len(token.string)
+                + text[offset + len(token.string) :]
+            )
+            names.append(token.string)
+    return text, names
+
+
+def _restore_identifiers(text: str, names: list[str]):
+    """Restore names masked by `_mask_identifiers`, in source order."""
+    tokens = [token for token in tokenize_text(text) if token.type == tokenize.NAME]
+    if len(tokens) != len(names):
+        raise RuntimeError(
+            "Identifier masking changed the number of NAME tokens: "
+            f"{len(names)} -> {len(tokens)}"
+        )
+    if any(len(token.string) != len(name) for token, name in zip(tokens, names)):
+        raise RuntimeError("Identifier masking changed a NAME token length")
+    for token, name in zip(tokens, names):
+        offset = _token_offset(text, token.start)
+        text = text[:offset] + name + text[offset + len(token.string) :]
+    return text
+
+
 def _check_trailing_comma(text: str) -> bool:
     """Whether the last effective token of the text is a comma."""
     tokens = list(tokenize_text(text))
@@ -490,6 +529,10 @@ def format_post_colon(
     parts.append(source(start, last.end))
     tail_noncoding = "".join(tokens2linestrs(iter(block.tail_noncoding)))
     formatable = "".join(parts) + tail_noncoding
+    if isinstance(block, SnakemakeIdentifiersBlock):
+        formatable, masked_names = _mask_identifiers(formatable)
+    else:
+        masked_names = None
     if not mode.magic_trailing_comma:
         # Let Black remove nested trailing commas with the user's mode, then
         # add the outer trailing comma back so the parameter list still splits.
@@ -507,6 +550,8 @@ def format_post_colon(
         partial="(",
         start_token=first,
     )
+    if masked_names is not None:
+        formatted = _restore_identifiers(formatted, masked_names)
     if trailing_comment:
         formatted = formatted.rstrip("\n") + "  " + trailing_comment + "\n"
     return formatted

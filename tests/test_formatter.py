@@ -3983,3 +3983,12 @@ class TestNewSyntaxFormatting:
     def test_docstring_only_rule(self):
         snakecode = f'rule a:\n{TAB}"doc"\n'
         assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_localrules_accepts_python_keyword_names(self):
+        snakecode = "localrules: class, prepare\n"
+        expected = f"localrules:\n{TAB}class,\n{TAB}prepare,\n"
+        assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_localrules_indented(self):
+        snakecode = f"localrules:\n{TAB}class,\n{TAB}prepare,\n"
+        assert setup_formatter(snakecode).get_formatted() == snakecode

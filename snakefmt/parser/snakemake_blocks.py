@@ -229,6 +229,54 @@ class PythonArgumentsBlock(PythonBlock):
             yield from line.iter
 
 
+class SnakemakeIdentifiersBlock(PythonArgumentsBlock):
+    """Comma-separated bare rule names, used by `localrules`.
+
+    Builds its `Argument` list directly instead of going through the Python
+    parameter validator: rule names are NAME tokens even when they are Python
+    keywords such as `class`.
+    """
+
+    def __init__(
+        self,
+        deindent_level,
+        tokens,
+        lines=None,
+        post_colon: list[TokenInfo] | None = None,
+    ):
+        # Deliberately bypass PythonArgumentsBlock.__init__: names are not
+        # Python expressions and must not be checked by `validate_parameters`.
+        super(PythonBlock, self).__init__(deindent_level, tokens, lines)
+        self.post_colon = list(post_colon or [])
+        self.params = list(self.build_params(self.iter))
+
+    def build_params(self, tokens: Iterable[TokenInfo]):
+        current: list[TokenInfo] = []
+        expect_name = True
+        for token in tokens:
+            if not effective(token):
+                continue
+            if expect_name:
+                if token.type != tokenize.NAME:
+                    self.invalid(token)
+                current.append(token)
+                expect_name = False
+            else:
+                if not is_op(",", token):
+                    self.invalid(token)
+                current.append(token)
+                yield Argument(current)
+                current = []
+                expect_name = True
+        if current:
+            yield Argument(current)
+
+    def invalid(self, token: TokenInfo):
+        raise InvalidParameterSyntax(
+            f"{line_nb(token)}Invalid parameter {token.line.strip()}"
+        )
+
+
 class SnakemakeArgumentsBlock(SnakemakeBlock):
     """Block of snakemake directives, such as `input:`, `output:`, etc.
     The content is one PythonArgument or multiple PythonArgument seperated by comma,
