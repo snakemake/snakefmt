@@ -285,6 +285,14 @@ use rule * from other_workflow exclude ruleC, foo as other_*
         ):
             assert setup_formatter(snakecode).get_formatted() == snakecode
 
+    def test_use_glob_aliases(self):
+        for snakecode in (
+            "use rule * from module as *_copy\n",
+            "use rule * from module as copy_*\n",
+            "use rule * from module as équipe_*\n",
+        ):
+            assert setup_formatter(snakecode).get_formatted() == snakecode
+
 
 class TestComplexParamFormatting:
     """

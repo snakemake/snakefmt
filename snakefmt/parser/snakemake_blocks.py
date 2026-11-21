@@ -1,4 +1,3 @@
-import re
 import tokenize
 from tokenize import TokenInfo
 from typing import Iterable
@@ -423,7 +422,11 @@ class Use(SnakemakeDirectiveBlock):
             raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)
 
         def is_glob(token: str):
-            return re.fullmatch(r"[a-zA-Z_][\w*]*", token) is not None
+            return (
+                token
+                and all(i.isidentifier() for i in token.split("*") if i)
+                and "**" not in token
+            )
 
         # commas may be surrounded by spaces; make them separate tokens
         tokens = line.replace(",", " , ").split()
