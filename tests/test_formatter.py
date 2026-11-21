@@ -4040,3 +4040,14 @@ class TestNewSyntaxFormatting:
     def test_docstring_only_rule(self):
         snakecode = f'rule a:\n{TAB}"doc"\n'
         assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_inline_workflow_hooks(self):
+        for keyword in ("onstart", "onsuccess", "onerror"):
+            snakecode = f"{keyword}: print(1)\n"
+            expected = f"{keyword}:\n{TAB}print(1)\n"
+            assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_inline_onstart_keeps_comment(self):
+        snakecode = "onstart: print(1)  # note\n"
+        expected = f"onstart:\n{TAB}print(1)  # note\n"
+        assert setup_formatter(snakecode).get_formatted() == expected

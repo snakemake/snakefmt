@@ -185,6 +185,17 @@ def _(block: SnakemakeInlineArgumentBlock, mode: Mode, state: FormatState) -> st
 
 @format_body.register
 def _(block: SnakemakeExecutableBlock, mode: Mode, state: FormatState) -> str:
+    if _found_skip(block.colon_line.body):
+        if not block.body_blocks:
+            return ""
+        return _deindent_lines(block.body_blocks[0])
+    if not block.body_blocks:
+        token_iter = block.split_colon_line()[1]
+        next(token_iter)
+        code = block.source.span(token_iter.rest)
+        indent_level = block.deindent_level + 1
+        raw = TAB * indent_level + code.lstrip()
+        return black.format_python(raw, mode, indent_level)
     if len(block.body_blocks) != 1 or not isinstance(block.body_blocks[0], PythonBlock):
         token = block.start_token
         raise UnsupportedSyntax(

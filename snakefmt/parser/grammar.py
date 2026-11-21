@@ -4,6 +4,7 @@ from snakefmt.parser.snakemake_blocks import (
     SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
     SnakemakeInlineArgumentBlock,
+    SnakemakeInlineExecutableBlock,
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
     Use,
@@ -91,15 +92,15 @@ class Register_Pathvars(SnakemakeArgumentsBlock): ...
 
 
 @_register()
-class OnStart(SnakemakeExecutableBlock): ...
+class OnStart(SnakemakeInlineExecutableBlock): ...
 
 
 @_register()
-class OnSuccess(SnakemakeExecutableBlock): ...
+class OnSuccess(SnakemakeInlineExecutableBlock): ...
 
 
 @_register()
-class OnError(SnakemakeExecutableBlock): ...
+class OnError(SnakemakeInlineExecutableBlock): ...
 
 
 @_register()
