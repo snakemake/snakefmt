@@ -277,6 +277,26 @@ class SnakemakeIdentifiersBlock(PythonArgumentsBlock):
         )
 
 
+class SnakemakeIdentifiersOrderBlock(SnakemakeIdentifiersBlock):
+    """An ordered `name > name > ...` sequence, used by `ruleorder`."""
+
+    def build_params(self, tokens: Iterable[TokenInfo]):
+        payload = [token for token in tokens if effective(token)]
+        if not payload:
+            return
+        expect_name = True
+        for token in payload:
+            if expect_name:
+                if token.type != tokenize.NAME:
+                    self.invalid(token)
+            elif not is_op(">", token):
+                self.invalid(token)
+            expect_name = not expect_name
+        if expect_name:
+            self.invalid(payload[-1])
+        yield Argument(payload)
+
+
 class SnakemakeArgumentsBlock(SnakemakeBlock):
     """Block of snakemake directives, such as `input:`, `output:`, etc.
     The content is one PythonArgument or multiple PythonArgument seperated by comma,

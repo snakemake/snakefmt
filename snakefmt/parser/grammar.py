@@ -4,6 +4,7 @@ from snakefmt.parser.snakemake_blocks import (
     SnakemakeDirectiveBlock,
     SnakemakeExecutableBlock,
     SnakemakeIdentifiersBlock,
+    SnakemakeIdentifiersOrderBlock,
     SnakemakeInlineArgumentBlock,
     SnakemakeUnnamedArgumentBlock,
     SnakemakeUnnamedArgumentsBlock,
@@ -38,7 +39,8 @@ class Report(SnakemakeInlineArgumentBlock): ...
 
 
 @_register()
-class Ruleorder(SnakemakeInlineArgumentBlock): ...
+class Ruleorder(SnakemakeInlineArgumentBlock):
+    Argument = SnakemakeIdentifiersOrderBlock
 
 
 @_register("singularity")
