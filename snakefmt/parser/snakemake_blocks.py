@@ -422,9 +422,6 @@ class Use(SnakemakeDirectiveBlock):
         def fail():
             raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)
 
-        def is_identifier(token: str):
-            return re.fullmatch(r"[a-zA-Z_]\w*", token) is not None
-
         def is_glob(token: str):
             return re.fullmatch(r"[a-zA-Z_][\w*]*", token) is not None
 
@@ -449,7 +446,7 @@ class Use(SnakemakeDirectiveBlock):
                     raise InvalidParameterSyntax(
                         "'*' cannot be used with other rule names in the use directive"
                     )
-                if not all(is_identifier(name) for name in whitelist):
+                if not all(name.isidentifier() for name in whitelist):
                     fail()
             if tokens[i] not in ("from", "as", "with", "with:"):
                 fail()
@@ -458,7 +455,7 @@ class Use(SnakemakeDirectiveBlock):
             if tokens[i] == "from":
                 i += 1
                 module = tokens[i]
-                if not is_identifier(module):
+                if not module.isidentifier():
                     fail()
                 i += 1
             else:
@@ -478,7 +475,7 @@ class Use(SnakemakeDirectiveBlock):
                 while i < token_length and tokens[i] == ",":
                     exclude.append(tokens[i + 1])
                     i += 2
-                if not all(is_identifier(name) for name in exclude):
+                if not all(name.isidentifier() for name in exclude):
                     fail()
             # modifier: the alias after `as`
             if i < token_length and tokens[i] == "as":

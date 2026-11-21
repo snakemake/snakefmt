@@ -277,6 +277,14 @@ use rule * from other_workflow exclude ruleC, foo as other_*
         expected = "use rule a, b from m\n"
         assert setup_formatter(snakecode).get_formatted() == expected
 
+    def test_use_unicode_names(self):
+        for snakecode in (
+            "use rule équipe from module\n",
+            "use rule * from équipe\n",
+            "use rule * from module exclude équipe\n",
+        ):
+            assert setup_formatter(snakecode).get_formatted() == snakecode
+
 
 class TestComplexParamFormatting:
     """
