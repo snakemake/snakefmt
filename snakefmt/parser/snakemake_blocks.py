@@ -16,6 +16,7 @@ from snakefmt.exceptions import (
 )
 from snakefmt.parser.blocks import ColonBlock, PythonBlock
 from snakefmt.parser.tokens import (
+    Source,
     TokenIterator,
     effective,
     is_op,
@@ -148,10 +149,10 @@ class Argument:
             except EndOfInput:
                 process = False
             if metaarg:
-                yield from cls._munch(metaarg)
+                yield from cls._munch(metaarg, tokeniter.source)
 
     @classmethod
-    def _munch(cls, region: list[list[TokenInfo]]):
+    def _munch(cls, region: list[list[TokenInfo]], source: Source):
         """Validate one comma-delimited region as a single ``Argument``.
 
         Line grouping is used to preserve implicit string concatenation,
@@ -174,7 +175,7 @@ class Argument:
                     continue
             current += component
         cand = [t for line in lines for t in line]
-        if validate_parameters(cand):
+        if validate_parameters(source.span(cand)):
             if cand:
                 yield cls(cand)
         else:
@@ -413,7 +414,7 @@ class Use(SnakemakeDirectiveBlock):
 
     def validate_head(self, allow_suffix=False):
         body = self.colon_line.body
-        line = "".join(self.source.lines(body))
+        line = self.source.span(body)
         line = line.replace("\\\n", "").split("#", 1)[0].strip()
 
         def fail():

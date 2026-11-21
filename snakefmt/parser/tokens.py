@@ -139,6 +139,21 @@ class Source(NamedTuple):
                 newlines.append(line)
         return newlines
 
+    def span(self, tokens: Iterable[TokenInfo]):
+        """Exact source text between the first and last token, half-open."""
+        tokens = [
+            token
+            for token in tokens
+            if token.type not in (tokenize.INDENT, tokenize.DEDENT)
+        ]
+        if not tokens:
+            return ""
+        start = min(token.start for token in tokens)
+        end = max(token.end for token in tokens)
+        start_offset = self.line_starts[start[0] - 1] + start[1]
+        end_offset = self.line_starts[end[0] - 1] + end[1]
+        return self.text[start_offset:end_offset]
+
 
 class TokenIterator:
     """A ``tokenize.TokenInfo`` iterator that can buffer and push back tokens."""
@@ -412,11 +427,10 @@ class LogicalLine(NamedTuple):
         return cls(head_empty_lines, deindents, contents, token)
 
 
-def validate_parameters(tokens: list[TokenInfo]):
-    """Whether `tokens` parse as a single call argument."""
-    text = tokenize.untokenize([(token.type, token.string) for token in tokens]).strip()
+def validate_parameters(text: str):
+    """Whether `text` parses as a single call argument."""
     try:
-        ast.parse(f"param({text}\n)")
+        ast.parse(f"param({text.strip()}\n)")
     except SyntaxError:
         return False
     return True

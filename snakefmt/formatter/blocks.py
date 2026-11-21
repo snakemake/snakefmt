@@ -95,11 +95,10 @@ def format_head(block: SnakemakeBlock, mode: Mode) -> tuple[str, str]:
     head_comment = "\n"
     if block.colon_line.endswith_colon:
         # only a single line comment or empty is possible here, add directly
-        colon_token = next(post_colon)
-        post = block.source.lines(post_colon.rest)
+        next(post_colon)
+        post = block.source.span(post_colon.rest)
         if post:
-            post[0] = post[0][colon_token.end[1] :]
-            head_comment = black.format_python("".join(post), mode, partial="#")
+            head_comment = black.format_python(post, mode, partial="#")
     return formatted_head, head_comment
 
 
@@ -323,7 +322,7 @@ def _(block: UseRule, mode: Mode):
     Comma-separated rule names and excludes are always rendered as `a, b`.
     """
     indent = TAB * block.deindent_level
-    source_line = "".join(block.head_source_linestrs())
+    source_line = block.source.span(block.colon_line.body)
     if _found_skip(block.colon_line.body):
         return indent + source_line.lstrip(), ""
     head = indent + "use rule " + ", ".join(block.whitelist)

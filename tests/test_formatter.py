@@ -197,6 +197,11 @@ class TestSimpleParamFormatting:
 
         assert formatter.get_formatted() == expected
 
+    def test_adjacent_fstring_and_string_parameter(self):
+        snakecode = 'rule a:\n    input: f"{x}" "y"\n'
+        expected = 'rule a:\n    input:\n        f"{x}" "y",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
 
 class TestUseRuleFormatting:
     def test_use_rule_rule_like_indented(self):
