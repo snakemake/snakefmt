@@ -8,7 +8,7 @@ from snakefmt.formatter.indent import TAB, deindent_lines
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import Block, ColonBlock
 from snakefmt.parser.snakemake_blocks import SnakemakeBlock
-from snakefmt.parser.tokens import LogicalLine, splitlines, tokens2linestrs
+from snakefmt.parser.tokens import LogicalLine, Source, splitlines
 
 if TYPE_CHECKING:
     from snakefmt.parser.snakefile import Snakefile
@@ -33,10 +33,10 @@ def _origin(line: LogicalLine) -> int:
     raise ValueError(f"Cannot determine origin of empty line: {line}")
 
 
-def _format_head(head_lines: list[LogicalLine]):
+def _format_head(head_lines: list[LogicalLine], source: Source):
     for line in head_lines:
         origin = _origin(line)
-        for line in line.linestrs:
+        for line in source.lines(line.iter):
             yield origin, line, None
             origin += _count(line)
 
@@ -66,7 +66,7 @@ def format_segments(
     # comment fmt directives in head_linestrs
     #  will effect on post blocks of the same indent,
     # so should be updated during the parent body_blocks iteration.
-    yield from _format_head(block.head_lines)
+    yield from _format_head(block.head_lines, block.source)
     last_keyword = ""
     line = ""
     state = state.reset()
@@ -109,13 +109,13 @@ def format_segments(
         else:
             last_keyword = ""
             yield from format_segments(sub, mode, state)
-    yield from _format_tail(block.tail_noncoding)
+    yield from _format_tail(block.tail_noncoding, block.source)
 
 
-def _format_tail(tail: list[tokenize.TokenInfo]):
+def _format_tail(tail: list[tokenize.TokenInfo], source: Source):
     if tail:
         origin = tail[0].start[0]
-        for text in tokens2linestrs(iter(tail)):
+        for text in source.lines(tail):
             yield origin, text, None
             origin += _count(text)
 
@@ -137,17 +137,17 @@ def format_snakemake_segments(
     prefix_lines = block.head_lines[:-1]
     # Who knows if somebody wraps snakemake block?
     for line in prefix_lines:
-        for noncoding_line in tokens2linestrs(iter(line.head_noncoding)):
+        for noncoding_line in block.source.lines(line.head_noncoding):
             if not noncoding_line.strip():
                 last_keyword = ""
             else:
                 state = state.update(noncoding_line.lstrip())
-    yield from _format_head(prefix_lines)
+    yield from _format_head(prefix_lines, block.source)
 
     noncoding_lines: list[str] = []
     last_fmt_on = state.fmt_on
     # Check if there's fmt: on/off in noncoding_lines to update state
-    for noncoding_line in tokens2linestrs(iter(block.colon_line.head_noncoding)):
+    for noncoding_line in block.source.lines(block.colon_line.head_noncoding):
         if not noncoding_line.strip():
             last_keyword = ""
         else:
@@ -199,7 +199,7 @@ def format_snakemake_segments(
             yield None, "\n" * n_trailing_space, None
     else:
         yield None, format_block(block, mode, state), block.indent_str
-    yield from _format_tail(block.tail_noncoding)
+    yield from _format_tail(block.tail_noncoding, block.source)
 
 
 def format_snakefile(snakefile: "Snakefile", mode: Mode, state: FormatState) -> str:

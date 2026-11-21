@@ -11,7 +11,6 @@ from snakefmt.parser.tokens import (
     extract_line_indent,
     is_op,
     line_nb,
-    tokens2linestrs,
 )
 
 
@@ -82,7 +81,13 @@ class Block(ABC):
         ```
     """
 
-    __slots__ = ("deindent_level", "head_lines", "body_blocks", "tail_noncoding")
+    __slots__ = (
+        "deindent_level",
+        "head_lines",
+        "body_blocks",
+        "tail_noncoding",
+        "source",
+    )
     subautomata: Mapping[str, "type[ColonBlock]"] = {}
     deprecated: Mapping[str, str] = {}
 
@@ -96,6 +101,7 @@ class Block(ABC):
         self.head_lines = [] if lines is None else lines
         self.body_blocks: list[Block] = []
         self.tail_noncoding: list[TokenInfo] = []
+        self.source = tokens.source
         self.consume(tokens)
 
     def extend_tail_noncoding(self, tokens: list[TokenInfo]):
@@ -235,20 +241,15 @@ class Block(ABC):
     @property
     def head_linestrs(self):
         for line in self.head_lines:
-            yield from line.linestrs
+            yield from self.source.lines(line.iter)
 
     @property
     def full_linestrs(self):
-        """return the code splited by lines, but should keep multiline-string
-          or multiline-f-string complete,
-        to make trimming and reformatting easier.
-
-        Should and Only should be rewrite for pure python blocks.
-        """
+        """All source lines belonging to this block."""
         yield from self.head_linestrs
         for block in self.body_blocks:
             yield from block.full_linestrs
-        yield from tokens2linestrs(iter(self.tail_noncoding))
+        yield from self.source.lines(self.tail_noncoding)
 
 
 class PythonBlock(Block):
@@ -288,7 +289,7 @@ class ColonBlock(Block):
         - token iterator starting from the colon token (inclusive)
         """
         token_iter = TokenIterator(
-            "", iter(self.colon_line.body + [self.colon_line.end])
+            "", iter(self.colon_line.body + [self.colon_line.end]), self.source
         )
         last_line_tokens = []
         while True:
@@ -297,7 +298,7 @@ class ColonBlock(Block):
                 break
             last_line_tokens.extend(component)
         (colon_token,) = component
-        prior = tokens2linestrs(iter(last_line_tokens))
+        prior = self.source.lines(last_line_tokens)
         colon_prefix = colon_token.line[: colon_token.start[1]]
         if last_line_tokens and last_line_tokens[-1].end[0] == colon_token.start[0]:
             prior[-1] = colon_prefix

@@ -197,6 +197,11 @@ class TestSimpleParamFormatting:
 
         assert formatter.get_formatted() == expected
 
+    def test_adjacent_fstring_and_string_parameter(self):
+        snakecode = 'rule a:\n    input: f"{x}" "y"\n'
+        expected = 'rule a:\n    input:\n        f"{x}" "y",\n'
+        assert setup_formatter(snakecode).get_formatted() == expected
+
 
 class TestUseRuleFormatting:
     def test_use_rule_rule_like_indented(self):
@@ -276,6 +281,22 @@ use rule * from other_workflow exclude ruleC, foo as other_*
         snakecode = "use rule a, b from m\n"
         expected = "use rule a, b from m\n"
         assert setup_formatter(snakecode).get_formatted() == expected
+
+    def test_use_unicode_names(self):
+        for snakecode in (
+            "use rule équipe from module\n",
+            "use rule * from équipe\n",
+            "use rule * from module exclude équipe\n",
+        ):
+            assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_use_glob_aliases(self):
+        for snakecode in (
+            "use rule * from module as *_copy\n",
+            "use rule * from module as copy_*\n",
+            "use rule * from module as équipe_*\n",
+        ):
+            assert setup_formatter(snakecode).get_formatted() == snakecode
 
 
 class TestComplexParamFormatting:
@@ -2729,6 +2750,33 @@ class TestFmtOffOn:
 
     def test_fmt_skip_preserves_multiline_directive_head(self):
         snakecode = "rule a:\n" f"{TAB}input: \\\n" f'{TAB * 2}"a"  # fmt: skip\n'
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_skip_preserves_row_without_token(self):
+        snakecode = (
+            "rule a:\n" f"{TAB}params: a(\n" "     \\\n" f"{TAB}b)  # fmt: skip\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_skip_preserves_indented_row_without_token(self):
+        snakecode = (
+            "rule a:\n"
+            f"{TAB}params:  # fmt: skip\n"
+            f"{TAB * 2}a(\n"
+            "         \\\n"
+            f"{TAB * 2}b)\n"
+        )
+        assert setup_formatter(snakecode).get_formatted() == snakecode
+
+    def test_fmt_off_preserves_row_without_token(self):
+        snakecode = (
+            "# fmt: off\n"
+            "rule a:\n"
+            f"{TAB}params: a(\n"
+            "     \\\n"
+            f"{TAB}b)\n"
+            "# fmt: on\n"
+        )
         assert setup_formatter(snakecode).get_formatted() == snakecode
 
     def test_fmt_off_not_on(self):

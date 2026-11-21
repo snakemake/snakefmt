@@ -1,10 +1,9 @@
-import tokenize
 from typing import Callable
 
 from snakefmt.exceptions import UnsupportedSyntax
 from snakefmt.parser.blocks import Block, ColonBlock
 from snakefmt.parser.grammar import global_snakemake_subautomata, init_block_register
-from snakefmt.parser.tokens import TokenIterator, tokenize_text
+from snakefmt.parser.tokens import TokenIterator
 
 
 class ScopeBodyBlock(ColonBlock):
@@ -84,8 +83,6 @@ class Snakefile(Block):
 
     @classmethod
     def parse(cls, source: str | Callable[[], str], name: str = "<string>"):
-        if isinstance(source, str):
-            tokens = tokenize_text(source)
-        else:
-            tokens = tokenize.generate_tokens(source)
-        return cls(0, TokenIterator(name, tokens), [])
+        if not isinstance(source, str):
+            source = "".join(iter(source, ""))
+        return cls(0, TokenIterator.from_text(name, source), [])

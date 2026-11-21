@@ -13,7 +13,9 @@ from snakefmt.formatter.segments import format_snakefile
 from snakefmt.formatter.state import FormatState
 from snakefmt.parser.blocks import PythonBlock
 from snakefmt.parser.snakefile import ScopeBodyBlock, Snakefile
-from snakefmt.parser.tokens import TokenIterator, is_fstring_start
+from snakefmt.parser.tokens import Source, TokenIterator, is_fstring_start
+
+SOURCE = Source.from_text("")
 
 if sys.version_info >= (3, 12):
     from snakefmt.parser.tokens import consume_fstring
@@ -34,7 +36,7 @@ class TestTokenIterator:
     def test_fstring1(self):
         input = 'f"hello world"'
         tokens = generate_tokens(input)
-        token_iter = TokenIterator("", iter(tokens))
+        token_iter = TokenIterator("", iter(tokens), SOURCE)
         # region test the classic useage of `consume_fstring`,
         #  togather with `is_fstring_start`
         for t in token_iter:
@@ -52,7 +54,7 @@ class TestTokenIterator:
     def test_fstring_with_bracket(self):
         input = 'a = f"hello {world}"'
         tokens = generate_tokens(input)
-        token_iter = TokenIterator("", iter(tokens))
+        token_iter = TokenIterator("", iter(tokens), SOURCE)
         for t in token_iter:
             if is_fstring_start(t):
                 contents = consume_fstring(token_iter)
@@ -69,7 +71,7 @@ class TestTokenIterator:
     def test_consum_all(self):
         input = "sth"
         tokens = generate_tokens(input)
-        token_iter = TokenIterator("", iter(tokens))
+        token_iter = TokenIterator("", iter(tokens), SOURCE)
         with pytest.raises(UnsupportedSyntax):
             for t in token_iter:
                 pass
@@ -90,7 +92,7 @@ class TestTokenIterator:
     @py12_guard
     def test_next_new_line(self):
         tokens = generate_tokens(self.example1)
-        token_iter = TokenIterator("", iter(tokens))
+        token_iter = TokenIterator("", iter(tokens), SOURCE)
         # return: `def f():`
         head_empty_lines, indents, contents, token = token_iter.next_new_line()
         assert head_empty_lines == indents == []
@@ -147,7 +149,7 @@ class TestTokenIterator:
     )
 
     def test_next_component(self):
-        token_iter = TokenIterator("", iter(generate_tokens(self.example2)))
+        token_iter = TokenIterator("", iter(generate_tokens(self.example2)), SOURCE)
 
         def _check_single_component(*components: str):
             for string in components:
@@ -209,7 +211,7 @@ class TestTokenIterator:
         tokens = generate_tokens(self.example3)
         assert [i for i, t in enumerate(tokens) if t.type == tokenize.INDENT] == [6, 15]
         # from the first line to the last content line
-        lines, tail_noncoding = TokenIterator("", iter(tokens[3:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[3:]), SOURCE).next_block()
         contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "with a as b:\n"
         assert contents[-1].type == tokenize.NL
@@ -217,22 +219,24 @@ class TestTokenIterator:
         assert contents[-2].line == "7# 7\n"
         # from the second line, to the last line before
         #  `  # 5\n`, whose indent out of the block
-        lines, tail_noncoding = TokenIterator("", iter(tokens[6:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[6:]), SOURCE).next_block()
         contents = contents_ = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "    b\n" and contents[0].type == tokenize.INDENT
         assert {t.type for t in contents[-2:]} == {tokenize.DEDENT}
         assert contents[:-2][-1].line == "       \n"
         # even skip the heading indent, block ends at the same line
-        lines, tail_noncoding = TokenIterator("", iter(tokens[7:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[7:]), SOURCE).next_block()
         contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents == contents_[1:]
         # so does the COMMENT line
-        lines, tail_noncoding = TokenIterator("", iter(tokens[9:])).next_block()
+        lines, tail_noncoding = TokenIterator("", iter(tokens[9:]), SOURCE).next_block()
         contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "    # 0\n" and contents[0].type == tokenize.COMMENT
         assert contents == contents_[3:]
         # enter the third block: exit before `      # 3\n` with 1 DEDENT only
-        lines, tail_noncoding = TokenIterator("", iter(tokens[15:])).next_block()
+        lines, tail_noncoding = TokenIterator(
+            "", iter(tokens[15:]), SOURCE
+        ).next_block()
         contents = [t for line in lines for t in line.iter] + tail_noncoding
         assert contents[0].line == "        d\n"
         assert [t.type for t in contents[-4:]] == [
@@ -281,7 +285,9 @@ class TestBlock:
         ]
         fun11 = fun1.body_blocks[0]
         assert isinstance(fun11, PythonBlock)
-        assert [line.linestrs for line in fun11.head_lines] == [["    return 1\n"]]
+        assert [fun11.source.lines(line.iter) for line in fun11.head_lines] == [
+            ["    return 1\n"]
+        ]
         assert not fun11.body_blocks
         assert [tuple(i) for i in fun11.tail_noncoding] == [
             (tokenize.NL, "\n", (3, 0), (3, 1), "\n"),
@@ -297,7 +303,9 @@ class TestBlock:
         assert ["".join(i.full_linestrs) for i in if3.body_blocks] == ["   pass"]
         if31 = if3.body_blocks[0]
         assert isinstance(if31, PythonBlock)
-        assert [line.linestrs for line in if31.head_lines] == [["   pass"]]
+        assert [if31.source.lines(line.iter) for line in if31.head_lines] == [
+            ["   pass"]
+        ]
         assert not if31.body_blocks
         assert [tuple(i) for i in if31.tail_noncoding] == [
             (tokenize.DEDENT, "", (10, 0), (10, 0), "")

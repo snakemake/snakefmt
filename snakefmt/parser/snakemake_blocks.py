@@ -1,7 +1,5 @@
-import re
 import tokenize
 from tokenize import TokenInfo
-from typing import Iterable
 
 from snakefmt.exceptions import (
     ColonError,
@@ -18,11 +16,11 @@ from snakefmt.exceptions import (
 )
 from snakefmt.parser.blocks import ColonBlock, PythonBlock
 from snakefmt.parser.tokens import (
+    Source,
     TokenIterator,
     effective,
     is_op,
     line_nb,
-    tokens2linestrs,
     validate_parameters,
 )
 
@@ -79,7 +77,7 @@ class SnakemakeBlock(ColonBlock):
 
     def head_source_linestrs(self):
         """Source lines of the logical head, excluding leading comments."""
-        return tokens2linestrs(iter(self.colon_line.body))
+        return self.source.lines(self.colon_line.body)
 
     def raw_source_linestrs(self):
         """Source lines of the block, excluding leading (head_noncoding) comments."""
@@ -131,7 +129,7 @@ class Argument:
         return bool(self.tokens) and is_op(",", self.tokens[-1])
 
     @classmethod
-    def from_token(cls, tokens: Iterable[TokenInfo]):
+    def from_token(cls, tokeniter: TokenIterator):
         """Split parameter tokens into `Argument`s.
 
         Parameters are delimited by top-level commas. Each comma-delimited
@@ -139,7 +137,6 @@ class Argument:
         rejected. Comment-only lines belong to the previous argument, or to
         `head_noncoding` if none.
         """
-        tokeniter = TokenIterator("", iter(tokens))
         process = True
         while process:
             metaarg: list[list[TokenInfo]] = []
@@ -152,10 +149,10 @@ class Argument:
             except EndOfInput:
                 process = False
             if metaarg:
-                yield from cls._munch(metaarg)
+                yield from cls._munch(metaarg, tokeniter.source)
 
     @classmethod
-    def _munch(cls, region: list[list[TokenInfo]]):
+    def _munch(cls, region: list[list[TokenInfo]], source: Source):
         """Validate one comma-delimited region as a single ``Argument``.
 
         Line grouping is used to preserve implicit string concatenation,
@@ -178,7 +175,7 @@ class Argument:
                     continue
             current += component
         cand = [t for line in lines for t in line]
-        if validate_parameters(cand):
+        if validate_parameters(source.span(cand)):
             if cand:
                 yield cls(cand)
         else:
@@ -219,7 +216,8 @@ class PythonArgumentsBlock(PythonBlock):
     ):
         super().__init__(deindent_level, tokens, lines)
         self.post_colon = list(post_colon or [])
-        self.params = list(Argument.from_token(self.iter))
+        tokeniter = TokenIterator("", iter(self.iter), self.source)
+        self.params = list(Argument.from_token(tokeniter))
 
     @property
     def iter(self):
@@ -484,17 +482,18 @@ class Use(SnakemakeDirectiveBlock):
 
     def validate_head(self, allow_suffix=False):
         body = self.colon_line.body
-        line = "".join(tokens2linestrs(iter(body)))
+        line = self.source.span(body)
         line = line.replace("\\\n", "").split("#", 1)[0].strip()
 
         def fail():
             raise SyntaxFormError(line_nb(body[0]), line, self._EBNF)
 
-        def is_identifier(token: str):
-            return re.fullmatch(r"[a-zA-Z_]\w*", token) is not None
-
         def is_glob(token: str):
-            return re.fullmatch(r"[a-zA-Z_][\w*]*", token) is not None
+            return (
+                token
+                and all(i.isidentifier() for i in token.split("*") if i)
+                and "**" not in token
+            )
 
         # commas may be surrounded by spaces; make them separate tokens
         tokens = line.replace(",", " , ").split()
@@ -517,7 +516,7 @@ class Use(SnakemakeDirectiveBlock):
                     raise InvalidParameterSyntax(
                         "'*' cannot be used with other rule names in the use directive"
                     )
-                if not all(is_identifier(name) for name in whitelist):
+                if not all(name.isidentifier() for name in whitelist):
                     fail()
             if tokens[i] not in ("from", "as", "with", "with:"):
                 fail()
@@ -526,7 +525,7 @@ class Use(SnakemakeDirectiveBlock):
             if tokens[i] == "from":
                 i += 1
                 module = tokens[i]
-                if not is_identifier(module):
+                if not module.isidentifier():
                     fail()
                 i += 1
             else:
@@ -546,7 +545,7 @@ class Use(SnakemakeDirectiveBlock):
                 while i < token_length and tokens[i] == ",":
                     exclude.append(tokens[i + 1])
                     i += 2
-                if not all(is_identifier(name) for name in exclude):
+                if not all(name.isidentifier() for name in exclude):
                     fail()
             # modifier: the alias after `as`
             if i < token_length and tokens[i] == "as":

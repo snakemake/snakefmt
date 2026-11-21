@@ -18,8 +18,10 @@ from snakefmt.exceptions import (
 from snakefmt.formatter.indent import TAB
 from snakefmt.parser.blocks import PythonBlock
 from snakefmt.parser.snakefile import Snakefile
-from snakefmt.parser.tokens import TokenIterator
+from snakefmt.parser.tokens import Source, TokenIterator
 from tests import setup_formatter
+
+SOURCE = Source.from_text("")
 
 
 def generate_tokens(text: str):
@@ -31,12 +33,12 @@ class TestSnakefileTokenizer:
 
     def test_snakefile_sequential_parsing(self):
         expected_sequence = ["rule", "a", ":", "\n", "", "threads", ":", "8"]
-        snakefile = TokenIterator("", generate_tokens(self.text))
+        snakefile = TokenIterator("", generate_tokens(self.text), SOURCE)
         for expected_word in expected_sequence:
             assert next(snakefile).string.strip(" \t") == expected_word
 
     def test_snakefile_staggered_parsing(self):
-        snakefile = TokenIterator("", generate_tokens(self.text))
+        snakefile = TokenIterator("", generate_tokens(self.text), SOURCE)
         token_buffer = list()
         next(snakefile)
         for _ in range(3):
