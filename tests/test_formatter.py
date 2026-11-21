@@ -1634,6 +1634,13 @@ class TestCommentTreatment:
         formatter = setup_formatter(snakecode)
         assert formatter.get_formatted() == expected
 
+    def test_multiline_string_line_starting_with_hash_is_not_relocated(self):
+        snakecode = (
+            "rule all:\n" f"{TAB * 1}threads:  # note\n" f'{TAB * 2}"""a\n' '#b"""\n'
+        )
+        formatter = setup_formatter(snakecode)
+        assert formatter.get_formatted() == snakecode
+
     def test_preceding_comments_in_inline_formatted_params_get_relocated(self):
         snakecode = (
             "rule all:\n"

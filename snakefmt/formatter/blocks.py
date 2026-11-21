@@ -172,7 +172,7 @@ def _(block: SnakemakeInlineArgumentBlock, mode: Mode, state: FormatState) -> st
     value_line = ""
     for line in splitlines(formatted_body):
         line = line.strip()
-        if line.startswith("#"):
+        if not value_line and line.startswith("#"):
             relocated.append(line)
         else:
             if value_line:
