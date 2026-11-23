@@ -461,7 +461,9 @@ literal `{` / `}`. `snakefmt` preserves these double-brace sequences verbatim â€
 a brace group is **not** internally reformatted by `shfmt`. This is an implementation trade-off:
 safely unescaping, formatting, and re-escaping the contents without disrupting Snakemake's
 variable interpolation introduces significant parser complexity, so opaque masking is used for
-simplicity and safety.
+simplicity and safety. For a brace group spread over several lines, only the line with the
+opening `{{` is re-indented to match the surrounding code; the lines inside it are kept
+exactly as written.
 
 If you need `shfmt` to format the body of a brace group, wrap it in `# fmt: off` / `# fmt: on`
 and format that section manually.

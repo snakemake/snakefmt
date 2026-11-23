@@ -3655,3 +3655,44 @@ class TestShellBlockFormatting:
         assert (
             setup_formatter(unformatted, format_shell=True).get_formatted() == expected
         )
+
+    @pytest.mark.parametrize(
+        "snakefile",
+        [
+            pytest.param(
+                "rule foo:\n"
+                "    output:\n"
+                '        "out.txt",\n'
+                "    shell:\n"
+                '        """\n'
+                "        {{\n"
+                "            echo bar\n"
+                "        }} >{output}\n"
+                '        """\n',
+                id="rule",
+            ),
+            pytest.param(
+                # A rule inside a Python `if:` block indents the shell content one
+                # level deeper.
+                'if config.get("x"):\n'
+                "\n"
+                "    rule foo:\n"
+                "        output:\n"
+                '            "out.txt",\n'
+                "        shell:\n"
+                '            """\n'
+                "            {{\n"
+                "                echo bar\n"
+                "            }} >{output}\n"
+                '            """\n',
+                id="rule-in-python-if",
+            ),
+        ],
+    )
+    def test_multiline_brace_group_is_left_unchanged(self, snakefile):
+        """Issue #337: lines inside a multi-line {{ ... }} brace group gained 8 spaces
+        of indentation on every run. Plain strings, not f-strings, so the braces read
+        as they appear in the Snakefile."""
+        assert (
+            setup_formatter(snakefile, format_shell=True).get_formatted() == snakefile
+        )

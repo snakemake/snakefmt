@@ -399,3 +399,111 @@ def test_indent_preserving_heredocs_direct_edge_cases():
         "    )# control )\n"
         "    echo foo#bar\n"
     )
+
+
+class TestFormatPythonStringLiteralBraceGroups:
+    # Issue #337: a multi-line {{ ... }} brace group is masked as a single token, so
+    # shfmt never sees its inner lines. They must come back exactly as written rather
+    # than gaining the block's indentation on every run.
+
+    @pytest.mark.parametrize(
+        "literal",
+        [
+            pytest.param(
+                '"""\n'
+                "        {{\n"
+                "            echo bar\n"
+                "        }} >{output}\n"
+                '        """',
+                id="multiline",
+            ),
+            pytest.param(
+                # shfmt indents the line the brace group starts on; its inner lines
+                # are left as written.
+                '"""\n'
+                "        if [ -s {input} ]; then\n"
+                "            {{\n"
+                "                echo bar\n"
+                "            }} >{output}\n"
+                "        fi\n"
+                '        """',
+                id="multiline-nested-in-if",
+            ),
+            pytest.param(
+                '"""\n'
+                "        {{\n"
+                "            echo {input}\n"
+                "        }} >{output}\n"
+                '        """',
+                id="multiline-with-placeholder-inside",
+            ),
+            pytest.param(
+                '"""\n'
+                "        {{\n"
+                '            echo "line 1\n'
+                '        line 2"\n'
+                "        }} >{output}\n"
+                '        """',
+                id="multiline-with-multiline-quote-inside",
+            ),
+            pytest.param(
+                '"""\n        {{ echo bar; }} >{output}\n        """',
+                id="single-line",
+            ),
+            pytest.param(
+                # The common Snakemake idiom: {{ }} inside a quoted, multi-line awk
+                # program.
+                '"""\n'
+                "        awk '{{\n"
+                "            print $1\n"
+                "        }}' {input} >{output}\n"
+                '        """',
+                id="multiline-awk-program",
+            ),
+        ],
+    )
+    def test_brace_group_unchanged(self, literal):
+        assert format_python_string_literal(literal, target_indent=2) == literal
+
+    def test_multiline_brace_group_inner_lines_do_not_follow_opening_line(self):
+        # Accepted trade-off (brace group bodies are opaque to shfmt): when shfmt
+        # moves the opening line, the inner lines stay where they were written.
+        # A second run then leaves the output unchanged.
+        literal = (
+            '"""\n'
+            "        if true; then\n"
+            "        {{\n"
+            "            echo bar\n"
+            "        }}\n"
+            "        fi\n"
+            '        """'
+        )
+        expected = (
+            '"""\n'
+            "        if true; then\n"
+            "            {{\n"
+            "            echo bar\n"
+            "        }}\n"
+            "        fi\n"
+            '        """'
+        )
+        once = format_python_string_literal(literal, target_indent=2)
+        assert once == expected
+        assert format_python_string_literal(once, target_indent=2) == expected
+
+    def test_single_line_brace_group_still_indented(self):
+        literal = '"""\n{{ echo bar; }} >{output}\n"""'
+        expected = '"""\n        {{ echo bar; }} >{output}\n        """'
+        assert format_python_string_literal(literal, target_indent=2) == expected
+
+    def test_heredoc_lookalike_inside_braces_does_not_stop_indenting(self):
+        # `<<` inside {{ }} is not a heredoc. The indenter only sees the mask token,
+        # so the lines after it are still indented.
+        literal = '"""\nperl -e \'{{ print 1<<2 }}\'\necho done\n"""'
+        expected = (
+            '"""\n'
+            "        perl -e '{{ print 1<<2 }}'\n"
+            "        echo done\n"
+            '        """'
+        )
+        assert format_python_string_literal(literal, target_indent=2) == expected
